@@ -39,6 +39,7 @@ const state = {
   cachedPlayersRanking: [],
   selectedEventId: null,
 };
+const MOBILE_MENU_BREAKPOINT = 1024;
 
 function openModal(id) {
   getEl(id)?.classList.add('open');
@@ -92,6 +93,51 @@ function formatAdminDisplayName(admin) {
   return email.split('@')[0];
 }
 
+function isMobileLayout() {
+  return window.matchMedia(`(max-width: ${MOBILE_MENU_BREAKPOINT}px)`).matches;
+}
+
+function setSidebarOpen(open) {
+  const shell = document.querySelector('.admin-shell');
+  const toggle = getEl('btn-mobile-menu');
+  if (!shell) return;
+
+  const shouldOpen = Boolean(open) && isMobileLayout();
+  shell.classList.toggle('menu-open', shouldOpen);
+  document.body.classList.toggle('no-scroll', shouldOpen);
+
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(shouldOpen));
+    const icon = toggle.querySelector('i');
+    icon?.classList.toggle('fa-bars', !shouldOpen);
+    icon?.classList.toggle('fa-xmark', shouldOpen);
+  }
+}
+
+function bindMobileSidebar() {
+  const shell = document.querySelector('.admin-shell');
+  const toggle = getEl('btn-mobile-menu');
+  const backdrop = getEl('sidebar-backdrop');
+  if (!shell || !toggle || !backdrop) return;
+
+  toggle.addEventListener('click', () => {
+    const currentlyOpen = shell.classList.contains('menu-open');
+    setSidebarOpen(!currentlyOpen);
+  });
+
+  backdrop.addEventListener('click', () => setSidebarOpen(false));
+
+  window.addEventListener('resize', () => {
+    if (!isMobileLayout()) {
+      setSidebarOpen(false);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setSidebarOpen(false);
+  });
+}
+
 function applyRolePermissions() {
   const role = state.admin?.ruolo;
   const matchWrite = canEditMatches(role);
@@ -120,6 +166,7 @@ function bindSidebar() {
     button.addEventListener('click', () => {
       const view = button.dataset.view;
       if (view) switchView(view);
+      if (isMobileLayout()) setSidebarOpen(false);
     });
   });
 }
@@ -932,6 +979,7 @@ async function init() {
   getEl('admin-role').textContent = formatRoleLabel(state.admin?.ruolo);
 
   bindSidebar();
+  bindMobileSidebar();
   bindCoreActions();
   applyRolePermissions();
 
