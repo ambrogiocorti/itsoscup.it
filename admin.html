@@ -12,7 +12,13 @@
   </head>
   <body class="admin-page">
     <div class="admin-shell">
-      <aside class="sidebar">
+      <button class="mobile-sidebar-toggle" id="btn-mobile-menu" type="button" aria-label="Apri menu" aria-controls="admin-sidebar" aria-expanded="false">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menu</span>
+      </button>
+      <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
+      <aside class="sidebar" id="admin-sidebar">
         <div class="sidebar-brand"><i class="fa-solid fa-shield-halved"></i> Dashboard</div>
         <div class="sidebar-user">
           <div class="sidebar-user-name" id="admin-name">Amministratore</div>
@@ -308,6 +314,5 @@
     <script type="module" src="js/main-admin.js"></script>
   </body>
 </html>
-
 
 
