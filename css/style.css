@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
   --bg-sidebar: #0f172a;
@@ -50,6 +50,15 @@ body {
 body {
   background-color: var(--bg-main);
   line-height: 1.6;
+}
+
+.admin-page,
+.live-page {
+  overflow-x: hidden;
+}
+
+body.no-scroll {
+  overflow: hidden;
 }
 
 button,
@@ -317,6 +326,7 @@ select:disabled {
 
 .table-wrap {
   overflow-x: auto;
+  max-width: 100%;
 }
 
 table {
@@ -587,6 +597,32 @@ td {
   display: grid;
   min-height: 100vh;
   grid-template-columns: 260px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.admin-shell > * {
+  min-width: 0;
+}
+
+.mobile-sidebar-toggle,
+.sidebar-backdrop {
+  display: none;
+}
+
+.mobile-sidebar-toggle {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1350;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-sidebar);
+  color: #f8fafc;
+  padding: 10px 14px;
+  font-weight: 700;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 14px 24px -16px rgba(15, 23, 42, 0.8);
 }
 
 .sidebar {
@@ -670,6 +706,7 @@ td {
 
 .main-pane {
   flex-grow: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 40px;
 }
@@ -681,6 +718,10 @@ td {
   margin-bottom: 30px;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.top-row > * {
+  min-width: 0;
 }
 
 .page-title {
@@ -756,6 +797,14 @@ td {
 .table-actions {
   display: inline-flex;
   gap: 5px;
+}
+
+.admin-page .table-wrap table {
+  min-width: 760px;
+}
+
+.live-page .table-wrap table {
+  min-width: 560px;
 }
 
 .icon-btn {
@@ -932,6 +981,37 @@ td {
   cursor: not-allowed;
 }
 
+@media (max-width: 1200px) {
+  .admin-shell {
+    grid-template-columns: 236px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    width: 236px;
+  }
+
+  .main-pane {
+    padding: 28px 24px;
+  }
+
+  .card-header {
+    padding: 16px 20px;
+  }
+
+  .card-body {
+    padding: 18px 20px;
+  }
+
+  .live-shell {
+    width: min(1200px, calc(100% - 24px));
+    margin: 18px auto;
+  }
+
+  .live-scoreboard {
+    padding: 28px 24px;
+  }
+}
+
 @media (max-width: 1120px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -943,40 +1023,92 @@ td {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .admin-shell {
     grid-template-columns: 1fr;
   }
 
+  .mobile-sidebar-toggle {
+    display: inline-flex;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.46);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1240;
+  }
+
+  .admin-shell.menu-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .sidebar {
-    width: 100%;
-    position: sticky;
-    top: 0;
-    z-index: 1200;
+    width: min(82vw, 320px);
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1300;
+    overflow-y: auto;
+    transform: translateX(-105%);
+    transition: transform 0.26s ease;
+    box-shadow: none;
+  }
+
+  .admin-shell.menu-open .sidebar {
+    transform: translateX(0);
+    box-shadow: 0 26px 44px -24px rgba(15, 23, 42, 0.9);
+  }
+
+  .sidebar-brand {
+    padding: 18px 18px 14px;
+    font-size: 1.08rem;
+  }
+
+  .sidebar-user {
+    padding: 10px 18px 12px;
+  }
+
+  .sidebar-user-name {
+    font-size: 0.96rem;
   }
 
   .sidebar-menu {
-    display: flex;
-    overflow: auto;
-    gap: 8px;
-    padding: 14px 10px;
+    display: block;
+    overflow: visible;
+    padding: 12px 12px 14px;
   }
 
   .sidebar-menu li {
-    margin-bottom: 0;
-    flex-shrink: 0;
+    margin-bottom: 6px;
+    flex-shrink: 1;
   }
 
   .sidebar-link {
-    white-space: nowrap;
+    white-space: normal;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.86rem;
+  }
+
+  .sidebar > div:last-child {
+    margin-top: 8px !important;
+    padding: 0 12px 16px !important;
   }
 
   .main-pane {
-    padding: 18px;
+    padding: 68px 16px 16px;
+  }
+
+  .top-row {
+    margin-bottom: 20px;
   }
 
   .container {
-    margin: 30px auto;
+    margin: 24px auto;
   }
 
   .inline-grid.cols-2,
@@ -986,12 +1118,163 @@ td {
   }
 }
 
+@media (max-width: 900px) {
+  .sidebar {
+    width: min(86vw, 312px);
+  }
+
+  .live-scoreboard {
+    padding: 20px 16px;
+    border-radius: 18px;
+    gap: 18px;
+  }
+
+  .team-name {
+    font-size: 1.25rem;
+  }
+
+  .live-score {
+    font-size: clamp(2.2rem, 14vw, 3.5rem);
+  }
+
+  .timer-value {
+    padding: 10px 16px;
+  }
+
+  .score-actions .btn,
+  .timer-actions .btn {
+    flex: 1 1 78px;
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 18px;
+  }
+
+  .stat-value {
+    font-size: 1.65rem;
+  }
+
+  .top-row {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .top-row > div {
+    width: 100%;
+  }
+
+  .top-row .btn,
+  .top-row select {
+    width: 100%;
+  }
+
+  .filter-bar {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .card-header {
+    padding: 12px 14px;
+    font-size: 0.92rem;
+  }
+
+  .card-body {
+    padding: 12px 14px;
+  }
+
+  .modal-box {
+    max-width: calc(100vw - 20px);
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+
+  .admin-page th,
+  .admin-page td {
+    padding: 10px 9px;
+    font-size: 0.83rem;
+  }
+
+  .live-shell {
+    width: calc(100% - 16px);
+    margin: 14px auto;
+    gap: 12px;
+  }
+
+  .live-page .top-row > div:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  .live-page .top-row > div:last-child .btn {
+    width: 100%;
+  }
+
+  .live-scoreboard {
+    padding: 14px 12px;
+    gap: 14px;
+  }
+
+  .team-name {
+    font-size: 1.08rem;
+  }
+
+  .live-score {
+    margin: 6px 0;
+  }
+
+  .timer-value {
+    font-size: clamp(1.7rem, 10vw, 2.55rem);
+    padding: 8px 12px;
+  }
+
+  .score-actions,
+  .timer-actions {
+    gap: 6px;
+  }
+
+  .score-actions .btn,
+  .timer-actions .btn {
+    min-width: 66px;
+    font-size: 0.82rem;
+    padding: 9px 10px;
+  }
+
+  .live-page input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .live-page th,
+  .live-page td {
+    padding: 10px 9px;
+    font-size: 0.83rem;
+  }
+
+  .lock-banner {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+}
+
 @media print {
   body {
     background: #fff;
   }
 
   .sidebar,
+  .mobile-sidebar-toggle,
+  .sidebar-backdrop,
   .top-row .btn,
   .filter-bar,
   .modal-overlay,
