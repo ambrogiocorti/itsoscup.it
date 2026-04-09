@@ -1,4 +1,4 @@
--- 001_refactor_hybrid_rollback.sql
+﻿-- 001_refactor_hybrid_rollback.sql
 -- Rollback conservativo: rimuove funzioni/vista/policy introdotte senza distruggere dati esistenti.
 
 drop view if exists public.v_player_ranking;
