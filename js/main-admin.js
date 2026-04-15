@@ -30,6 +30,12 @@ import {
   saveAthleticsEvent,
   upsertEventResult,
 } from './events.js';
+import {
+  applyCsvImport,
+  downloadCsvTemplate,
+  getCsvModeInfo,
+  previewCsvImport,
+} from './csv-import.js';
 import { db, run } from './db.js';
 import { escapeHtml, getEl, medalByRank, showToast } from './utils.js';
 
@@ -38,8 +44,36 @@ const state = {
   sports: [],
   cachedPlayersRanking: [],
   selectedEventId: null,
+  csvPreview: null,
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
+
+const CSV_MODE_META = {
+  teams_players: {
+    successMessage: 'Import CSV squadre/studenti completato.',
+    sportType: 'any',
+  },
+  athletics_events: {
+    successMessage: 'Import CSV eventi atletica completato.',
+    sportType: 'atletica',
+  },
+  athletics_results: {
+    successMessage: 'Import CSV risultati atletica completato.',
+    sportType: 'atletica',
+  },
+};
+
+const SPORT_TYPE_LABELS = {
+  calcio: 'Calcio',
+  basket: 'Basket',
+  pallavolo: 'Pallavolo',
+  atletica: 'Atletica',
+};
+
+const FORMAT_LABELS = {
+  gironi: 'Gironi',
+  eliminazione: 'Eliminazione diretta',
+};
 
 function openModal(id) {
   getEl(id)?.classList.add('open');
@@ -55,6 +89,209 @@ function resetFormValues(form) {
   form.querySelectorAll('input[type="hidden"]').forEach((input) => {
     input.value = '';
   });
+}
+
+function getCsvMode() {
+  return getEl('csv-import-mode')?.value ?? '';
+}
+
+function resetCsvImportUi() {
+  state.csvPreview = null;
+
+  const fileInput = getEl('input-csv-file');
+  if (fileInput) fileInput.value = '';
+
+  getEl('csv-import-file-name').textContent = 'Nessun file selezionato.';
+  getEl('csv-import-summary').textContent =
+    'Carica un file CSV e clicca Anteprima per vedere validazioni e righe importabili.';
+  getEl('csv-import-report').innerHTML = '';
+  getEl('btn-csv-confirm-import').disabled = true;
+  getEl('btn-csv-preview').disabled = false;
+
+  const previewHead = document.querySelector('#csv-preview-table thead');
+  const previewBody = document.querySelector('#csv-preview-table tbody');
+  if (previewHead) previewHead.innerHTML = '';
+  if (previewBody) previewBody.innerHTML = '';
+}
+
+function renderCsvPreviewTable(preview) {
+  const previewHead = document.querySelector('#csv-preview-table thead');
+  const previewBody = document.querySelector('#csv-preview-table tbody');
+  if (!previewHead || !previewBody) return;
+
+  const headerHtml = [
+    '<th class="text-center">Riga</th>',
+    ...(preview.headers ?? []).map((header) => `<th>${escapeHtml(header)}</th>`),
+  ].join('');
+  previewHead.innerHTML = `<tr>${headerHtml}</tr>`;
+
+  const rowsHtml = (preview.previewRows ?? [])
+    .map((row) => {
+      const values = (row.values ?? []).map((value) => `<td>${escapeHtml(value)}</td>`).join('');
+      return `<tr><td class="text-center">${row.rowNumber}</td>${values}</tr>`;
+    })
+    .join('');
+
+  previewBody.innerHTML = rowsHtml || '<tr><td colspan="99" class="empty-state">Nessuna riga disponibile.</td></tr>';
+}
+
+function renderCsvValidationReport(validation) {
+  const report = getEl('csv-import-report');
+  if (!report) return;
+
+  const cards = [];
+  const errors = validation?.errors ?? [];
+  const warnings = validation?.warnings ?? [];
+
+  if (errors.length) {
+    const list = errors
+      .slice(0, 12)
+      .map((err) => `<div>Riga ${err.row ?? '-'}: ${escapeHtml(err.message)}</div>`)
+      .join('');
+    cards.push(`<div class="report-card error"><strong>Errori (${errors.length})</strong>${list}</div>`);
+  }
+
+  if (warnings.length) {
+    const list = warnings
+      .slice(0, 8)
+      .map((warn) => `<div>${warn.row ? `Riga ${warn.row}: ` : ''}${escapeHtml(warn.message)}</div>`)
+      .join('');
+    cards.push(`<div class="report-card warning"><strong>Avvisi (${warnings.length})</strong>${list}</div>`);
+  }
+
+  if (!cards.length) {
+    cards.push('<div class="report-card">Nessun errore bloccante rilevato.</div>');
+  }
+
+  report.innerHTML = cards.join('');
+}
+
+function renderCsvSummary(preview) {
+  const summaryEl = getEl('csv-import-summary');
+  if (!summaryEl) return;
+
+  const stats = preview.validation?.stats ?? {};
+  const validRows = Number(stats.validRows ?? 0);
+  const invalidRows = Number(stats.invalidRows ?? 0);
+  const totalRows = Number(preview.totalRows ?? 0);
+
+  summaryEl.innerHTML = `
+    File: <strong>${escapeHtml(preview.fileName ?? '-')}</strong> · Delimitatore: <strong>${escapeHtml(preview.delimiter ?? ';')}</strong><br>
+    Righe dati: <strong>${totalRows}</strong> · Valide: <strong>${validRows}</strong> · Scartate: <strong>${invalidRows}</strong>
+  `;
+}
+
+function getCsvSportsForMode(mode) {
+  if (CSV_MODE_META[mode]?.sportType === 'atletica') {
+    return state.sports.filter((sport) => sport.sport_type === 'atletica');
+  }
+  return [...state.sports];
+}
+
+function getDefaultCsvSportId(mode, sports) {
+  if (!sports.length) return '';
+  if (mode === 'teams_players') {
+    return (
+      getEl('select-sport-team')?.value ||
+      getEl('settings-sport-select')?.value ||
+      getEl('report-sport-select')?.value ||
+      String(sports[0].id)
+    );
+  }
+  return (
+    getEl('athletics-sport-select')?.value ||
+    getEl('event-sport-select')?.value ||
+    String(sports[0].id)
+  );
+}
+
+function openCsvImportModal(mode) {
+  const modeMeta = CSV_MODE_META[mode];
+  if (!modeMeta) return;
+  const modeInfo = getCsvModeInfo(mode);
+
+  const sports = getCsvSportsForMode(mode);
+  const sportSelect = getEl('csv-import-sport-select');
+  const titleEl = getEl('csv-import-title');
+
+  if (titleEl) titleEl.textContent = modeInfo.title;
+  getEl('csv-import-mode').value = mode;
+
+  sportSelect.innerHTML =
+    '<option value="">-- Seleziona --</option>' +
+    sports.map((sport) => `<option value="${sport.id}">${escapeHtml(sport.name)}</option>`).join('');
+
+  const defaultSportId = getDefaultCsvSportId(mode, sports);
+  if (defaultSportId) {
+    sportSelect.value = String(defaultSportId);
+  }
+
+  resetCsvImportUi();
+  getEl('csv-import-summary').textContent = `Formato atteso: ${modeInfo.allFields.join('; ')}. Carica un CSV e clicca Anteprima.`;
+  openModal('modal-csv-import');
+}
+
+function getCsvImportContext() {
+  return {
+    mode: getCsvMode(),
+    sportId: Number(getEl('csv-import-sport-select')?.value || 0),
+  };
+}
+
+async function handleCsvPreview() {
+  const file = getEl('input-csv-file')?.files?.[0];
+  const context = getCsvImportContext();
+  const mode = context.mode;
+
+  if (!mode) throw new Error('Modalità import non impostata.');
+  if (!context.sportId) throw new Error('Seleziona un torneo prima di proseguire.');
+
+  getEl('btn-csv-preview').disabled = true;
+  try {
+    const preview = await previewCsvImport(mode, file, context);
+    state.csvPreview = { ...preview, sportId: context.sportId, mode };
+    renderCsvPreviewTable(preview);
+    renderCsvSummary(preview);
+    renderCsvValidationReport(preview.validation);
+
+    const canConfirm =
+      Number(preview.validation?.stats?.validRows ?? 0) > 0 &&
+      Number(preview.validation?.stats?.errors ?? 0) === 0;
+    getEl('btn-csv-confirm-import').disabled = !canConfirm;
+  } finally {
+    getEl('btn-csv-preview').disabled = false;
+  }
+}
+
+async function handleCsvConfirmImport() {
+  const context = getCsvImportContext();
+  const mode = context.mode;
+  if (!mode) throw new Error('Modalità import non impostata.');
+  if (!context.sportId) throw new Error('Seleziona un torneo prima di confermare.');
+  if (!state.csvPreview) throw new Error('Esegui prima l\'anteprima del file CSV.');
+  if (state.csvPreview.mode !== mode || Number(state.csvPreview.sportId) !== context.sportId) {
+    throw new Error('Hai cambiato torneo o tipo import: rifai l\'anteprima prima di confermare.');
+  }
+
+  const validRows = state.csvPreview.validation?.validRows ?? [];
+  if (!validRows.length) throw new Error('Nessuna riga valida da importare.');
+
+  getEl('btn-csv-confirm-import').disabled = true;
+  const result = await applyCsvImport(mode, validRows, context);
+
+  await Promise.all([
+    loadDashboardStats(),
+    loadTeamsTable(),
+    loadEventsSection(),
+  ]);
+
+  const msg = CSV_MODE_META[mode]?.successMessage ?? 'Import CSV completato.';
+  showToast(
+    `${msg} Inseriti: ${result.inserted ?? 0}, aggiornati: ${result.updated ?? 0}, saltati: ${result.skipped ?? 0}.`,
+    'success'
+  );
+
+  closeModal('modal-csv-import');
 }
 
 function switchView(viewId) {
@@ -567,6 +804,80 @@ function goToLive(matchId) {
   window.location.href = `live.html?match=${encodeURIComponent(matchId)}`;
 }
 
+function getSettingsVisibility(sportType, format) {
+  if (!sportType) {
+    return {
+      comuni_team: false,
+      classifica_gironi: false,
+      basket_live: false,
+      calcio_discipline: false,
+      pallavolo_live: false,
+      athletics_note: false,
+    };
+  }
+  const isAthletics = sportType === 'atletica';
+  return {
+    comuni_team: !isAthletics,
+    classifica_gironi: !isAthletics && format === 'gironi',
+    basket_live: sportType === 'basket',
+    calcio_discipline: sportType === 'calcio',
+    pallavolo_live: sportType === 'pallavolo',
+    athletics_note: isAthletics,
+  };
+}
+
+function applySettingsVisibility(sport) {
+  const sportType = sport?.sport_type ?? '';
+  const format = sport?.format ?? '';
+  const visibility = getSettingsVisibility(sportType, format);
+
+  document
+    .querySelectorAll('[data-settings-group]')
+    .forEach((section) => section.classList.toggle('hidden', !visibility[section.dataset.settingsGroup]));
+
+  getEl('settings-athletics-note')?.classList.toggle('hidden', !visibility.athletics_note);
+  getEl('settings-selected-sport-type').value = SPORT_TYPE_LABELS[sportType] ?? '-';
+  getEl('settings-selected-format').value = FORMAT_LABELS[format] ?? '-';
+}
+
+function buildSettingsPayloadForSport(sport) {
+  const sportType = sport?.sport_type ?? '';
+  const format = sport?.format ?? '';
+  const visibility = getSettingsVisibility(sportType, format);
+  const payload = {};
+
+  if (visibility.comuni_team) {
+    payload.max_fouls = Number(getEl('set-max-fouls').value || 3);
+    payload.min_players = Number(getEl('set-min-players').value || 5);
+    payload.ranking_weight_presence = Number(getEl('set-weight-pres').value || 70);
+    payload.ranking_weight_fairplay = Number(getEl('set-weight-fair').value || 30);
+    payload.allow_mvp = getEl('set-allow-mvp').checked;
+  }
+
+  if (visibility.classifica_gironi) {
+    payload.points_win = Number(getEl('set-pts-win').value || 3);
+    payload.points_draw = Number(getEl('set-pts-draw').value || 1);
+    payload.points_loss = Number(getEl('set-pts-loss').value || 0);
+  }
+
+  if (visibility.basket_live) {
+    payload.quarters_count = Number(getEl('set-quarters').value || 4);
+    payload.quarter_duration_sec = Number(getEl('set-quarter-duration').value || 600);
+    payload.timeouts_per_team = Number(getEl('set-timeouts').value || 2);
+  }
+
+  if (visibility.calcio_discipline) {
+    payload.allow_yellow_cards = getEl('set-allow-yellow').checked;
+    payload.allow_red_cards = getEl('set-allow-red').checked;
+  }
+
+  if (visibility.pallavolo_live) {
+    payload.volley_sets = Number(getEl('set-volley-sets').value || 3);
+  }
+
+  return payload;
+}
+
 function fillSettingsForm(config) {
   getEl('set-pts-win').value = config.points_win;
   getEl('set-pts-draw').value = config.points_draw;
@@ -586,7 +897,9 @@ function fillSettingsForm(config) {
 
 async function loadSettingsForSelectedSport() {
   const sportId = Number(getEl('settings-sport-select')?.value || 0);
-  if (!sportId) return;
+  const sport = getSportById(sportId);
+  applySettingsVisibility(sport);
+  if (!sportId || !sport) return;
   const config = await loadSportConfig(sportId);
   fillSettingsForm(config);
 }
@@ -594,25 +907,20 @@ async function loadSettingsForSelectedSport() {
 async function saveSettingsForSport() {
   const sportId = Number(getEl('settings-sport-select').value || 0);
   if (!sportId) return showToast('Seleziona un torneo per salvare la configurazione.', 'error');
+  const sport = getSportById(sportId);
+  if (!sport) return showToast('Torneo non trovato.', 'error');
 
-  const payload = {
-    points_win: Number(getEl('set-pts-win').value || 3),
-    points_draw: Number(getEl('set-pts-draw').value || 1),
-    points_loss: Number(getEl('set-pts-loss').value || 0),
-    max_fouls: Number(getEl('set-max-fouls').value || 3),
-    quarters_count: Number(getEl('set-quarters').value || 4),
-    quarter_duration_sec: Number(getEl('set-quarter-duration').value || 600),
-    timeouts_per_team: Number(getEl('set-timeouts').value || 2),
-    min_players: Number(getEl('set-min-players').value || 5),
-    ranking_weight_presence: Number(getEl('set-weight-pres').value || 70),
-    ranking_weight_fairplay: Number(getEl('set-weight-fair').value || 30),
-    volley_sets: Number(getEl('set-volley-sets').value || 3),
-    allow_yellow_cards: getEl('set-allow-yellow').checked,
-    allow_red_cards: getEl('set-allow-red').checked,
-    allow_mvp: getEl('set-allow-mvp').checked,
-  };
+  if (sport.sport_type === 'atletica') {
+    return showToast('Per atletica non ci sono impostazioni live partita da salvare.', 'success');
+  }
 
-  await upsertSportConfig(sportId, payload);
+  const payload = buildSettingsPayloadForSport(sport);
+
+  const savedConfig = await upsertSportConfig(sportId, payload);
+  if (savedConfig?.__allowMvpUnsupported) {
+    showToast('Impostazioni salvate, ma MVP non disponibile finché non aggiorni la colonna allow_mvp su sport_config.', 'error');
+    return;
+  }
   showToast('Impostazioni salvate.', 'success');
 }
 async function openEventModal(eventItem = null) {
@@ -827,6 +1135,9 @@ function bindCoreActions() {
   document.querySelectorAll('[data-open-team-modal]').forEach((btn) => btn.addEventListener('click', () => openTeamModal(null)));
   document.querySelectorAll('[data-open-match-modal]').forEach((btn) => btn.addEventListener('click', () => openModal('modal-match')));
   getEl('btn-new-event')?.addEventListener('click', () => openEventModal(null));
+  getEl('btn-csv-teams-players')?.addEventListener('click', () => openCsvImportModal('teams_players'));
+  getEl('btn-csv-athletics-events')?.addEventListener('click', () => openCsvImportModal('athletics_events'));
+  getEl('btn-csv-athletics-results')?.addEventListener('click', () => openCsvImportModal('athletics_results'));
 
   getEl('btn-generate-matches')?.addEventListener('click', () => {
     handleGenerateMatches().catch((error) => showToast(error.message, 'error'));
@@ -846,9 +1157,40 @@ function bindCoreActions() {
     });
   });
 
-  ['modal-sport', 'modal-team', 'modal-match', 'modal-event'].forEach((modalId) => {
+  ['modal-sport', 'modal-team', 'modal-match', 'modal-event', 'modal-csv-import'].forEach((modalId) => {
     getEl(modalId)?.addEventListener('click', (event) => {
       if (event.target.id === modalId) closeModal(modalId);
+    });
+  });
+
+  getEl('btn-csv-download-template')?.addEventListener('click', () => {
+    const mode = getCsvMode();
+    if (!mode) return;
+    downloadCsvTemplate(mode);
+  });
+
+  getEl('input-csv-file')?.addEventListener('change', (event) => {
+    const file = event.target?.files?.[0];
+    getEl('csv-import-file-name').textContent = file?.name
+      ? `File selezionato: ${file.name}`
+      : 'Nessun file selezionato.';
+    getEl('btn-csv-confirm-import').disabled = true;
+    state.csvPreview = null;
+  });
+
+  getEl('csv-import-sport-select')?.addEventListener('change', () => {
+    state.csvPreview = null;
+    getEl('btn-csv-confirm-import').disabled = true;
+  });
+
+  getEl('btn-csv-preview')?.addEventListener('click', () => {
+    handleCsvPreview().catch((error) => showToast(error.message, 'error'));
+  });
+
+  getEl('btn-csv-confirm-import')?.addEventListener('click', () => {
+    handleCsvConfirmImport().catch((error) => {
+      getEl('btn-csv-confirm-import').disabled = false;
+      showToast(error.message, 'error');
     });
   });
 

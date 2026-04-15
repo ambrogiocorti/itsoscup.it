@@ -96,19 +96,12 @@ function updatePublicTournamentUi(sport) {
   const typeLabel = getSportTypeLabel(sport.sport_type);
   const formatLabel = getFormatLabel(sport.format);
 
-  if (subtitle) {
-    subtitle.textContent = `${sport.name} · ${typeLabel} · ${formatLabel}`;
-  }
-
   if (contextContent) {
     contextContent.innerHTML = `
       <div class="sport-context">
         <span class="badge badge-info">${escapeHtml(typeLabel)}</span>
         <span class="badge badge-warning">${escapeHtml(formatLabel)}</span>
-        <span class="badge badge-success">Anno ${escapeHtml(sport.year)}</span>
-      </div>
-      <div class="sport-context-note">
-        Visualizzazione adattata automaticamente in base al tipo e al formato del torneo selezionato.
+        <span class="badge badge-success">${escapeHtml(sport.year)}° anno</span>
       </div>
     `;
   }
@@ -387,37 +380,97 @@ async function openMatchDetails(matchId) {
       run(
         db
           .from('match_stats')
-          .select('*, player:players(full_name, team_id)')
+          .select('player_id, played, fouls, is_mvp_vote, points_scored, yellow_cards, red_cards')
           .eq('match_id', Number(matchId)),
         'Dettaglio statistiche match'
       ),
     ]);
 
     const match = matchResult.data;
-    const stats = statsResult.data ?? [];
+    let maxFouls = 3;
+    if (Number(match?.sport_id) > 0) {
+      try {
+        const config = await loadSportConfig(Number(match.sport_id));
+        maxFouls = Number(config?.max_fouls ?? 3);
+      } catch (_error) {
+        maxFouls = 3;
+      }
+    }
+    maxFouls = Math.max(1, Math.min(12, Math.round(maxFouls)));
+
+    const dbStats = statsResult.data ?? [];
+    const payloadStats = Array.isArray(match?.live_payload?.stats_snapshot)
+      ? match.live_payload.stats_snapshot
+      : [];
+    const stats = dbStats.length ? dbStats : payloadStats;
+
+    const playerIds = [...new Set(stats.map((row) => Number(row.player_id)).filter((id) => Number.isFinite(id) && id > 0))];
+    let players = [];
+    if (playerIds.length) {
+      try {
+        const playersResult = await run(
+          db.from('players').select('id, full_name, team_id').in('id', playerIds),
+          'Dettaglio giocatori match'
+        );
+        players = playersResult.data ?? [];
+      } catch (_error) {
+        players = [];
+      }
+    }
+
+    const playerById = new Map(
+      players.map((player) => [
+        Number(player.id),
+        {
+          full_name: player.full_name,
+          team_id: Number(player.team_id),
+        },
+      ])
+    );
 
     const byTeam = (teamId) =>
       stats
-        .filter((row) => Number(row.player?.team_id) === Number(teamId))
+        .filter((row) => {
+          const resolvedTeamId =
+            Number(playerById.get(Number(row.player_id))?.team_id) ||
+            Number(row.team_id ?? 0);
+          return resolvedTeamId === Number(teamId);
+        })
         .map((row) => {
-          const foulDots = Array.from({ length: 5 })
+          const fouls = Math.max(0, Number(row.fouls ?? 0));
+          const yellowCards = Math.max(0, Number(row.yellow_cards ?? 0));
+          const redCards = Math.max(0, Number(row.red_cards ?? 0));
+          const foulDots = Array.from({ length: maxFouls })
             .map(
               (_, index) =>
-                `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${
-                  index < Number(row.fouls ?? 0) ? '#ef4444' : '#e2e8f0'
-                };"></span>`
+                `<span class="match-foul-dot ${index < fouls ? 'active' : ''}" aria-hidden="true"></span>`
             )
             .join('');
 
-          return `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed #e2e8f0;">
-          <span>${escapeHtml(row.player?.full_name ?? '-')}</span>
-          <span style="display:flex;gap:4px;align-items:center;">
-            ${foulDots}
+          const playerLabel =
+            playerById.get(Number(row.player_id))?.full_name ??
+            row.player_name ??
+            `Giocatore #${Number(row.player_id)}`;
+
+          return `<div class="match-player-row">
+          <span class="match-player-left">
+            <span class="match-player-name">${escapeHtml(playerLabel)}</span>
             ${
               row.is_mvp_vote
-                ? '<i class="fa-solid fa-star" style="color:#f59e0b" title="MVP"></i>'
+                ? '<i class="fa-solid fa-star match-player-mvp" title="MVP"></i>'
                 : ''
             }
+            ${
+              yellowCards > 0 || redCards > 0
+                ? `<span class="match-card-pills">
+                    <span class="match-card-pill yellow">Y ${yellowCards}</span>
+                    <span class="match-card-pill red">R ${redCards}</span>
+                  </span>`
+                : ''
+            }
+          </span>
+          <span class="match-player-fouls" title="Falli ${fouls}/${maxFouls}">
+            ${foulDots}
           </span>
         </div>`;
         });

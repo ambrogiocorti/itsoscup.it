@@ -15,6 +15,14 @@ const DEFAULT_CONFIG = {
   ranking_weight_fairplay: 30,
 };
 
+function isMissingSchemaColumn(error, columnName) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return (
+    message.includes(`'${String(columnName).toLowerCase()}'`) &&
+    message.includes('schema cache')
+  );
+}
+
 export async function loadSports({ includeInactive = false } = {}) {
   let query = db
     .from('sports')
@@ -55,19 +63,41 @@ export async function loadSportConfig(sportId) {
 }
 
 export async function upsertSportConfig(sportId, payload) {
-  const { data } = await run(
-    db
-      .from('sport_config')
-      .upsert({
-        sport_id: sportId,
-        ...payload,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single(),
-    'Salvataggio configurazione sport'
-  );
-  return data;
+  const basePayload = {
+    sport_id: sportId,
+    ...payload,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const { data } = await run(
+      db
+        .from('sport_config')
+        .upsert(basePayload, { onConflict: 'sport_id' })
+        .select()
+        .single(),
+      'Salvataggio configurazione sport'
+    );
+    return data;
+  } catch (error) {
+    if (isMissingSchemaColumn(error, 'allow_mvp') && Object.prototype.hasOwnProperty.call(basePayload, 'allow_mvp')) {
+      const { allow_mvp: _ignoredAllowMvp, ...fallbackPayload } = basePayload;
+      const { data } = await run(
+        db
+          .from('sport_config')
+          .upsert(fallbackPayload, { onConflict: 'sport_id' })
+          .select()
+          .single(),
+        'Salvataggio configurazione sport'
+      );
+      return {
+        ...(data ?? {}),
+        allow_mvp: DEFAULT_CONFIG.allow_mvp,
+        __allowMvpUnsupported: true,
+      };
+    }
+    throw error;
+  }
 }
 
 export async function loadTeamsBySport(sportId) {
@@ -509,7 +539,7 @@ export async function loadPlayersBySport(sportId) {
   const { data } = await run(
     db
       .from('players')
-      .select('*, teams!inner(name, sport_id)')
+      .select('*, teams!inner(id, name, sport_id)')
       .eq('teams.sport_id', Number(sportId))
       .order('full_name', { ascending: true }),
     'Caricamento giocatori per sport'
