@@ -470,6 +470,77 @@ td {
   font-weight: 600;
 }
 
+.match-player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.match-player-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.match-player-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.match-player-mvp {
+  color: #f59e0b;
+  font-size: 0.9rem;
+}
+
+.match-card-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.match-card-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.match-card-pill.yellow {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.match-card-pill.red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.match-player-fouls {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.match-foul-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.match-foul-dot.active {
+  background: #ef4444;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -493,6 +564,103 @@ td {
   border-radius: 24px;
   box-shadow: var(--shadow-md);
   position: relative;
+}
+
+.csv-import-modal {
+  max-width: min(980px, calc(100vw - 28px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  padding: 24px;
+}
+
+.csv-import-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.csv-file-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  font-weight: 700;
+  color: var(--text-dark);
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.csv-file-field:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.csv-file-field input {
+  display: none;
+}
+
+.csv-import-file-name {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.csv-import-summary {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.csv-import-preview-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: auto;
+  max-height: 260px;
+}
+
+#csv-preview-table {
+  width: 100%;
+  min-width: 560px;
+}
+
+.csv-import-report {
+  display: grid;
+  gap: 8px;
+}
+
+.csv-import-report .report-card {
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+}
+
+.csv-import-report .report-card.error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.csv-import-report .report-card.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.csv-import-footer {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .modal-header {
@@ -724,6 +892,34 @@ td {
   min-width: 0;
 }
 
+.top-row-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.top-row-actions select {
+  width: auto;
+  min-width: 190px;
+  max-width: 280px;
+}
+
+.athletics-toolbar {
+  flex-wrap: nowrap;
+}
+
+.athletics-toolbar .btn {
+  white-space: nowrap;
+}
+
+.athletics-toolbar select {
+  width: 170px;
+  min-width: 170px;
+  max-width: 170px;
+  flex: 0 0 170px;
+}
+
 .page-title {
   font-weight: 800;
   letter-spacing: -1px;
@@ -804,7 +1000,7 @@ td {
 }
 
 .live-page .table-wrap table {
-  min-width: 560px;
+  min-width: 700px;
 }
 
 .icon-btn {
@@ -842,6 +1038,31 @@ td {
 .checkbox-row span,
 .checkbox-row label {
   font-weight: 600;
+}
+
+.settings-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-head-grid {
+  margin-bottom: 4px;
+}
+
+.settings-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 14px 14px 6px;
+}
+
+.settings-section-title {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  font-weight: 800;
 }
 
 .live-shell {
@@ -927,6 +1148,13 @@ td {
   flex-wrap: wrap;
 }
 
+#timeout-limit-label {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
 .lock-banner {
   border-radius: var(--radius-sm);
   padding: 10px 12px;
@@ -979,6 +1207,50 @@ td {
 .mvp-star:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.live-player-expelled td {
+  background: #fee2e2;
+}
+
+.live-row-actions {
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-compact {
+  padding: 6px 9px;
+  min-width: 42px;
+  font-size: 0.78rem;
+}
+
+.live-player-cards {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.card-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 7px;
+}
+
+.card-pill.yellow {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.card-pill.red {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 @media (max-width: 1200px) {
@@ -1146,6 +1418,17 @@ td {
     flex: 1 1 78px;
     padding: 10px 12px;
   }
+
+  .athletics-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .athletics-toolbar select {
+    width: 100%;
+    min-width: 180px;
+    max-width: none;
+    flex: 1 1 180px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1195,6 +1478,26 @@ td {
     max-width: calc(100vw - 20px);
     padding: 20px 16px;
     border-radius: 16px;
+  }
+
+  .csv-import-modal {
+    max-width: calc(100vw - 14px);
+    max-height: calc(100vh - 14px);
+    padding: 14px 12px;
+  }
+
+  .csv-import-actions-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .csv-import-actions-row .btn,
+  .csv-file-field {
+    width: 100%;
+  }
+
+  #csv-preview-table {
+    min-width: 460px;
   }
 
   .admin-page th,
@@ -1261,6 +1564,15 @@ td {
     font-size: 0.83rem;
   }
 
+  .live-row-actions {
+    gap: 4px;
+  }
+
+  .btn-compact {
+    min-width: 38px;
+    padding: 6px 7px;
+  }
+
   .lock-banner {
     font-size: 0.78rem;
     padding: 8px 10px;
@@ -1268,8 +1580,14 @@ td {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 10mm;
+  }
+
   body {
     background: #fff;
+    color: #0f172a;
   }
 
   .sidebar,
@@ -1292,9 +1610,10 @@ td {
 
   .card,
   .table-wrap,
-  .stat-card {
+  .stat-card,
+  #mvp-winner-box > div {
     box-shadow: none !important;
-    border: 1px solid #000 !important;
+    border: 1px solid #cbd5e1 !important;
   }
 
   .view-section {
@@ -1303,5 +1622,71 @@ td {
 
   #view-reports {
     display: block !important;
+    padding: 0 !important;
+  }
+
+  #view-reports .top-row {
+    margin-bottom: 10px !important;
+  }
+
+  #view-reports .top-row-actions {
+    display: none !important;
+  }
+
+  #view-reports .page-title {
+    font-size: 20pt !important;
+    letter-spacing: -0.02em;
+  }
+
+  #view-reports .filter-bar {
+    display: none !important;
+  }
+
+  #view-reports .card {
+    margin-top: 8px !important;
+  }
+
+  #view-reports .card-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+  }
+
+  #view-reports table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    min-width: 0 !important;
+  }
+
+  #view-reports th,
+  #view-reports td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 8px !important;
+    font-size: 9pt !important;
+    color: #0f172a !important;
+  }
+
+  #view-reports th {
+    background: #f1f5f9 !important;
+    font-weight: 800 !important;
+  }
+
+  #view-reports tbody tr:nth-child(even) {
+    background: #f8fafc !important;
+  }
+
+  #view-reports .score-chip {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    min-width: 70px !important;
+    font-size: 8.5pt !important;
+    padding: 3px 8px !important;
+  }
+
+  #view-reports #mvp-winner-box > div {
+    background: #fff6db !important;
+    color: #1f2937 !important;
   }
 }
