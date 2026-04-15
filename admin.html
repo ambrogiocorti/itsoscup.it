@@ -66,7 +66,7 @@
               </div>
               <div class="field">
                 <label>Azioni Rapide</label>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap">
+                <div class="top-row-actions">
                   <button class="btn btn-primary" id="btn-new-match" data-open-match-modal data-requires-match-write><i class="fa-solid fa-plus"></i> Nuovo Match</button>
                   <button class="btn btn-ghost" id="btn-new-team" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-users"></i> Nuova Squadra</button>
                 </div>
@@ -78,7 +78,7 @@
         <section id="view-reports" class="view-section">
           <div class="top-row">
             <h1 class="page-title">Report Generale</h1>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap">
+            <div class="top-row-actions">
               <select id="report-sport-select"></select>
               <button class="btn btn-primary" id="btn-print-report"><i class="fa-solid fa-print"></i> Stampa</button>
             </div>
@@ -117,7 +117,7 @@
         <section id="view-matches" class="view-section">
           <div class="top-row">
             <h1 class="page-title">Calendario Match</h1>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap">
+            <div class="top-row-actions">
               <button class="btn btn-primary" id="btn-generate-matches" data-requires-match-write><i class="fa-solid fa-bolt"></i> Genera Automatico</button>
               <button class="btn btn-primary" id="btn-new-match-alt" data-open-match-modal data-requires-match-write><i class="fa-solid fa-plus"></i> Nuova Partita</button>
             </div>
@@ -159,7 +159,10 @@
         <section id="view-teams" class="view-section">
           <div class="top-row">
             <h1 class="page-title">Gestione Squadre</h1>
-            <button class="btn btn-primary" id="btn-new-team-alt" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuova Squadra</button>
+            <div class="top-row-actions">
+              <button class="btn btn-ghost" id="btn-csv-teams-players" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> Carica CSV</button>
+              <button class="btn btn-primary" id="btn-new-team-alt" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuova Squadra</button>
+            </div>
           </div>
 
           <section class="card">
@@ -175,7 +178,9 @@
         <section id="view-events" class="view-section">
           <div class="top-row">
             <h1 class="page-title">Atletica - Eventi e Risultati</h1>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap">
+            <div class="top-row-actions athletics-toolbar">
+              <button class="btn btn-ghost" id="btn-csv-athletics-events" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> CSV Eventi</button>
+              <button class="btn btn-ghost" id="btn-csv-athletics-results" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> CSV Risultati</button>
               <select id="athletics-sport-select"></select>
               <button class="btn btn-primary" id="btn-new-event" data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuovo Evento</button>
             </div>
@@ -232,22 +237,69 @@
           </div>
 
           <section class="card">
-            <div class="card-body inline-grid cols-3">
-              <div class="field"><label for="settings-sport-select">Torneo</label><select id="settings-sport-select"></select></div>
-              <div class="field"><label for="set-pts-win">Punti Vittoria</label><input id="set-pts-win" type="number" min="0" /></div>
-              <div class="field"><label for="set-pts-draw">Punti Pareggio</label><input id="set-pts-draw" type="number" min="0" /></div>
-              <div class="field"><label for="set-pts-loss">Punti Sconfitta</label><input id="set-pts-loss" type="number" min="0" /></div>
-              <div class="field"><label for="set-max-fouls">Falli max</label><input id="set-max-fouls" type="number" min="1" /></div>
-              <div class="field"><label for="set-quarters">Quarti (basket)</label><input id="set-quarters" type="number" min="1" /></div>
-              <div class="field"><label for="set-quarter-duration">Durata quarto (sec)</label><input id="set-quarter-duration" type="number" min="60" /></div>
-              <div class="field"><label for="set-timeouts">Timeout per squadra</label><input id="set-timeouts" type="number" min="0" /></div>
-              <div class="field"><label for="set-min-players">Giocatori minimi</label><input id="set-min-players" type="number" min="1" /></div>
-              <div class="field"><label for="set-volley-sets">Set Volley</label><input id="set-volley-sets" type="number" min="1" /></div>
-              <div class="field"><label for="set-weight-pres">Peso Presenze (%)</label><input id="set-weight-pres" type="number" min="0" max="100" /></div>
-              <div class="field"><label for="set-weight-fair">Peso Fair Play (%)</label><input id="set-weight-fair" type="number" min="0" max="100" /></div>
-              <div class="checkbox-row"><input id="set-allow-yellow" type="checkbox" /><label for="set-allow-yellow">Cartellini gialli</label></div>
-              <div class="checkbox-row"><input id="set-allow-red" type="checkbox" /><label for="set-allow-red">Cartellini rossi</label></div>
-              <div class="checkbox-row"><input id="set-allow-mvp" type="checkbox" /><label for="set-allow-mvp">Abilita MVP torneo</label></div>
+            <div class="card-body settings-layout">
+              <div class="inline-grid cols-3 settings-head-grid">
+                <div class="field">
+                  <label for="settings-sport-select">Torneo</label>
+                  <select id="settings-sport-select"></select>
+                </div>
+                <div class="field">
+                  <label for="settings-selected-sport-type">Sport selezionato</label>
+                  <input id="settings-selected-sport-type" type="text" disabled />
+                </div>
+                <div class="field">
+                  <label for="settings-selected-format">Formato torneo</label>
+                  <input id="settings-selected-format" type="text" disabled />
+                </div>
+              </div>
+
+              <div id="settings-athletics-note" class="empty-state hidden">
+                Nessuna impostazione live partita per atletica.
+              </div>
+
+              <section class="settings-section" data-settings-group="comuni_team">
+                <h3 class="settings-section-title">Impostazioni Comuni</h3>
+                <div class="inline-grid cols-3">
+                  <div class="field"><label for="set-max-fouls">Falli max</label><input id="set-max-fouls" type="number" min="1" /></div>
+                  <div class="field"><label for="set-min-players">Giocatori minimi</label><input id="set-min-players" type="number" min="1" /></div>
+                  <div class="field"><label for="set-weight-pres">Peso Presenze (%)</label><input id="set-weight-pres" type="number" min="0" max="100" /></div>
+                  <div class="field"><label for="set-weight-fair">Peso Fair Play (%)</label><input id="set-weight-fair" type="number" min="0" max="100" /></div>
+                  <div class="checkbox-row"><input id="set-allow-mvp" type="checkbox" /><label for="set-allow-mvp">Abilita MVP torneo</label></div>
+                </div>
+              </section>
+
+              <section class="settings-section" data-settings-group="classifica_gironi">
+                <h3 class="settings-section-title">Classifica Gironi</h3>
+                <div class="inline-grid cols-3">
+                  <div class="field"><label for="set-pts-win">Punti Vittoria</label><input id="set-pts-win" type="number" min="0" /></div>
+                  <div class="field"><label for="set-pts-draw">Punti Pareggio</label><input id="set-pts-draw" type="number" min="0" /></div>
+                  <div class="field"><label for="set-pts-loss">Punti Sconfitta</label><input id="set-pts-loss" type="number" min="0" /></div>
+                </div>
+              </section>
+
+              <section class="settings-section" data-settings-group="basket_live">
+                <h3 class="settings-section-title">Regole Basket Live</h3>
+                <div class="inline-grid cols-3">
+                  <div class="field"><label for="set-quarters">Quarti</label><input id="set-quarters" type="number" min="1" /></div>
+                  <div class="field"><label for="set-quarter-duration">Durata quarto (sec)</label><input id="set-quarter-duration" type="number" min="60" /></div>
+                  <div class="field"><label for="set-timeouts">Timeout per squadra</label><input id="set-timeouts" type="number" min="0" /></div>
+                </div>
+              </section>
+
+              <section class="settings-section" data-settings-group="calcio_discipline">
+                <h3 class="settings-section-title">Disciplina Calcio</h3>
+                <div class="inline-grid cols-3">
+                  <div class="checkbox-row"><input id="set-allow-yellow" type="checkbox" /><label for="set-allow-yellow">Cartellini gialli</label></div>
+                  <div class="checkbox-row"><input id="set-allow-red" type="checkbox" /><label for="set-allow-red">Cartellini rossi</label></div>
+                </div>
+              </section>
+
+              <section class="settings-section" data-settings-group="pallavolo_live">
+                <h3 class="settings-section-title">Regole Pallavolo Live</h3>
+                <div class="inline-grid cols-3">
+                  <div class="field"><label for="set-volley-sets">Set totali match</label><input id="set-volley-sets" type="number" min="1" /></div>
+                </div>
+              </section>
             </div>
           </section>
         </section>
@@ -311,8 +363,58 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="modal-csv-import">
+      <div class="modal-box csv-import-modal">
+        <div class="modal-header">
+          <h2 id="csv-import-title" style="margin: 0">Import CSV</h2>
+          <button class="close-btn" data-modal-close="modal-csv-import">&times;</button>
+        </div>
+
+        <input type="hidden" id="csv-import-mode" />
+
+        <div class="inline-grid">
+          <div class="field">
+            <label for="csv-import-sport-select">Torneo</label>
+            <select id="csv-import-sport-select"></select>
+          </div>
+
+          <div class="csv-import-actions-row">
+            <button class="btn btn-ghost" id="btn-csv-download-template" type="button">
+              <i class="fa-solid fa-download"></i> Scarica Modello CSV
+            </button>
+            <label class="csv-file-field" for="input-csv-file">
+              <i class="fa-solid fa-file-arrow-up"></i> Seleziona CSV
+              <input id="input-csv-file" type="file" accept=".csv,text/csv" />
+            </label>
+            <button class="btn btn-primary" id="btn-csv-preview" type="button">
+              <i class="fa-solid fa-magnifying-glass"></i> Anteprima
+            </button>
+          </div>
+
+          <div class="csv-import-file-name" id="csv-import-file-name">Nessun file selezionato.</div>
+
+          <div class="csv-import-summary" id="csv-import-summary">
+            Carica un file CSV e clicca Anteprima per vedere validazioni e righe importabili.
+          </div>
+
+          <div class="csv-import-preview-wrap">
+            <table id="csv-preview-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="csv-import-report" id="csv-import-report"></div>
+        </div>
+
+        <div class="csv-import-footer">
+          <button class="btn btn-primary" id="btn-csv-confirm-import" type="button" disabled>
+            <i class="fa-solid fa-upload"></i> Conferma Import
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="js/main-admin.js"></script>
   </body>
 </html>
-
-
