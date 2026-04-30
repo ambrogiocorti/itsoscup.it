@@ -11,9 +11,21 @@ const DEFAULT_CONFIG = {
   timeouts_per_team: 2,
   min_players: 5,
   allow_mvp: true,
+  allow_yellow_cards: true,
+  allow_red_cards: true,
   ranking_weight_presence: 70,
   ranking_weight_fairplay: 30,
+  athletics_attempts_per_event: 1,
+  athletics_min_events_per_player: 1,
+  athletics_max_events_per_player: 99,
 };
+
+const CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK = [
+  'allow_mvp',
+  'athletics_attempts_per_event',
+  'athletics_min_events_per_player',
+  'athletics_max_events_per_player',
+];
 
 function isMissingSchemaColumn(error, columnName) {
   const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
@@ -69,34 +81,48 @@ export async function upsertSportConfig(sportId, payload) {
     updated_at: new Date().toISOString(),
   };
 
-  try {
-    const { data } = await run(
-      db
-        .from('sport_config')
-        .upsert(basePayload, { onConflict: 'sport_id' })
-        .select()
-        .single(),
-      'Salvataggio configurazione sport'
-    );
-    return data;
-  } catch (error) {
-    if (isMissingSchemaColumn(error, 'allow_mvp') && Object.prototype.hasOwnProperty.call(basePayload, 'allow_mvp')) {
-      const { allow_mvp: _ignoredAllowMvp, ...fallbackPayload } = basePayload;
+  const unsupportedColumns = new Set();
+  let payloadToSave = { ...basePayload };
+
+  while (true) {
+    try {
       const { data } = await run(
         db
           .from('sport_config')
-          .upsert(fallbackPayload, { onConflict: 'sport_id' })
+          .upsert(payloadToSave, { onConflict: 'sport_id' })
           .select()
           .single(),
         'Salvataggio configurazione sport'
       );
+
+      if (!unsupportedColumns.size) {
+        return data;
+      }
+
       return {
         ...(data ?? {}),
-        allow_mvp: DEFAULT_CONFIG.allow_mvp,
-        __allowMvpUnsupported: true,
+        allow_mvp: unsupportedColumns.has('allow_mvp')
+          ? DEFAULT_CONFIG.allow_mvp
+          : Boolean((data ?? {}).allow_mvp ?? DEFAULT_CONFIG.allow_mvp),
+        __allowMvpUnsupported: unsupportedColumns.has('allow_mvp'),
+        __unsupportedConfigColumns: [...unsupportedColumns],
       };
+    } catch (error) {
+      const missingColumns = CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK.filter(
+        (column) =>
+          Object.prototype.hasOwnProperty.call(payloadToSave, column) &&
+          isMissingSchemaColumn(error, column)
+      );
+
+      if (!missingColumns.length) {
+        throw error;
+      }
+
+      missingColumns.forEach((column) => {
+        unsupportedColumns.add(column);
+        delete payloadToSave[column];
+      });
     }
-    throw error;
   }
 }
 
@@ -152,6 +178,10 @@ export async function listMatchesForAdmin(filters = {}) {
   const phase = String(filters.phase ?? 'all');
 
   return (data ?? []).filter((match) => {
+    if (!TEAM_SPORTS.includes(String(match?.sport?.sport_type ?? '').trim().toLowerCase())) {
+      return false;
+    }
+
     const homeName = String(match.home?.name ?? '').toLowerCase();
     const awayName = String(match.away?.name ?? '').toLowerCase();
 
@@ -272,7 +302,7 @@ export async function createManualMatch({
   if (!sport) {
     throw new Error('Torneo non trovato');
   }
-  if (!TEAM_SPORTS.includes(sport.sport_type)) {
+  if (!TEAM_SPORTS.includes(String(sport.sport_type ?? '').trim().toLowerCase())) {
     throw new Error('Le partite sono disponibili solo per sport di squadra');
   }
 
@@ -313,6 +343,14 @@ export async function createManualMatch({
 }
 
 export async function generateMatchesForSport(sportId, hasReturnMatch = false) {
+  const sport = await loadSportById(sportId);
+  if (!sport) {
+    throw new Error('Torneo non trovato');
+  }
+  if (!TEAM_SPORTS.includes(String(sport.sport_type ?? '').trim().toLowerCase())) {
+    throw new Error('Generazione calendario disponibile solo per sport di squadra');
+  }
+
   const teams = await loadTeamsBySport(sportId);
   if (teams.length < 2) {
     throw new Error('Servono almeno 2 squadre per generare il calendario');
@@ -353,6 +391,14 @@ export async function generateMatchesForSport(sportId, hasReturnMatch = false) {
 }
 
 export async function generateSemifinals(sportId) {
+  const sport = await loadSportById(sportId);
+  if (!sport) {
+    throw new Error('Torneo non trovato');
+  }
+  if (!TEAM_SPORTS.includes(String(sport.sport_type ?? '').trim().toLowerCase())) {
+    throw new Error('Semifinali disponibili solo per sport di squadra');
+  }
+
   const teams = await loadTeamsBySport(sportId);
   if (teams.length < 4) {
     throw new Error('Servono almeno 4 squadre per le semifinali');
@@ -504,13 +550,27 @@ export async function saveTeam({ id, name, sport_id, players }) {
     sport_id: Number(sport_id),
   };
 
+  const normalizePlayerNameKey = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+
+  const requestedPlayerNames = [...new Set(
+    (players ?? [])
+      .map((nameValue) => String(nameValue ?? '').trim().replace(/\s+/g, ' '))
+      .filter(Boolean)
+  )];
+  const requestedByKey = new Map(
+    requestedPlayerNames.map((fullName) => [normalizePlayerNameKey(fullName), fullName])
+  );
+
   let teamId = Number(id);
   if (teamId) {
     await run(
       db.from('teams').update(teamPayload).eq('id', teamId),
       'Aggiornamento squadra'
     );
-    await run(db.from('players').delete().eq('team_id', teamId), 'Reset giocatori squadra');
   } else {
     const { data } = await run(
       db.from('teams').insert(teamPayload).select().single(),
@@ -519,13 +579,82 @@ export async function saveTeam({ id, name, sport_id, players }) {
     teamId = Number(data.id);
   }
 
-  const normalizedPlayers = (players ?? [])
-    .map((nameValue) => String(nameValue).trim())
-    .filter(Boolean)
-    .map((full_name) => ({ full_name, team_id: teamId }));
+  const { data: existingPlayers } = await run(
+    db
+      .from('players')
+      .select('id, full_name')
+      .eq('team_id', teamId),
+    'Caricamento giocatori squadra'
+  );
 
-  if (normalizedPlayers.length) {
-    await run(db.from('players').insert(normalizedPlayers), 'Inserimento giocatori');
+  const existingRows = existingPlayers ?? [];
+  const existingByKey = new Map();
+  existingRows.forEach((row) => {
+    const key = normalizePlayerNameKey(row.full_name);
+    if (!existingByKey.has(key)) {
+      existingByKey.set(key, row);
+    }
+  });
+
+  const playersToInsert = [];
+  const playersToRename = [];
+  requestedByKey.forEach((displayName, key) => {
+    const existing = existingByKey.get(key);
+    if (!existing) {
+      playersToInsert.push({ team_id: teamId, full_name: displayName });
+      return;
+    }
+    if (String(existing.full_name) !== displayName) {
+      playersToRename.push({ id: Number(existing.id), full_name: displayName });
+    }
+  });
+
+  for (const row of playersToRename) {
+    await run(
+      db.from('players').update({ full_name: row.full_name }).eq('id', row.id),
+      'Aggiornamento nome studente'
+    );
+  }
+
+  if (playersToInsert.length) {
+    await run(
+      db.from('players').insert(playersToInsert),
+      'Inserimento nuovi studenti squadra'
+    );
+  }
+
+  const removablePlayers = existingRows.filter(
+    (row) => !requestedByKey.has(normalizePlayerNameKey(row.full_name))
+  );
+  const removableIds = removablePlayers
+    .map((row) => Number(row.id))
+    .filter((playerId) => Number.isFinite(playerId) && playerId > 0);
+
+  if (removableIds.length) {
+    const [{ data: athleticsRefs }, { data: matchRefs }] = await Promise.all([
+      run(
+        db.from('event_results').select('player_id').in('player_id', removableIds),
+        'Verifica riferimenti atletica studenti'
+      ),
+      run(
+        db.from('match_stats').select('player_id').in('player_id', removableIds),
+        'Verifica riferimenti match studenti'
+      ),
+    ]);
+
+    const referencedIds = new Set(
+      [...(athleticsRefs ?? []), ...(matchRefs ?? [])]
+        .map((row) => Number(row.player_id))
+        .filter((playerId) => Number.isFinite(playerId) && playerId > 0)
+    );
+
+    const deletableIds = removableIds.filter((playerId) => !referencedIds.has(playerId));
+    if (deletableIds.length) {
+      await run(
+        db.from('players').delete().in('id', deletableIds),
+        'Rimozione studenti non referenziati'
+      );
+    }
   }
 
   return teamId;

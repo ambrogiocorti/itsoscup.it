@@ -9,7 +9,7 @@
 
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
-  MATCH_MANAGER: 'match_manager',
+  MATCH_MANAGER: 'match_manager',  
   REPORT_VIEWER: 'report_viewer',
 };
 

@@ -24,6 +24,7 @@ import {
 import {
   computeAthleticsRanking,
   deleteAthleticsEvent,
+  loadAthleticsConfigBySport,
   loadAthleticsEvents,
   loadAthleticsLeaderboard,
   loadEventResults,
@@ -36,6 +37,7 @@ import {
   getCsvModeInfo,
   previewCsvImport,
 } from './csv-import.js';
+import { TEAM_SPORTS } from './app-config.js';
 import { db, run } from './db.js';
 import { escapeHtml, getEl, medalByRank, showToast } from './utils.js';
 
@@ -45,6 +47,8 @@ const state = {
   cachedPlayersRanking: [],
   selectedEventId: null,
   csvPreview: null,
+  athleticsReport: null,
+  reportColumnPrefs: {},
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
 
@@ -73,6 +77,46 @@ const SPORT_TYPE_LABELS = {
 const FORMAT_LABELS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione diretta',
+};
+
+const REPORT_COLUMNS_STORAGE_PREFIX = 'report_columns_v1_';
+const REPORT_COLUMN_GROUPS = {
+  team_students: {
+    label: 'Ranking Studenti',
+    columns: [
+      { key: 'rank', label: 'Rank' },
+      { key: 'student', label: 'Studente' },
+      { key: 'class', label: 'Classe' },
+      { key: 'presence', label: 'Presenza' },
+      { key: 'fouls', label: 'Falli' },
+      { key: 'mvp', label: 'MVP' },
+      { key: 'score', label: 'Score' },
+    ],
+  },
+  team_standings: {
+    label: 'Classifica Squadre',
+    columns: [
+      { key: 'position', label: 'Posizione' },
+      { key: 'team', label: 'Squadra' },
+      { key: 'points', label: 'Punti' },
+      { key: 'played', label: 'Giocate' },
+      { key: 'wins', label: 'Vittorie' },
+      { key: 'draws', label: 'Pareggi' },
+      { key: 'losses', label: 'Sconfitte' },
+      { key: 'goal_diff', label: 'Differenza reti' },
+    ],
+  },
+  athletics: {
+    label: 'Classifica Atletica',
+    columns: [
+      { key: 'position', label: 'Posizione' },
+      { key: 'student', label: 'Studente' },
+      { key: 'class', label: 'Classe' },
+      { key: 'events', label: 'Eventi' },
+      { key: 'medals', label: 'Medaglie' },
+      { key: 'points', label: 'Punti' },
+    ],
+  },
 };
 
 function openModal(id) {
@@ -408,25 +452,34 @@ function bindSidebar() {
   });
 }
 
+function getTeamSports() {
+  return state.sports.filter((sport) =>
+    TEAM_SPORTS.includes(String(sport?.sport_type ?? '').trim().toLowerCase())
+  );
+}
+
 function renderSportsOptions() {
   const targets = [
-    ['report-sport-select', false, false],
-    ['select-sport-team', false, false],
-    ['select-sport-match', false, false],
-    ['playoff-sport-select', false, false],
-    ['settings-sport-select', false, false],
-    ['event-sport-select', false, false],
-    ['athletics-sport-select', false, true],
-    ['filter-match-sport', true, false],
+    ['report-sport-select', false, false, false],
+    ['select-sport-team', false, false, false],
+    ['select-sport-match', false, false, true],
+    ['playoff-sport-select', false, false, true],
+    ['settings-sport-select', false, false, false],
+    ['event-sport-select', false, false, false],
+    ['athletics-sport-select', false, true, false],
+    ['filter-match-sport', true, false, true],
   ];
 
-  targets.forEach(([id, includeAll, athleticsOnly]) => {
+  targets.forEach(([id, includeAll, athleticsOnly, teamSportsOnly]) => {
     const el = getEl(id);
     if (!el) return;
 
-    const source = athleticsOnly
-      ? state.sports.filter((sport) => sport.sport_type === 'atletica')
-      : state.sports;
+    let source = state.sports;
+    if (athleticsOnly) {
+      source = state.sports.filter((sport) => sport.sport_type === 'atletica');
+    } else if (teamSportsOnly) {
+      source = getTeamSports();
+    }
 
     const options = source
       .map((sport) => `<option value="${sport.id}">${escapeHtml(sport.name)}</option>`)
@@ -561,17 +614,19 @@ function renderPlayerRankingTable(rows) {
     .map(
       (player, index) => `
       <tr>
-        <td>${index + 1}</td>
-        <td><strong>${escapeHtml(player.name)}</strong></td>
-        <td>${escapeHtml(player.team)}</td>
-        <td class="text-center">${player.presencePct}%</td>
-        <td class="text-center">${player.fouls}</td>
-        <td class="text-center">${player.mvpVotes}</td>
-        <td class="text-center"><span class="score-chip">${player.score}</span></td>
+        <td data-col-group="team_students" data-col="rank">${index + 1}</td>
+        <td data-col-group="team_students" data-col="student"><strong>${escapeHtml(player.name)}</strong></td>
+        <td data-col-group="team_students" data-col="class">${escapeHtml(player.team)}</td>
+        <td class="text-center" data-col-group="team_students" data-col="presence">${player.presencePct}%</td>
+        <td class="text-center" data-col-group="team_students" data-col="fouls">${player.fouls}</td>
+        <td class="text-center" data-col-group="team_students" data-col="mvp">${player.mvpVotes}</td>
+        <td class="text-center" data-col-group="team_students" data-col="score"><span class="score-chip">${player.score}</span></td>
       </tr>
     `
     )
     .join('');
+
+  applyReportColumnVisibility();
 }
 
 function renderTeamReportTable(rows) {
@@ -582,21 +637,381 @@ function renderTeamReportTable(rows) {
     .map(
       (row) => `
       <tr>
-        <td>${medalByRank(row.rank - 1)}</td>
-        <td><strong>${escapeHtml(row.name)}</strong></td>
-        <td class="text-center">${row.points}</td>
-        <td class="text-center">${row.played}</td>
-        <td class="text-center">${row.wins}</td>
-        <td class="text-center">${row.draws}</td>
-        <td class="text-center">${row.losses}</td>
-        <td class="text-center">${row.goalDiff}</td>
+        <td data-col-group="team_standings" data-col="position">${medalByRank(row.rank - 1)}</td>
+        <td data-col-group="team_standings" data-col="team"><strong>${escapeHtml(row.name)}</strong></td>
+        <td class="text-center" data-col-group="team_standings" data-col="points">${row.points}</td>
+        <td class="text-center" data-col-group="team_standings" data-col="played">${row.played}</td>
+        <td class="text-center" data-col-group="team_standings" data-col="wins">${row.wins}</td>
+        <td class="text-center" data-col-group="team_standings" data-col="draws">${row.draws}</td>
+        <td class="text-center" data-col-group="team_standings" data-col="losses">${row.losses}</td>
+        <td class="text-center" data-col-group="team_standings" data-col="goal_diff">${row.goalDiff}</td>
       </tr>
     `
     )
     .join('');
+
+  applyReportColumnVisibility();
+}
+
+function renderReportLayouts(isAthletics) {
+  getEl('report-team-filters')?.classList.toggle('hidden', isAthletics);
+  getEl('report-team-layout')?.classList.toggle('hidden', isAthletics);
+  getEl('report-athletics-layout')?.classList.toggle('hidden', !isAthletics);
+}
+
+function getReportColumnStorageKey(sportId) {
+  return `${REPORT_COLUMNS_STORAGE_PREFIX}${Number(sportId)}`;
+}
+
+function buildDefaultReportColumnPrefs() {
+  const defaults = {};
+  Object.entries(REPORT_COLUMN_GROUPS).forEach(([groupKey, group]) => {
+    defaults[groupKey] = {};
+    (group.columns ?? []).forEach((column) => {
+      defaults[groupKey][column.key] = true;
+    });
+  });
+  return defaults;
+}
+
+function normalizeReportColumnPrefs(rawPrefs) {
+  const normalized = buildDefaultReportColumnPrefs();
+  if (!rawPrefs || typeof rawPrefs !== 'object') return normalized;
+
+  Object.entries(REPORT_COLUMN_GROUPS).forEach(([groupKey, group]) => {
+    (group.columns ?? []).forEach((column) => {
+      if (typeof rawPrefs?.[groupKey]?.[column.key] === 'boolean') {
+        normalized[groupKey][column.key] = rawPrefs[groupKey][column.key];
+      }
+    });
+  });
+
+  return normalized;
+}
+
+function ensureReportColumnPrefs(sportId) {
+  const numericSportId = Number(sportId || 0);
+  if (!numericSportId) {
+    return buildDefaultReportColumnPrefs();
+  }
+
+  if (state.reportColumnPrefs[numericSportId]) {
+    return state.reportColumnPrefs[numericSportId];
+  }
+
+  const defaults = buildDefaultReportColumnPrefs();
+  try {
+    const stored = window.localStorage.getItem(getReportColumnStorageKey(numericSportId));
+    const parsed = stored ? JSON.parse(stored) : null;
+    state.reportColumnPrefs[numericSportId] = normalizeReportColumnPrefs(parsed ?? defaults);
+  } catch (_error) {
+    state.reportColumnPrefs[numericSportId] = defaults;
+  }
+
+  return state.reportColumnPrefs[numericSportId];
+}
+
+function persistReportColumnPrefs(sportId) {
+  const numericSportId = Number(sportId || 0);
+  if (!numericSportId) return;
+  const prefs = ensureReportColumnPrefs(numericSportId);
+  try {
+    window.localStorage.setItem(getReportColumnStorageKey(numericSportId), JSON.stringify(prefs));
+  } catch (_error) {
+    // ignore storage quota / private mode failures
+  }
+}
+
+function getVisibleReportColumnGroups() {
+  return isCurrentReportAthletics() ? ['athletics'] : ['team_students', 'team_standings'];
+}
+
+function applyReportColumnVisibility() {
+  const sportId = Number(getEl('report-sport-select')?.value || 0);
+  const prefs = ensureReportColumnPrefs(sportId);
+
+  document.querySelectorAll('[data-col-group][data-col]').forEach((cell) => {
+    const groupKey = String(cell.dataset.colGroup ?? '');
+    const columnKey = String(cell.dataset.col ?? '');
+    const visible = prefs?.[groupKey]?.[columnKey] !== false;
+    cell.classList.toggle('report-col-hidden', !visible);
+  });
+}
+
+function renderReportColumnsPanel() {
+  const panel = getEl('report-columns-panel');
+  const toggleButton = getEl('btn-toggle-report-columns');
+  if (!panel || !toggleButton) return;
+
+  const sportId = Number(getEl('report-sport-select')?.value || 0);
+  if (!sportId) {
+    panel.innerHTML = '<div class="empty-state">Seleziona un torneo per configurare le colonne.</div>';
+    panel.classList.add('hidden');
+    toggleButton.disabled = true;
+    toggleButton.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  toggleButton.disabled = false;
+  const prefs = ensureReportColumnPrefs(sportId);
+  const groupKeys = getVisibleReportColumnGroups();
+
+  panel.innerHTML = `
+    <div class="report-columns-grid">
+      ${groupKeys
+        .map((groupKey) => {
+          const group = REPORT_COLUMN_GROUPS[groupKey];
+          if (!group) return '';
+          const items = (group.columns ?? [])
+            .map((column) => {
+              const checked = prefs?.[groupKey]?.[column.key] !== false;
+              return `
+                <label class="report-columns-item">
+                  <input type="checkbox" data-action="toggle-report-column" data-group="${groupKey}" data-column="${column.key}" ${checked ? 'checked' : ''}>
+                  <span>${escapeHtml(column.label)}</span>
+                </label>
+              `;
+            })
+            .join('');
+
+          return `
+            <section class="report-columns-group">
+              <h4 class="report-columns-group-title">${escapeHtml(group.label)}</h4>
+              <div class="report-columns-list">${items}</div>
+            </section>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+
+  toggleButton.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
+}
+
+function isCurrentReportAthletics() {
+  const sportId = Number(getEl('report-sport-select')?.value || 0);
+  if (!sportId) return false;
+  const sport = getSportById(sportId);
+  return sport?.sport_type === 'atletica';
+}
+
+function getAthleticsReportFilters() {
+  const selectedPlayerValue = String(getEl('rep-ath-player-select')?.value ?? 'all');
+  const selectedPlayerId = selectedPlayerValue !== 'all' ? Number(selectedPlayerValue) : null;
+  const searchTerm = String(getEl('rep-ath-player-search')?.value ?? '').trim().toLowerCase();
+  const selectedEventId = String(getEl('rep-ath-event-select')?.value ?? 'all');
+  const selectedTeam = String(getEl('rep-ath-team-select')?.value ?? 'all');
+
+  return {
+    selectedPlayerId: Number.isFinite(selectedPlayerId) && Number(selectedPlayerId) > 0
+      ? Number(selectedPlayerId)
+      : null,
+    searchTerm,
+    selectedEventId: selectedEventId !== 'all' ? Number(selectedEventId) : null,
+    selectedTeam,
+  };
+}
+
+function playerMatchesAthleticsFilters(row, filters) {
+  if (!row) return false;
+  if (filters.selectedTeam !== 'all' && row.teamName !== filters.selectedTeam) return false;
+  if (filters.selectedPlayerId) return Number(row.playerId) === filters.selectedPlayerId;
+  if (filters.searchTerm) {
+    return String(row.playerName ?? '').toLowerCase().includes(filters.searchTerm);
+  }
+  return true;
+}
+
+function buildAthleticsAggregation(events, config, filters) {
+  const minEvents = Math.max(0, Number(config?.athletics_min_events_per_player ?? 1));
+  const maxEvents = Math.max(minEvents || 1, Number(config?.athletics_max_events_per_player ?? 99));
+  const byPlayer = new Map();
+  const allEvents = events ?? [];
+  const filteredEvents = allEvents.filter((eventItem) => {
+    if (!filters.selectedEventId) return true;
+    return Number(eventItem.id) === filters.selectedEventId;
+  });
+  const selectedEventPlayerIds = new Set();
+
+  const eventCards = filteredEvents.map((eventItem) => {
+    const baseRows = [...(eventItem.results ?? [])].sort(
+      (a, b) => Number(a.rank ?? 0) - Number(b.rank ?? 0)
+    );
+    baseRows.forEach((row) => {
+      const playerId = Number(row.playerId);
+      if (playerId > 0) selectedEventPlayerIds.add(playerId);
+    });
+
+    const filteredRows = baseRows
+      .filter((row) => playerMatchesAthleticsFilters(row, filters))
+      .slice(0, 3);
+
+    return {
+      ...eventItem,
+      filteredRows,
+    };
+  });
+
+  allEvents.forEach((eventItem) => {
+    const baseRows = [...(eventItem.results ?? [])].sort(
+      (a, b) => Number(a.rank ?? 0) - Number(b.rank ?? 0)
+    );
+
+    baseRows.forEach((row) => {
+      const key = Number(row.playerId);
+      if (!Number.isFinite(key) || key <= 0) return;
+
+      const existing = byPlayer.get(key) ?? {
+        playerId: key,
+        playerName: row.playerName,
+        teamName: row.teamName,
+        events: 0,
+        score: 0,
+        medals: { gold: 0, silver: 0, bronze: 0 },
+      };
+
+      existing.events += 1;
+
+      const eventRank = Number(row.rank ?? 0);
+      if (eventRank === 1) {
+        existing.score += 3;
+        existing.medals.gold += 1;
+      } else if (eventRank === 2) {
+        existing.score += 2;
+        existing.medals.silver += 1;
+      } else if (eventRank === 3) {
+        existing.score += 1;
+        existing.medals.bronze += 1;
+      }
+
+      byPlayer.set(key, existing);
+    });
+  });
+
+  const rankingAll = [...byPlayer.values()]
+    .map((row) => ({
+      ...row,
+      isQualified: row.events >= minEvents && row.events <= maxEvents,
+    }))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.medals.gold - a.medals.gold ||
+        b.medals.silver - a.medals.silver ||
+        b.medals.bronze - a.medals.bronze ||
+        a.playerName.localeCompare(b.playerName, 'it', { sensitivity: 'base' })
+    )
+    .map((row, index) => ({
+      ...row,
+      rank: index + 1,
+    }));
+
+  const rankingQualified = rankingAll
+    .filter((row) => row.isQualified)
+    .map((row, index) => ({
+      ...row,
+      rank: index + 1,
+    }));
+
+  const rankingFiltered = rankingQualified.filter((row) => {
+    if (!playerMatchesAthleticsFilters(row, filters)) return false;
+    if (filters.selectedEventId && !selectedEventPlayerIds.has(Number(row.playerId))) return false;
+    return true;
+  });
+
+  return {
+    eventCards,
+    rankingAll,
+    rankingQualified,
+    rankingFiltered,
+    minEvents,
+    maxEvents,
+  };
+}
+
+function renderAthleticsEventsCards(eventCards) {
+  const container = getEl('report-ath-events-container');
+  if (!container) return;
+
+  if (!(eventCards ?? []).length) {
+    container.innerHTML = '<div class="empty-state">Nessun evento disponibile con i filtri selezionati.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="ath-report-events-grid">
+      ${eventCards
+        .map((eventItem) => {
+          const topRowsHtml = (eventItem.filteredRows ?? []).length
+            ? eventItem.filteredRows
+                .map(
+                  (row) => `
+                    <div class="ath-report-top-row">
+                      <span>${medalByRank(Math.max(Number(row.rank ?? 1) - 1, 0))} ${escapeHtml(row.playerName)}</span>
+                      <span class="muted">(${Number(row.value ?? 0).toFixed(2)})</span>
+                    </div>
+                  `
+                )
+                .join('')
+            : '<div class="muted">Nessun risultato per i filtri correnti.</div>';
+
+          return `
+            <article class="ath-report-event-card">
+              <h4 class="ath-report-event-title">${escapeHtml(eventItem.name)}</h4>
+              <div class="ath-report-event-meta">
+                Unità: ${escapeHtml(eventItem.unit)} · Ordinamento: ${eventItem.sort_order === 'asc' ? 'minore è migliore' : 'maggiore è migliore'}
+              </div>
+              <div class="ath-report-top-list">
+                ${topRowsHtml}
+              </div>
+            </article>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function renderAthleticsRankingTable(rankingRows) {
+  const body = getEl('report-ath-ranking-body');
+  if (!body) return;
+
+  if (!(rankingRows ?? []).length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty-state">Nessun atleta trovato per i filtri selezionati.</td></tr>';
+    applyReportColumnVisibility();
+    return;
+  }
+
+  body.innerHTML = rankingRows
+    .map((row) => `
+      <tr>
+        <td data-col-group="athletics" data-col="position">${medalByRank(Math.max(Number(row.rank ?? 1) - 1, 0))}</td>
+        <td data-col-group="athletics" data-col="student"><strong>${escapeHtml(row.playerName)}</strong></td>
+        <td data-col-group="athletics" data-col="class">${escapeHtml(row.teamName)}</td>
+        <td class="text-center" data-col-group="athletics" data-col="events">${row.events}</td>
+        <td class="text-center" data-col-group="athletics" data-col="medals">O ${row.medals.gold} · A ${row.medals.silver} · B ${row.medals.bronze}</td>
+        <td class="text-center" data-col-group="athletics" data-col="points"><strong>${row.score}</strong></td>
+      </tr>
+    `)
+    .join('');
+
+  applyReportColumnVisibility();
+}
+
+function applyAthleticsReportFilters() {
+  if (!state.athleticsReport) return;
+  const filters = getAthleticsReportFilters();
+  const aggregation = buildAthleticsAggregation(state.athleticsReport.events, state.athleticsReport.config, filters);
+  renderAthleticsEventsCards(aggregation.eventCards);
+  renderAthleticsRankingTable(aggregation.rankingFiltered);
 }
 
 function applyReportFilters() {
+  if (isCurrentReportAthletics()) {
+    applyAthleticsReportFilters();
+    return;
+  }
+
   const teamFilter = getEl('rep-filter-team')?.value ?? 'all';
   const presenceFilter = getEl('rep-filter-pres')?.value ?? 'all';
   const foulsFilter = getEl('rep-filter-fouls')?.value ?? 'all';
@@ -622,14 +1037,142 @@ function applyReportFilters() {
   renderPlayerRankingTable(filtered);
 }
 
+function renderAthleticsReportFilterOptions(reportDataset) {
+  const playerSelect = getEl('rep-ath-player-select');
+  const eventSelect = getEl('rep-ath-event-select');
+  const teamSelect = getEl('rep-ath-team-select');
+
+  const players = [...(reportDataset?.players ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
+  );
+  const events = [...(reportDataset?.events ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
+  );
+  const teams = [...(reportDataset?.teams ?? [])].sort((a, b) =>
+    a.localeCompare(b, 'it', { sensitivity: 'base' })
+  );
+
+  if (playerSelect) {
+    playerSelect.innerHTML =
+      '<option value="all">Tutti</option>' +
+      players
+        .map((player) => `<option value="${player.id}">${escapeHtml(player.name)} · ${escapeHtml(player.teamName)}</option>`)
+        .join('');
+    playerSelect.value = 'all';
+  }
+
+  if (eventSelect) {
+    eventSelect.innerHTML =
+      '<option value="all">Tutti</option>' +
+      events.map((eventItem) => `<option value="${eventItem.id}">${escapeHtml(eventItem.name)}</option>`).join('');
+    eventSelect.value = 'all';
+  }
+
+  if (teamSelect) {
+    teamSelect.innerHTML =
+      '<option value="all">Tutte</option>' +
+      teams.map((teamName) => `<option value="${escapeHtml(teamName)}">${escapeHtml(teamName)}</option>`).join('');
+    teamSelect.value = 'all';
+  }
+
+  const playerSearch = getEl('rep-ath-player-search');
+  if (playerSearch) playerSearch.value = '';
+}
+
 async function loadReportData() {
   const sportId = Number(getEl('report-sport-select')?.value || 0);
+  const mvpBox = getEl('mvp-winner-box');
+
   if (!sportId) {
+    renderReportLayouts(false);
+    state.cachedPlayersRanking = [];
+    state.athleticsReport = null;
     document.querySelector('#report-table-students tbody').innerHTML = '';
     document.querySelector('#report-table-teams tbody').innerHTML = '';
-    getEl('mvp-winner-box').innerHTML = '<div class="empty-state">Seleziona un torneo per visualizzare il report.</div>';
+    getEl('report-ath-events-container').innerHTML = '';
+    getEl('report-ath-ranking-body').innerHTML = '';
+    mvpBox.innerHTML = '<div class="empty-state">Seleziona un torneo per visualizzare il report.</div>';
+    renderReportColumnsPanel();
+    applyReportColumnVisibility();
     return;
   }
+
+  const sport = getSportById(sportId);
+  const isAthletics = sport?.sport_type === 'atletica';
+
+  if (isAthletics) {
+    renderReportLayouts(true);
+    ensureReportColumnPrefs(sportId);
+    renderReportColumnsPanel();
+    state.cachedPlayersRanking = [];
+    mvpBox.innerHTML = '';
+
+    const [events, config] = await Promise.all([
+      loadAthleticsEvents(sportId),
+      loadAthleticsConfigBySport(sportId),
+    ]);
+
+    const eventBundles = await Promise.all(
+      (events ?? []).map(async (eventItem) => {
+        const rawResults = await loadEventResults(eventItem.id);
+        const ranking = computeAthleticsRanking(rawResults, eventItem.sort_order)
+          .map((row, index) => {
+            const resolvedPlayerId = Number(row.player?.id ?? 0);
+            if (!resolvedPlayerId) return null;
+            return {
+              eventId: Number(eventItem.id),
+              playerId: resolvedPlayerId,
+              playerName: row.player.full_name,
+              teamName: row.player.teams?.name ?? '-',
+              value: Number(row.value ?? 0),
+              notes: row.notes ?? '',
+              attemptCount: Number(row.attempt_count ?? (row.attempt_values?.length ?? 1)),
+              rank: index + 1,
+            };
+          })
+          .filter(Boolean);
+
+        return {
+          id: Number(eventItem.id),
+          name: eventItem.name,
+          unit: eventItem.unit,
+          sort_order: eventItem.sort_order,
+          results: ranking,
+        };
+      })
+    );
+
+    const playersMap = new Map();
+    const teamsSet = new Set();
+    eventBundles.forEach((eventItem) => {
+      (eventItem.results ?? []).forEach((row) => {
+        playersMap.set(row.playerId, {
+          id: row.playerId,
+          name: row.playerName,
+          teamName: row.teamName,
+        });
+        if (row.teamName) teamsSet.add(row.teamName);
+      });
+    });
+
+    state.athleticsReport = {
+      sportId,
+      config,
+      events: eventBundles,
+      players: [...playersMap.values()],
+      teams: [...teamsSet.values()],
+    };
+
+    renderAthleticsReportFilterOptions(state.athleticsReport);
+    applyAthleticsReportFilters();
+    applyReportColumnVisibility();
+    return;
+  }
+
+  renderReportLayouts(false);
+  ensureReportColumnPrefs(sportId);
+  renderReportColumnsPanel();
+  state.athleticsReport = null;
 
   const dataset = await loadReportDataset(sportId);
   const ranking = computePlayerRanking(dataset);
@@ -637,7 +1180,6 @@ async function loadReportData() {
 
   const mvpEnabled = Boolean(dataset.config?.allow_mvp ?? true);
   const winner = mvpEnabled ? pickMvpWinner(ranking) : null;
-  const mvpBox = getEl('mvp-winner-box');
   if (!mvpEnabled) {
     mvpBox.innerHTML = '<div class="empty-state">MVP disabilitato nelle impostazioni del torneo.</div>';
   } else {
@@ -650,10 +1192,14 @@ async function loadReportData() {
   renderTeamReportTable(teamRows);
 
   const teamFilter = getEl('rep-filter-team');
-  const uniqueTeams = [...new Set(ranking.map((row) => row.team))].sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
-  teamFilter.innerHTML = '<option value="all">Tutte</option>' + uniqueTeams.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+  const uniqueTeams = [...new Set(ranking.map((row) => row.team))]
+    .sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
+  teamFilter.innerHTML =
+    '<option value="all">Tutte</option>' +
+    uniqueTeams.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
 
   applyReportFilters();
+  applyReportColumnVisibility();
 }
 function getSportFormData() {
   return {
@@ -812,6 +1358,7 @@ function getSettingsVisibility(sportType, format) {
       basket_live: false,
       calcio_discipline: false,
       pallavolo_live: false,
+      athletics_rules: false,
       athletics_note: false,
     };
   }
@@ -822,7 +1369,8 @@ function getSettingsVisibility(sportType, format) {
     basket_live: sportType === 'basket',
     calcio_discipline: sportType === 'calcio',
     pallavolo_live: sportType === 'pallavolo',
-    athletics_note: isAthletics,
+    athletics_rules: isAthletics,
+    athletics_note: false,
   };
 }
 
@@ -875,6 +1423,12 @@ function buildSettingsPayloadForSport(sport) {
     payload.volley_sets = Number(getEl('set-volley-sets').value || 3);
   }
 
+  if (visibility.athletics_rules) {
+    payload.athletics_attempts_per_event = Number(getEl('set-ath-attempts').value || 1);
+    payload.athletics_min_events_per_player = Number(getEl('set-ath-min-events').value || 1);
+    payload.athletics_max_events_per_player = Number(getEl('set-ath-max-events').value || 99);
+  }
+
   return payload;
 }
 
@@ -890,6 +1444,9 @@ function fillSettingsForm(config) {
   getEl('set-weight-pres').value = config.ranking_weight_presence;
   getEl('set-weight-fair').value = config.ranking_weight_fairplay;
   getEl('set-volley-sets').value = config.volley_sets;
+  getEl('set-ath-attempts').value = config.athletics_attempts_per_event ?? 1;
+  getEl('set-ath-min-events').value = config.athletics_min_events_per_player ?? 1;
+  getEl('set-ath-max-events').value = config.athletics_max_events_per_player ?? 99;
   getEl('set-allow-yellow').checked = Boolean(config.allow_yellow_cards);
   getEl('set-allow-red').checked = Boolean(config.allow_red_cards);
   getEl('set-allow-mvp').checked = Boolean(config.allow_mvp ?? true);
@@ -910,15 +1467,23 @@ async function saveSettingsForSport() {
   const sport = getSportById(sportId);
   if (!sport) return showToast('Torneo non trovato.', 'error');
 
+  const payload = buildSettingsPayloadForSport(sport);
   if (sport.sport_type === 'atletica') {
-    return showToast('Per atletica non ci sono impostazioni live partita da salvare.', 'success');
+    const minEvents = Number(payload.athletics_min_events_per_player ?? 0);
+    const maxEvents = Number(payload.athletics_max_events_per_player ?? 99);
+    if (minEvents > maxEvents) {
+      showToast('Configurazione atletica non valida: il minimo eventi non può superare il massimo.', 'error');
+      return;
+    }
   }
 
-  const payload = buildSettingsPayloadForSport(sport);
-
   const savedConfig = await upsertSportConfig(sportId, payload);
-  if (savedConfig?.__allowMvpUnsupported) {
-    showToast('Impostazioni salvate, ma MVP non disponibile finché non aggiorni la colonna allow_mvp su sport_config.', 'error');
+  const unsupportedColumns = savedConfig?.__unsupportedConfigColumns ?? [];
+  if (unsupportedColumns.length) {
+    showToast(
+      `Impostazioni salvate con compatibilità. Aggiorna schema/cache per colonne: ${unsupportedColumns.join(', ')}.`,
+      'error'
+    );
     return;
   }
   showToast('Impostazioni salvate.', 'success');
@@ -1051,15 +1616,22 @@ async function renderEventResults(eventId) {
 
   const results = await loadEventResults(eventId);
   const ranked = computeAthleticsRanking(results, orderRule);
+  const validRows = ranked.filter((row) => Number(row.player?.id ?? 0) > 0);
 
-  body.innerHTML = ranked
+  if (!validRows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty-state">Nessun risultato valido disponibile.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = validRows
     .map(
       (row, index) => `
       <tr>
         <td>${medalByRank(index)}</td>
-        <td><strong>${escapeHtml(row.player?.full_name ?? '-')}</strong></td>
-        <td>${escapeHtml(row.player?.teams?.name ?? '-')}</td>
+        <td><strong>${escapeHtml(row.player.full_name)}</strong></td>
+        <td>${escapeHtml(row.player.teams?.name ?? '-')}</td>
         <td class="text-center">${Number(row.value).toFixed(2)}</td>
+        <td class="text-center">${Math.max(1, Number(row.attempt_count ?? (row.attempt_values?.length ?? 1)))}</td>
         <td>${escapeHtml(row.notes ?? '')}</td>
       </tr>
     `
@@ -1073,16 +1645,19 @@ async function loadEventsSection() {
     getEl('table-events-body').innerHTML = '';
     getEl('table-event-results-body').innerHTML = '';
     getEl('table-athletics-ranking-body').innerHTML = '';
+    getEl('athletics-attempts-help').textContent = 'Tentativi per evento: 1 · Min eventi atleta: 1 · Max eventi atleta: 99';
     return;
   }
 
-  const [events, leaderboard] = await Promise.all([
+  const [events, leaderboard, config] = await Promise.all([
     loadAthleticsEvents(sportId),
     loadAthleticsLeaderboard(sportId),
+    loadAthleticsConfigBySport(sportId),
   ]);
 
   renderEventsTable(events);
   await populatePlayersForAthleticsSport(sportId);
+  getEl('athletics-attempts-help').textContent = `Tentativi per evento: ${Math.max(1, Number(config.athletics_attempts_per_event ?? 1))} · Min eventi atleta: ${Math.max(0, Number(config.athletics_min_events_per_player ?? 1))} · Max eventi atleta: ${Math.max(1, Number(config.athletics_max_events_per_player ?? 99))}`;
 
   getEl('table-athletics-ranking-body').innerHTML = leaderboard
     .map(
@@ -1103,6 +1678,9 @@ async function loadEventsSection() {
   if (eventSelect.value) {
     state.selectedEventId = Number(eventSelect.value);
     await renderEventResults(state.selectedEventId);
+  } else {
+    state.selectedEventId = null;
+    getEl('table-event-results-body').innerHTML = '';
   }
 }
 
@@ -1111,7 +1689,8 @@ async function saveEventResultForm(event) {
 
   const eventId = Number(getEl('event-select-results').value || 0);
   const playerId = Number(getEl('event-player-select').value || 0);
-  const value = Number(getEl('input-event-value').value || 0);
+  const valueRaw = String(getEl('input-event-value').value || '').trim().replace(',', '.');
+  const value = Number(valueRaw);
   const notes = getEl('input-event-notes').value;
 
   if (!eventId || !playerId || !Number.isFinite(value) || value <= 0) {
@@ -1119,11 +1698,22 @@ async function saveEventResultForm(event) {
     return;
   }
 
-  await upsertEventResult({ event_id: eventId, player_id: playerId, value, notes });
+  const saveResult = await upsertEventResult({ event_id: eventId, player_id: playerId, value, notes });
   state.selectedEventId = eventId;
   await renderEventResults(eventId);
   await loadEventsSection();
-  showToast('Risultato atletica salvato.', 'success');
+  if (saveResult?.__attemptColumnsUnsupported) {
+    showToast('Risultato salvato con fallback (tentativi non disponibili finché non applichi migrazione/cached schema).', 'error');
+    return;
+  }
+  if (Number(saveResult?.__legacyDuplicateRowsCount ?? 0) > 0) {
+    showToast(
+      `Risultato salvato. Nota: trovate ${saveResult.__legacyDuplicateRowsCount} righe duplicate legacy per questo atleta/evento.`,
+      'error'
+    );
+    return;
+  }
+  showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
   getEl('btn-logout').addEventListener('click', async () => {
@@ -1231,9 +1821,64 @@ function bindCoreActions() {
     loadReportData().catch((error) => showToast(error.message, 'error'));
   });
 
+  getEl('btn-toggle-report-columns')?.addEventListener('click', () => {
+    const panel = getEl('report-columns-panel');
+    const button = getEl('btn-toggle-report-columns');
+    if (!panel || !button || button.disabled) return;
+    panel.classList.toggle('hidden');
+    button.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
+  });
+
+  getEl('report-columns-panel')?.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('input[type="checkbox"][data-action="toggle-report-column"]');
+    if (!checkbox) return;
+
+    const sportId = Number(getEl('report-sport-select')?.value || 0);
+    if (!sportId) return;
+
+    const groupKey = String(checkbox.dataset.group ?? '');
+    const columnKey = String(checkbox.dataset.column ?? '');
+    const prefs = ensureReportColumnPrefs(sportId);
+    const groupPrefs = prefs[groupKey] ?? {};
+
+    groupPrefs[columnKey] = checkbox.checked;
+    const visibleCount = Object.values(groupPrefs).filter(Boolean).length;
+    if (visibleCount === 0) {
+      groupPrefs[columnKey] = true;
+      checkbox.checked = true;
+      showToast('Deve restare visibile almeno una colonna per sezione.', 'error');
+      return;
+    }
+
+    prefs[groupKey] = groupPrefs;
+    state.reportColumnPrefs[sportId] = prefs;
+    persistReportColumnPrefs(sportId);
+    applyReportColumnVisibility();
+  });
+
+  document.addEventListener('click', (event) => {
+    const panel = getEl('report-columns-panel');
+    const button = getEl('btn-toggle-report-columns');
+    if (!panel || !button || panel.classList.contains('hidden')) return;
+    if (panel.contains(event.target) || button.contains(event.target)) return;
+    panel.classList.add('hidden');
+    button.setAttribute('aria-expanded', 'false');
+  });
+
   ['rep-filter-team', 'rep-filter-pres', 'rep-filter-fouls', 'rep-filter-score'].forEach((id) => {
     getEl(id)?.addEventListener('change', applyReportFilters);
   });
+  getEl('rep-ath-player-select')?.addEventListener('change', (event) => {
+    if (String(event.target?.value ?? 'all') !== 'all') {
+      const search = getEl('rep-ath-player-search');
+      if (search) search.value = '';
+    }
+    applyAthleticsReportFilters();
+  });
+  ['rep-ath-event-select', 'rep-ath-team-select'].forEach((id) => {
+    getEl(id)?.addEventListener('change', applyAthleticsReportFilters);
+  });
+  getEl('rep-ath-player-search')?.addEventListener('input', applyAthleticsReportFilters);
 
   getEl('btn-print-report')?.addEventListener('click', () => window.print());
 
@@ -1329,10 +1974,15 @@ async function init() {
   await loadDashboardStats();
 
   if (state.sports.length) {
-    const firstSport = state.sports[0].id;
-    ['report-sport-select', 'select-sport-match', 'playoff-sport-select', 'settings-sport-select'].forEach((id) => {
+    const firstSport = state.sports[0];
+    const firstTeamSport = getTeamSports()[0];
+    ['report-sport-select', 'settings-sport-select'].forEach((id) => {
       const el = getEl(id);
-      if (el && !el.value) el.value = String(firstSport);
+      if (el && !el.value && firstSport?.id) el.value = String(firstSport.id);
+    });
+    ['select-sport-match', 'playoff-sport-select'].forEach((id) => {
+      const el = getEl(id);
+      if (el && !el.value && firstTeamSport?.id) el.value = String(firstTeamSport.id);
     });
 
     const firstAthletics = state.sports.find((sport) => sport.sport_type === 'atletica');
@@ -1353,5 +2003,3 @@ async function init() {
 init().catch((error) => {
   showToast(error.message, 'error');
 });
-
-

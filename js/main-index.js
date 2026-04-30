@@ -372,7 +372,7 @@ async function openMatchDetails(matchId) {
       run(
         db
           .from('matches')
-          .select('*, home:teams!home_team_id(name), away:teams!away_team_id(name)')
+          .select('*, sport:sports(sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name)')
           .eq('id', Number(matchId))
           .single(),
         'Dettaglio match'
@@ -403,6 +403,9 @@ async function openMatchDetails(matchId) {
       ? match.live_payload.stats_snapshot
       : [];
     const stats = dbStats.length ? dbStats : payloadStats;
+    const isSoccer = String(match?.sport?.sport_type ?? '').toLowerCase() === 'calcio';
+    const showFouls = !isSoccer;
+    const showCards = isSoccer;
 
     const playerIds = [...new Set(stats.map((row) => Number(row.player_id)).filter((id) => Number.isFinite(id) && id > 0))];
     let players = [];
@@ -461,7 +464,7 @@ async function openMatchDetails(matchId) {
                 : ''
             }
             ${
-              yellowCards > 0 || redCards > 0
+              showCards
                 ? `<span class="match-card-pills">
                     <span class="match-card-pill yellow">Y ${yellowCards}</span>
                     <span class="match-card-pill red">R ${redCards}</span>
@@ -469,9 +472,13 @@ async function openMatchDetails(matchId) {
                 : ''
             }
           </span>
-          <span class="match-player-fouls" title="Falli ${fouls}/${maxFouls}">
-            ${foulDots}
-          </span>
+          ${
+            showFouls
+              ? `<span class="match-player-fouls" title="Falli ${fouls}/${maxFouls}">
+                  ${foulDots}
+                </span>`
+              : ''
+          }
         </div>`;
         });
 

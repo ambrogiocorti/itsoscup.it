@@ -84,7 +84,7 @@ function ensurePlayer(playerId) {
 }
 
 function getSportType() {
-  return state.match?.sport?.sport_type ?? '';
+  return String(state.match?.sport?.sport_type ?? '').trim().toLowerCase();
 }
 
 function isBasketMatch() {
@@ -106,7 +106,10 @@ function getMaxFouls() {
 function isPlayerExpelled(entry) {
   const fouls = Number(entry?.fouls ?? 0);
   const redCards = Number(entry?.red_cards ?? 0);
-  return redCards > 0 || fouls >= getMaxFouls();
+  if (isSoccerMatch()) {
+    return redCards > 0;
+  }
+  return fouls >= getMaxFouls();
 }
 
 function getTimeoutLimit() {
@@ -137,6 +140,8 @@ function renderHeader() {
 function renderRosterTable(tableId, players) {
   const tbody = document.querySelector(`#${tableId} tbody`);
   if (!tbody) return;
+  const useFouls = !isSoccerMatch();
+  const useCards = isSoccerMatch();
 
   tbody.innerHTML = players
     .map((player) => {
@@ -157,9 +162,9 @@ function renderRosterTable(tableId, players) {
       <tr data-player-id="${player.id}" class="${expelled ? 'live-player-expelled' : ''}">
         <td class="text-center"><input type="checkbox" data-action="toggle-played" ${rowState.played ? 'checked' : ''} ${playedDisabled ? 'disabled' : ''}></td>
         <td><strong>${escapeHtml(player.full_name)}</strong></td>
-        <td class="text-center"><span class="${foulClass}" id="foul-${player.id}">${rowState.fouls}</span></td>
+        <td class="text-center ${useFouls ? '' : 'hidden'}" data-col="fouls"><span class="${foulClass}" id="foul-${player.id}">${rowState.fouls}</span></td>
         <td class="text-center"><button class="${mvpActive}" data-action="toggle-mvp" title="${mvpEnabled ? 'Vota MVP' : 'MVP disabilitato nelle impostazioni torneo'}" ${mvpDisabled ? 'disabled' : ''}><i class="fa-solid fa-star"></i></button></td>
-        <td class="text-center">
+        <td class="text-center ${useCards ? '' : 'hidden'}" data-col="cards">
           <div class="live-player-cards">
             <span class="card-pill yellow">Y ${rowState.yellow_cards}</span>
             <span class="card-pill red">R ${rowState.red_cards}</span>
@@ -167,9 +172,9 @@ function renderRosterTable(tableId, players) {
         </td>
         <td class="text-center">
           <div class="live-row-actions">
-            <button class="btn btn-ghost btn-compact" data-action="add-foul" ${foulDisabled ? 'disabled' : ''}>+F</button>
-            ${allowYellow ? `<button class="btn btn-ghost btn-compact" data-action="add-yellow" ${yellowDisabled ? 'disabled' : ''}>+Y</button>` : ''}
-            ${allowRed ? `<button class="btn btn-ghost btn-compact" data-action="add-red" ${redDisabled ? 'disabled' : ''}>+R</button>` : ''}
+            ${useFouls ? `<button class="btn btn-ghost btn-compact" data-action="add-foul" ${foulDisabled ? 'disabled' : ''}>+F</button>` : ''}
+            ${useCards && allowYellow ? `<button class="btn btn-ghost btn-compact" data-action="add-yellow" ${yellowDisabled ? 'disabled' : ''}>+Y</button>` : ''}
+            ${useCards && allowRed ? `<button class="btn btn-ghost btn-compact" data-action="add-red" ${redDisabled ? 'disabled' : ''}>+R</button>` : ''}
           </div>
         </td>
       </tr>
@@ -207,6 +212,11 @@ function applySportSpecificControls() {
   } else if (isSoccer) {
     getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · Goal`;
   }
+
+  const showFouls = !isSoccer;
+  const showCards = isSoccer;
+  document.querySelectorAll('[data-col="fouls"]').forEach((el) => el.classList.toggle('hidden', !showFouls));
+  document.querySelectorAll('[data-col="cards"]').forEach((el) => el.classList.toggle('hidden', !showCards));
 
   const isFinished = Boolean(state.match?.is_finished);
   if (isFinished) {
@@ -390,6 +400,7 @@ function toggleMvp(playerId) {
 
 function addFoul(playerId) {
   if (!state.editable) return;
+  if (!(isBasketMatch() || isVolleyMatch())) return;
 
   const entry = ensurePlayer(playerId);
   const maxFouls = getMaxFouls();
@@ -410,6 +421,7 @@ function addFoul(playerId) {
 }
 
 function addYellowCard(playerId) {
+  if (!isSoccerMatch()) return;
   if (!state.editable || !Boolean(state.config?.allow_yellow_cards)) return;
   const entry = ensurePlayer(playerId);
   if (isPlayerExpelled(entry)) return;
@@ -419,6 +431,7 @@ function addYellowCard(playerId) {
 }
 
 function addRedCard(playerId) {
+  if (!isSoccerMatch()) return;
   if (!state.editable || !Boolean(state.config?.allow_red_cards)) return;
   const entry = ensurePlayer(playerId);
   if (isPlayerExpelled(entry)) return;
@@ -696,6 +709,7 @@ async function init() {
 init().catch((error) => {
   showToast(error.message, 'error');
 });
+
 
 
 

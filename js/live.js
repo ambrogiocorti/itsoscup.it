@@ -35,6 +35,19 @@ export async function loadLiveMatch(matchId) {
   );
 
   const config = await loadSportConfig(data.sport_id);
+  const isSoccer = String(data?.sport?.sport_type ?? '').toLowerCase() === 'calcio';
+  const untouchedConfig =
+    String(config?.created_at ?? '') !== '' &&
+    String(config?.created_at ?? '') === String(config?.updated_at ?? '');
+  if (
+    isSoccer &&
+    untouchedConfig &&
+    config?.allow_yellow_cards === false &&
+    config?.allow_red_cards === false
+  ) {
+    config.allow_yellow_cards = true;
+    config.allow_red_cards = true;
+  }
 
   const [homePlayersResult, awayPlayersResult] = await Promise.all([
     run(
@@ -200,6 +213,13 @@ export async function commitLiveUpdate({
   } catch (error) {
     if (!isMissingRpcError(error)) {
       throw error;
+    }
+
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (!user) {
+      throw new Error('Sessione non valida');
     }
 
     const { data } = await run(
