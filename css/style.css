@@ -1065,6 +1065,102 @@ td {
   font-weight: 800;
 }
 
+.ath-report-events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ath-report-event-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.ath-report-event-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ath-report-event-meta {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ath-report-top-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.ath-report-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.report-columns-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -18px 0 14px;
+}
+
+.report-columns-panel {
+  width: min(560px, 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+
+.report-columns-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 14px;
+}
+
+.report-columns-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.report-columns-group-title {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  color: #475569;
+}
+
+.report-columns-list {
+  display: grid;
+  gap: 6px;
+}
+
+.report-columns-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.report-col-hidden {
+  display: none !important;
+}
+
 .live-shell {
   width: min(1200px, calc(100% - 32px));
   margin: 24px auto;
@@ -1465,6 +1561,10 @@ td {
     gap: 12px;
   }
 
+  .report-columns-toolbar {
+    margin-top: -8px;
+  }
+
   .card-header {
     padding: 12px 14px;
     font-size: 0.92rem;
@@ -1594,6 +1694,7 @@ td {
   .mobile-sidebar-toggle,
   .sidebar-backdrop,
   .top-row .btn,
+  .report-columns-toolbar,
   .filter-bar,
   .modal-overlay,
   .stats-grid,
@@ -1690,3 +1791,4 @@ td {
     color: #1f2937 !important;
   }
 }
+
