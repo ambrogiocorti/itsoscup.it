@@ -483,26 +483,26 @@ async function openMatchDetails(matchId) {
         });
 
     content.innerHTML = `
-      <div style="text-align:center;margin-bottom:16px;">
-        <h2 style="margin:0;">${match.home_score ?? 0} - ${match.away_score ?? 0}</h2>
+      <div class="match-details-summary">
+        <h2 class="match-details-score">${match.home_score ?? 0} - ${match.away_score ?? 0}</h2>
         <div class="muted">${escapeHtml(match.home?.name ?? 'TBD')} vs ${escapeHtml(
       match.away?.name ?? 'TBD'
     )}</div>
-        <div class="muted" style="font-size:0.8rem;">Aggiornato: ${formatDateTime(match.updated_at)}</div>
+        <div class="match-details-updated muted">Aggiornato: ${formatDateTime(match.updated_at)}</div>
       </div>
-      <div class="inline-grid cols-2">
-        <div>
+      <div class="match-details-stats-grid">
+        <section class="match-details-team-panel">
           <div class="badge badge-info">${escapeHtml(match.home?.name ?? 'Casa')}</div>
-          <div style="margin-top:8px;">${
-            byTeam(match.home_team_id).join('') || '<div class="muted">Nessuna statistica.</div>'
+          <div class="match-details-player-list">${
+            byTeam(match.home_team_id).join('') || '<div class="muted match-details-empty">Nessuna statistica.</div>'
           }</div>
-        </div>
-        <div>
+        </section>
+        <section class="match-details-team-panel">
           <div class="badge badge-warning">${escapeHtml(match.away?.name ?? 'Ospite')}</div>
-          <div style="margin-top:8px;">${
-            byTeam(match.away_team_id).join('') || '<div class="muted">Nessuna statistica.</div>'
+          <div class="match-details-player-list">${
+            byTeam(match.away_team_id).join('') || '<div class="muted match-details-empty">Nessuna statistica.</div>'
           }</div>
-        </div>
+        </section>
       </div>
     `;
   } catch (error) {
