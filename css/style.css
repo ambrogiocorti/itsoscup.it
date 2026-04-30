@@ -470,6 +470,56 @@ td {
   font-weight: 600;
 }
 
+.modal-box.match-details-modal-box {
+  width: min(1000px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.match-details-summary {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.match-details-score {
+  margin: 0;
+  color: var(--bg-sidebar);
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.match-details-updated {
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.match-details-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.match-details-team-panel {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.match-details-player-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.match-details-empty {
+  padding: 10px 0;
+  font-weight: 600;
+}
+
 .match-player-row {
   display: flex;
   justify-content: space-between;
@@ -484,11 +534,15 @@ td {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
 }
 
 .match-player-name {
   font-weight: 600;
   color: var(--text-dark);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .match-player-mvp {
@@ -527,6 +581,7 @@ td {
   display: inline-flex;
   gap: 4px;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 .match-foul-dot {
@@ -1580,6 +1635,25 @@ td {
     border-radius: 16px;
   }
 
+  .modal-box.match-details-modal-box {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .match-details-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .match-details-team-panel {
+    padding: 12px;
+  }
+
+  .match-player-row {
+    align-items: flex-start;
+  }
+
   .csv-import-modal {
     max-width: calc(100vw - 14px);
     max-height: calc(100vh - 14px);
@@ -1791,4 +1865,3 @@ td {
     color: #1f2937 !important;
   }
 }
-
