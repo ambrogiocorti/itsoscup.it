@@ -52,7 +52,7 @@ import { archiveTournament, loadHonorRoll, unarchiveTournament } from './archive
 import { sendTelegramMatchReminder, sendTelegramTeamReminder } from './telegram.js';
 import { db, run } from './db.js';
 import { APP_CONFIG } from './app-config.js';
-import { escapeHtml, getEl, medalByRank, showToast } from './utils.js';
+import { escapeHtml, formatDuration, getEl, medalByRank, showToast } from './utils.js';
 
 const state = {
   admin: null,
@@ -227,6 +227,9 @@ function buildMatchActionItems(match) {
     actions.push(`<button class="match-action-item" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i><span>Apri live</span></button>`);
     actions.push(`<button class="match-action-item" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i><span>Modifica</span></button>`);
   }
+  if (isFinished) {
+    actions.push(`<button class="match-action-item" data-action="download-match-report" data-id="${match.id}" type="button"><i class="fa-solid fa-file-pdf"></i><span>Scarica referto</span></button>`);
+  }
   if (match?.venue?.slug) {
     actions.push(`<button class="match-action-item" data-action="qr-match" data-venue-id="${match.venue.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR campo</span></button>`);
   }
@@ -252,6 +255,326 @@ function renderMatchActionsMenu(match) {
       </div>
     </div>
   `;
+}
+
+function formatReportDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('it-IT', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function boolLabel(value) {
+  return value ? 'Si' : 'No';
+}
+
+function buildMatchReportFileName(matches) {
+  if (matches.length === 1) {
+    const match = matches[0];
+    const label = `${match.sport?.name ?? 'torneo'}-${match.home?.name ?? 'casa'}-${match.away?.name ?? 'ospite'}`
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return `referto-${label || match.id}.pdf`;
+  }
+  return `referti-match-conclusi-${new Date().toISOString().slice(0, 10)}.pdf`;
+}
+
+function collectMatchReportTeamIds(matches) {
+  return [
+    ...new Set(
+      matches
+        .flatMap((match) => [match.home_team_id, match.away_team_id])
+        .map(Number)
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ),
+  ];
+}
+
+async function loadMatchReportData(matches) {
+  const matchIds = matches.map((match) => Number(match.id)).filter((id) => id > 0);
+  const teamIds = collectMatchReportTeamIds(matches);
+  const signaturePromise = matchIds.length
+    ? run(
+        db
+          .from('match_captain_signatures')
+          .select('match_id, team_side, team_id, player_id, captain_name, signature_data_url, signed_at')
+          .in('match_id', matchIds),
+        'Caricamento firme referto'
+      ).catch(() => ({ data: [] }))
+    : Promise.resolve({ data: [] });
+
+  const [playersResult, statsResult, signaturesResult] = await Promise.all([
+    teamIds.length
+      ? run(
+          db.from('players').select('id, team_id, full_name, is_captain').in('team_id', teamIds).order('full_name', { ascending: true }),
+          'Caricamento giocatori referto'
+        )
+      : Promise.resolve({ data: [] }),
+    matchIds.length
+      ? run(
+          db.from('match_stats').select('*').in('match_id', matchIds),
+          'Caricamento statistiche referto'
+        )
+      : Promise.resolve({ data: [] }),
+    signaturePromise,
+  ]);
+
+  const playersByTeam = new Map();
+  (playersResult.data ?? []).forEach((player) => {
+    const key = Number(player.team_id);
+    if (!playersByTeam.has(key)) playersByTeam.set(key, []);
+    playersByTeam.get(key).push(player);
+  });
+
+  const statsByMatchPlayer = new Map();
+  (statsResult.data ?? []).forEach((stat) => {
+    statsByMatchPlayer.set(`${Number(stat.match_id)}:${Number(stat.player_id)}`, stat);
+  });
+
+  const signaturesByMatchSide = new Map();
+  (signaturesResult.data ?? []).forEach((signature) => {
+    signaturesByMatchSide.set(`${Number(signature.match_id)}:${signature.team_side}`, signature);
+  });
+
+  return { playersByTeam, statsByMatchPlayer, signaturesByMatchSide };
+}
+
+function getMatchReportSnapshotStat(match, playerId) {
+  const snapshot = Array.isArray(match?.live_payload?.stats_snapshot)
+    ? match.live_payload.stats_snapshot
+    : [];
+  return snapshot.find((entry) => Number(entry.player_id) === Number(playerId)) ?? null;
+}
+
+function getMatchReportPlayerRows(match, side, reportData) {
+  const teamId = Number(side === 'home' ? match.home_team_id : match.away_team_id);
+  const players = reportData.playersByTeam.get(teamId) ?? [];
+
+  return players.map((player) => {
+    const stat =
+      reportData.statsByMatchPlayer.get(`${Number(match.id)}:${Number(player.id)}`) ??
+      getMatchReportSnapshotStat(match, player.id) ??
+      {};
+    return {
+      player,
+      played: Boolean(stat.played),
+      fouls: Number(stat.fouls ?? 0),
+      yellowCards: Number(stat.yellow_cards ?? 0),
+      redCards: Number(stat.red_cards ?? 0),
+      pointsScored: Number(stat.points_scored ?? 0),
+      isMvp: Boolean(stat.is_mvp_vote),
+    };
+  });
+}
+
+function renderMatchReportPlayersTable(title, rows) {
+  return `
+    <section class="match-report-team">
+      <h3>${escapeHtml(title)}</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Giocatore</th>
+            <th>Cap.</th>
+            <th>Pres.</th>
+            <th>Falli</th>
+            <th>Gialli</th>
+            <th>Rossi</th>
+            <th>Punti</th>
+            <th>MVP</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            rows.length
+              ? rows
+                  .map(
+                    (row) => `
+                      <tr>
+                        <td><strong>${escapeHtml(row.player.full_name)}</strong></td>
+                        <td>${boolLabel(Boolean(row.player.is_captain))}</td>
+                        <td>${boolLabel(row.played)}</td>
+                        <td>${row.fouls}</td>
+                        <td>${row.yellowCards}</td>
+                        <td>${row.redCards}</td>
+                        <td>${row.pointsScored}</td>
+                        <td>${boolLabel(row.isMvp)}</td>
+                      </tr>
+                    `
+                  )
+                  .join('')
+              : '<tr><td colspan="8">Nessun giocatore registrato.</td></tr>'
+          }
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function renderMatchReportSignatures(match, reportData) {
+  const homeSignature = reportData.signaturesByMatchSide.get(`${Number(match.id)}:home`);
+  const awaySignature = reportData.signaturesByMatchSide.get(`${Number(match.id)}:away`);
+  const renderSignatureBox = (label, signature) => `
+    <div>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(signature?.captain_name ?? 'Firma non presente')}</strong>
+      <small>${escapeHtml(formatReportDateTime(signature?.signed_at))}</small>
+      ${
+        signature?.signature_data_url
+          ? `<img class="match-report-signature-img" src="${escapeHtml(signature.signature_data_url)}" alt="Firma ${escapeHtml(label)}" />`
+          : '<em>Immagine firma non disponibile.</em>'
+      }
+    </div>
+  `;
+
+  return `
+    <section class="match-report-signatures">
+      <h3>Firme capitani</h3>
+      <div class="match-report-signature-grid">
+        ${renderSignatureBox('Casa', homeSignature)}
+        ${renderSignatureBox('Ospite', awaySignature)}
+      </div>
+    </section>
+  `;
+}
+
+function renderSingleMatchReport(match, reportData) {
+  const homeRows = getMatchReportPlayerRows(match, 'home', reportData);
+  const awayRows = getMatchReportPlayerRows(match, 'away', reportData);
+  const livePayload = match.live_payload ?? {};
+  const score = `${Number(match.home_score ?? 0)} - ${Number(match.away_score ?? 0)}`;
+
+  return `
+    <article class="match-report-page">
+      <header class="match-report-header">
+        <div>
+          <p>Referto partita</p>
+          <h1>${escapeHtml(getMatchTeamsLabel(match))}</h1>
+        </div>
+        <div class="match-report-score">${escapeHtml(score)}</div>
+      </header>
+
+      <section class="match-report-meta">
+        <div><span>Torneo</span><strong>${escapeHtml(match.sport?.name ?? '-')}</strong></div>
+        <div><span>Fase</span><strong>${escapeHtml(match.round_name ?? '-')}</strong></div>
+        <div><span>Campo</span><strong>${escapeHtml(match.venue?.name ?? 'Campo da definire')}</strong></div>
+        <div><span>Slot</span><strong>${escapeHtml(formatScheduleRange(match))}</strong></div>
+        <div><span>Chiuso il</span><strong>${escapeHtml(formatReportDateTime(match.finished_at))}</strong></div>
+        <div><span>Durata live</span><strong>${escapeHtml(formatDuration(livePayload.duration ?? match.duration ?? 0))}</strong></div>
+      </section>
+
+      ${match.schedule_notes ? `<section class="match-report-notes"><strong>Note:</strong> ${escapeHtml(match.schedule_notes)}</section>` : ''}
+      ${renderMatchReportPlayersTable(match.home?.name ?? 'Casa', homeRows)}
+      ${renderMatchReportPlayersTable(match.away?.name ?? 'Ospite', awayRows)}
+      ${renderMatchReportSignatures(match, reportData)}
+    </article>
+  `;
+}
+
+function openMatchReportPrintWindow() {
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    throw new Error('Popup bloccato dal browser. Consenti i popup per scaricare il PDF del referto.');
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="it">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Preparazione referto</title>
+        <style>
+          body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: Arial, sans-serif; color: #0f172a; background: #f8fafc; }
+          div { padding: 24px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-weight: 700; }
+        </style>
+      </head>
+      <body><div>Preparazione referto...</div></body>
+    </html>
+  `);
+  printWindow.document.close();
+  return printWindow;
+}
+
+function openPrintableMatchReports(matches, reportData, printWindow) {
+  const pages = matches.map((match) => renderSingleMatchReport(match, reportData)).join('');
+  const fileName = buildMatchReportFileName(matches);
+  const title = matches.length === 1 ? `Referto ${getMatchTeamsLabel(matches[0])}` : 'Referti match conclusi';
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="it">
+      <head>
+        <meta charset="UTF-8" />
+        <title>${escapeHtml(title)}</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; }
+          .match-report-page { page-break-after: always; padding: 0; }
+          .match-report-page:last-child { page-break-after: auto; }
+          .match-report-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 16px; }
+          .match-report-header p { margin: 0 0 6px; color: #475569; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+          .match-report-header h1 { margin: 0; font-size: 24px; line-height: 1.15; }
+          .match-report-score { min-width: 112px; padding: 10px 14px; border: 2px solid #0f172a; text-align: center; font-size: 26px; font-weight: 800; }
+          .match-report-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+          .match-report-meta div, .match-report-notes, .match-report-signature-grid div { border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; }
+          .match-report-meta span, .match-report-signature-grid span { display: block; color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+          .match-report-meta strong { font-size: 12px; }
+          .match-report-notes { margin-bottom: 16px; font-size: 12px; }
+          h3 { margin: 16px 0 8px; font-size: 15px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
+          th { background: #f1f5f9; font-size: 10px; text-transform: uppercase; }
+          th:not(:first-child), td:not(:first-child) { text-align: center; }
+          .match-report-signature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+          .match-report-signature-grid strong, .match-report-signature-grid small { display: block; }
+          .match-report-signature-grid small { color: #64748b; margin-top: 6px; }
+          .match-report-signature-grid em { display: block; margin-top: 12px; color: #64748b; font-size: 11px; }
+          .match-report-signature-img { display: block; width: 100%; max-height: 96px; object-fit: contain; margin-top: 10px; border-top: 1px solid #cbd5e1; padding-top: 8px; }
+          @media print {
+            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>${pages}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.document.title = fileName.replace(/\.pdf$/i, '');
+  printWindow.focus();
+  setTimeout(() => printWindow.print(), 250);
+}
+
+async function downloadMatchReports(matches, printWindow = null) {
+  const finishedMatches = (matches ?? []).filter((match) => Boolean(match?.is_finished));
+  if (!finishedMatches.length) {
+    printWindow?.close();
+    showToast('Nessun match concluso da esportare.', 'error');
+    return;
+  }
+
+  const targetWindow = printWindow ?? openMatchReportPrintWindow();
+  try {
+    const reportData = await loadMatchReportData(finishedMatches);
+    openPrintableMatchReports(finishedMatches, reportData, targetWindow);
+  } catch (error) {
+    targetWindow.close();
+    throw error;
+  }
+}
+
+async function downloadAllFinishedMatchReports(printWindow) {
+  const rows = await listMatchesForAdmin({});
+  await downloadMatchReports(rows, printWindow);
 }
 
 function formatCalendarDayKey(value) {
@@ -902,6 +1225,9 @@ function openMatchDetail(matchId) {
       : '',
     canEditMatches(state.admin?.ruolo)
       ? `<button class="btn btn-ghost" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i> Telegram</button>`
+      : '',
+    match.is_finished
+      ? `<button class="btn btn-primary" data-action="download-match-report" data-id="${match.id}" type="button"><i class="fa-solid fa-file-pdf"></i> Referto PDF</button>`
       : '',
   ].filter(Boolean);
 
@@ -2367,6 +2693,14 @@ function bindCoreActions() {
     state.matchesViewMode = state.matchesViewMode === 'calendar' ? 'table' : 'calendar';
     renderMatchesViews();
   });
+  getEl('btn-download-finished-match-reports')?.addEventListener('click', () => {
+    try {
+      const printWindow = openMatchReportPrintWindow();
+      downloadAllFinishedMatchReports(printWindow).catch((error) => showToast(error.message, 'error'));
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  });
 
   getEl('btn-generate-semifinals')?.addEventListener('click', () => {
     handleGenerateSemifinals().catch((error) => showToast(error.message, 'error'));
@@ -2637,6 +2971,16 @@ function bindCoreActions() {
       handleSendTelegramMatchReminder(id).catch((error) => showToast(error.message, 'error'));
       return;
     }
+    if (action === 'download-match-report') {
+      const match = getMatchById(id);
+      try {
+        const printWindow = openMatchReportPrintWindow();
+        downloadMatchReports(match ? [match] : [], printWindow).catch((error) => showToast(error.message, 'error'));
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+      return;
+    }
     if (action === 'delete-match') {
       handleDeleteMatch(id).catch((error) => showToast(error.message, 'error'));
     }
@@ -2669,6 +3013,16 @@ function bindCoreActions() {
     }
     if (action === 'telegram-match') {
       handleSendTelegramMatchReminder(id).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
+    if (action === 'download-match-report') {
+      const match = getMatchById(id);
+      try {
+        const printWindow = openMatchReportPrintWindow();
+        downloadMatchReports(match ? [match] : [], printWindow).catch((error) => showToast(error.message, 'error'));
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
     }
   });
 
