@@ -520,19 +520,6 @@ function validateBeforeFinalization() {
     }
   }
 
-  if (isVolleyMatch()) {
-    const totalSets = Math.max(1, Number(state.config?.volley_sets ?? 3));
-    const setsToWin = Math.floor(totalSets / 2) + 1;
-    const homeSets = Number(state.homeScore ?? 0);
-    const awaySets = Number(state.awayScore ?? 0);
-    if (homeSets < setsToWin && awaySets < setsToWin) {
-      throw new Error(`Per chiudere il match servono almeno ${setsToWin} set vinti da una squadra.`);
-    }
-    if (homeSets === awaySets) {
-      throw new Error('Impossibile chiudere il match con set in parità.');
-    }
-  }
-
   const homeCaptain = getCaptain('home');
   const awayCaptain = getCaptain('away');
   if (!homeCaptain || !awayCaptain) {
