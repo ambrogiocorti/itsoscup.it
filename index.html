@@ -13,9 +13,14 @@
   <body class="public-page">
     <div class="page-shell">
       <header class="public-header">
-        <button id="admin-access-btn" class="admin-fab" title="Accesso amministratore" aria-label="Apri login admin">
-          <i class="fa-solid fa-lock"></i>
-        </button>
+        <div class="public-header-actions">
+          <button id="public-archive-btn" class="header-action-btn" type="button" title="Archivio / Albo d'Oro" aria-label="Apri Archivio / Albo d'Oro">
+            <i class="fa-solid fa-landmark"></i>
+          </button>
+          <button id="admin-access-btn" class="header-action-btn" title="Accesso amministratore" aria-label="Apri login admin">
+            <i class="fa-solid fa-lock"></i>
+          </button>
+        </div>
 
         <div class="public-title-wrap">
           <h1 class="public-title"><i class="fa-solid fa-trophy"></i> Tornei Scolastici</h1>
@@ -29,6 +34,11 @@
           <select id="sport-select">
             <option value="">-- Seleziona torneo --</option>
           </select>
+        </section>
+
+        <section class="card hidden" id="venue-live-card">
+          <div class="card-header"><i class="fa-solid fa-location-dot"></i> Campo in corso</div>
+          <div class="card-body" id="venue-live-content"></div>
         </section>
 
         <section class="card hidden" id="sport-context-card">
@@ -58,6 +68,7 @@
             <div id="athletics-ranking-container"></div>
           </div>
         </section>
+
       </main>
     </div>
 
@@ -96,7 +107,26 @@
       </div>
     </div>
 
+    <div id="modal-honor-roll" class="modal-overlay">
+      <div class="modal-box honor-modal-box">
+        <div class="modal-header">
+          <h2 style="margin: 0"><i class="fa-solid fa-landmark"></i> Archivio / Albo d'Oro</h2>
+          <button class="close-btn" id="honor-roll-close-btn" aria-label="Chiudi">&times;</button>
+        </div>
+        <div class="inline-grid" style="gap: 14px">
+          <div class="field">
+            <label for="honor-roll-sport-select">Torneo</label>
+            <select id="honor-roll-sport-select">
+              <option value="">-- Seleziona torneo --</option>
+            </select>
+          </div>
+          <div id="honor-roll-modal-content">
+            <div class="empty-state">Seleziona un torneo per consultare l'Albo d'Oro.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="js/main-index.js"></script>
   </body>
 </html>
-

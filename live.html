@@ -113,6 +113,54 @@
       </section>
     </div>
 
+    <div class="modal-overlay" id="modal-finalize-signatures">
+      <div class="modal-box signature-modal">
+        <div class="modal-header">
+          <h2 style="margin: 0"><i class="fa-solid fa-file-signature"></i> Conferma Referto</h2>
+          <button class="close-btn" id="btn-cancel-finalize-signatures" aria-label="Chiudi">&times;</button>
+        </div>
+
+        <div class="signature-report-summary" id="signature-report-summary"></div>
+
+        <div class="signature-grid">
+          <section class="signature-panel">
+            <div class="signature-panel-head">
+              <div>
+                <div class="field-label">Capitano Casa</div>
+                <strong id="signature-home-captain">-</strong>
+              </div>
+              <span class="signature-status" id="signature-home-status">Firma richiesta</span>
+            </div>
+            <canvas class="signature-canvas" data-signature-side="home" width="520" height="170" aria-label="Firma capitano casa"></canvas>
+            <button class="btn btn-ghost btn-compact" type="button" data-clear-signature="home">
+              <i class="fa-solid fa-eraser"></i> Cancella
+            </button>
+          </section>
+
+          <section class="signature-panel">
+            <div class="signature-panel-head">
+              <div>
+                <div class="field-label">Capitano Ospite</div>
+                <strong id="signature-away-captain">-</strong>
+              </div>
+              <span class="signature-status" id="signature-away-status">Firma richiesta</span>
+            </div>
+            <canvas class="signature-canvas" data-signature-side="away" width="520" height="170" aria-label="Firma capitano ospite"></canvas>
+            <button class="btn btn-ghost btn-compact" type="button" data-clear-signature="away">
+              <i class="fa-solid fa-eraser"></i> Cancella
+            </button>
+          </section>
+        </div>
+
+        <div class="signature-actions">
+          <button class="btn btn-ghost" type="button" id="btn-cancel-finalize-signatures-secondary">Annulla</button>
+          <button class="btn btn-danger" type="button" id="btn-confirm-finalize-signatures">
+            <i class="fa-solid fa-flag-checkered"></i> Chiudi Match
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="js/main-live.js"></script>
   </body>
 </html>

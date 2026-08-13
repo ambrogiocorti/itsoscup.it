@@ -133,8 +133,32 @@ Le migrazioni disponibili sono:
 - `006_fix_allow_mvp_schema_cache.sql`: refresh/correzione schema per `allow_mvp`.
 - `007_atletica_attempts_limits.sql`: regole atletica avanzate per tentativi e limiti eventi.
 - `008_hard_guards_matches_and_orphans.sql`: blocco match atletica, pulizia orfani e FK hard su risultati atletica.
+- `009_schedule_push_archive_signatures.sql`: campi/orari, capitani, firme referto, QR e Albo d'Oro.
+- `010_notifications_archive_card_limits.sql`: limiti cartellini gialli/rossi e compatibilita schema.
+- `015_disable_web_push_use_telegram.sql`: disattiva il vecchio Web Push e usa Telegram come canale comunicazioni.
+- `016_telegram_match_reminders.sql`: documenta i promemoria match via Edge Function Telegram.
+- `017_drop_web_push_legacy.sql`: elimina tabelle, trigger e RPC legacy del vecchio Web Push.
+- `018_telegram_team_notifications.sql`: documenta le notifiche squadra via Edge Function Telegram.
 
 In ambienti gia esistenti e consigliato applicare le migrazioni nell'ordine indicato e verificare eventuali messaggi del SQL Editor.
+
+## Telegram
+
+Per inviare promemoria match dal calendario admin:
+
+1. Crea un bot con BotFather e aggiungilo come amministratore del canale Telegram.
+2. Imposta i secrets Supabase:
+   - `TELEGRAM_BOT_TOKEN`: token del bot.
+   - `TELEGRAM_CHAT_ID`: username del canale, ad esempio `@itsoscup`, oppure chat id numerico.
+3. Deploya la Function:
+
+```powershell
+supabase secrets set TELEGRAM_BOT_TOKEN="TOKEN_BOT" TELEGRAM_CHAT_ID="@itsoscup" --project-ref nalxfsbjeinptjflvndp
+supabase functions deploy send-telegram-match --project-ref nalxfsbjeinptjflvndp
+supabase functions deploy send-telegram-team --project-ref nalxfsbjeinptjflvndp
+```
+
+Dal calendario admin apri i tre puntini del match e usa `Promemoria Telegram`. Dalla tabella squadre usa l'icona Telegram per inviare una comunicazione sulla squadra.
 
 ## Flusso operativo consigliato
 
@@ -215,8 +239,24 @@ Le principali RPC usate dalla gestione live sono:
 - `release_match_lock(match_id)`: rilascia il lock.
 - `save_live_snapshot(match_id, payload, expected_version)`: salva lo stato temporaneo del match.
 - `finalize_match(match_id, payload, stats_payload, expected_version)`: finalizza risultato e statistiche.
+- `finalize_match_with_signatures(match_id, payload, stats_payload, signatures_payload, expected_version)`: finalizza il match solo dopo firma elettronica di entrambi i capitani.
 
 Il frontend include fallback compatibili, ma per concorrenza multi-admin affidabile e consigliato applicare sempre le RPC del database.
+
+## Campi, QR e Telegram
+
+La migrazione `sql/009_schedule_push_archive_signatures.sql` aggiunge campi/palestre, slot orari, capitani, firme referto e Albo d'Oro. La `010` aggiunge limiti cartellini. La `015` spegne il vecchio Web Push.
+
+Nell'Albo d'Oro `edition_year` identifica l'edizione storica, mentre `year` resta l'anno scolastico/classi gia usato dal torneo.
+
+Per Telegram:
+
+1. crea un canale Telegram gestito dalla scuola;
+2. copia il link pubblico o di invito del canale;
+3. incollalo in `APP_CONFIG.telegramChannelUrl` dentro `js/app-config.js`;
+4. apri la sezione Telegram del pannello admin per mostrare/stampare il QR.
+
+I QR campo puntano a `index.html?venue=<slug>` e mostrano il match in corso o il prossimo match programmato per quel campo.
 
 ## Report e classifiche
 
