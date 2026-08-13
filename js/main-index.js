@@ -14,6 +14,8 @@ import {
   loadEventResults,
 } from './events.js';
 import { db, run, subscribeTable } from './db.js';
+import { loadHonorRoll } from './archive.js';
+import { formatScheduleRange, loadVenueScheduleBySlug } from './schedule.js';
 import {
   escapeHtml,
   formatDateTime,
@@ -21,6 +23,7 @@ import {
   setHidden,
   showToast,
 } from './utils.js';
+import { buildKnockoutBracket, renderKnockoutBracketHtml } from './knockout-bracket.js';
 
 const DEFAULT_SUBTITLE =
   'Risultati e classifica in tempo reale';
@@ -41,6 +44,10 @@ const state = {
   selectedSportId: null,
   selectedSport: null,
   unsubscribe: null,
+  venueSlug: null,
+  venue: null,
+  teamIdFromQuery: null,
+  audienceFromQuery: 'student',
 };
 
 function getSportSelect() {
@@ -122,7 +129,7 @@ function updatePublicTournamentUi(sport) {
       standingTitle.innerHTML = '<i class="fa-solid fa-sitemap"></i> Quadro Eliminazione';
     }
     if (matchesTitle) {
-      matchesTitle.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Match Conclusi';
+      matchesTitle.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Match Tabellone';
     }
     return;
   }
@@ -149,6 +156,16 @@ function renderSports(sports) {
           sport.sport_type
         )}" data-format="${escapeHtml(sport.format)}">${escapeHtml(sport.name)}</option>`
     ),
+  ].join('');
+}
+
+function renderHonorRollSportOptions(sports) {
+  const select = document.getElementById('honor-roll-sport-select');
+  if (!select) return;
+
+  select.innerHTML = [
+    '<option value="">-- Seleziona torneo --</option>',
+    ...sports.map((sport) => `<option value="${sport.id}">${escapeHtml(sport.name)}</option>`),
   ].join('');
 }
 
@@ -199,13 +216,7 @@ function renderStandingsTable(standings) {
 
 function renderKnockoutOverview(matches) {
   const container = document.getElementById('standings-container');
-  const rows = [...(matches ?? [])].sort((a, b) => {
-    const byRound = String(a.round_name ?? '').localeCompare(String(b.round_name ?? ''), 'it', {
-      sensitivity: 'base',
-    });
-    if (byRound !== 0) return byRound;
-    return Number(a.id) - Number(b.id);
-  });
+  const rows = [...(matches ?? [])];
 
   if (!rows.length) {
     container.innerHTML = '<div class="empty-state">Nessun match presente nel tabellone.</div>';
@@ -215,58 +226,51 @@ function renderKnockoutOverview(matches) {
   const finishedCount = rows.filter((match) => Boolean(match.is_finished)).length;
   const roundsCount = new Set(rows.map((match) => String(match.round_name ?? '-'))).size;
 
+  // Bracket
+  const rounds = buildKnockoutBracket({ matches: rows });
+  const bracketHtml = renderKnockoutBracketHtml({ rounds });
+
   container.innerHTML = `
-    <div class="sport-context" style="margin-bottom: 12px;">
-      <span class="badge badge-info">Round: ${roundsCount}</span>
-      <span class="badge badge-success">Conclusi: ${finishedCount}</span>
-      <span class="badge badge-warning">Da giocare: ${rows.length - finishedCount}</span>
+    <div class="kb-stats-bar">
+      <span class="kb-stat-badge kb-stat-rounds"><i class="fa-solid fa-sitemap"></i> ${roundsCount} turni</span>
+      <span class="kb-stat-badge kb-stat-done"><i class="fa-solid fa-check-circle"></i> ${finishedCount} conclusi</span>
+      <span class="kb-stat-badge kb-stat-pending"><i class="fa-solid fa-clock"></i> ${rows.length - finishedCount} da giocare</span>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Fase</th>
-            <th>Incontro</th>
-            <th class="text-center">Esito</th>
-            <th class="text-center">Stato</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (match) => `
-            <tr>
-              <td>${escapeHtml(match.round_name ?? '-')}</td>
-              <td><strong>${escapeHtml(match.home?.name ?? 'TBD')} vs ${escapeHtml(match.away?.name ?? 'TBD')}</strong></td>
-              <td class="text-center">${match.is_finished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -'}</td>
-              <td class="text-center">${match.is_finished ? 'Finale' : 'Da giocare'}</td>
-            </tr>`
-            )
-            .join('')}
-        </tbody>
-      </table>
+    <div class="kb-bracket-scroll-wrap">
+      ${bracketHtml}
     </div>
   `;
 }
 
 function renderPlayedMatches(matches, emptyMessage = 'Nessuna partita giocata.') {
   const container = document.getElementById('matches-container');
-  const finished = (matches ?? []).filter((match) => Boolean(match.is_finished));
+  const rows = (matches ?? []).filter(
+    (match) => Boolean(match.is_finished) || Boolean(match.scheduled_start) || match.status === 'live'
+  );
 
-  if (!finished.length) {
+  if (!rows.length) {
     container.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
     return;
   }
 
-  container.innerHTML = finished
+  container.innerHTML = rows
     .map(
-      (match) => `
+      (match) => {
+        const isFinished = Boolean(match.is_finished);
+        const isLive = match.status === 'live';
+        const status = isFinished ? 'Finale' : isLive ? 'Live' : 'Programmata';
+        const score = isFinished || isLive ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -';
+        return `
       <button class="match-item" data-match-id="${match.id}">
         <div class="team-label text-right">${escapeHtml(match.home?.name ?? 'TBD')}</div>
-        <div class="score-badge">${match.home_score ?? 0} - ${match.away_score ?? 0}</div>
+        <div class="match-public-center">
+          <div class="score-badge">${score}</div>
+          <div class="match-public-meta">${escapeHtml(status)} · ${escapeHtml(formatScheduleRange(match))} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</div>
+        </div>
         <div class="team-label">${escapeHtml(match.away?.name ?? 'TBD')}</div>
       </button>
-    `
+    `;
+      }
     )
     .join('');
 
@@ -361,6 +365,156 @@ async function renderAthletics(sportId) {
   `;
 }
 
+function getVenueSlugFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return String(params.get('venue') ?? '').trim();
+}
+
+function getSportIdFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return Number(params.get('sport') || 0);
+}
+
+function getTeamIdFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return Number(params.get('team') || 0) || null;
+}
+
+function getAudienceFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const audience = String(params.get('audience') ?? 'student').trim().toLowerCase();
+  return ['student', 'captain', 'all'].includes(audience) ? audience : 'student';
+}
+
+function getCurrentOrNextVenueMatch(matches) {
+  const now = Date.now();
+  const rows = (matches ?? []).filter((match) => match.status !== 'cancelled');
+  const current = rows.find((match) => {
+    const start = match.scheduled_start ? new Date(match.scheduled_start).getTime() : NaN;
+    const end = match.scheduled_end ? new Date(match.scheduled_end).getTime() : NaN;
+    return Number.isFinite(start) && Number.isFinite(end) && start <= now && end >= now;
+  });
+  if (current) return current;
+
+  return rows.find((match) => {
+    const start = match.scheduled_start ? new Date(match.scheduled_start).getTime() : NaN;
+    return Number.isFinite(start) && start >= now;
+  }) ?? rows[0] ?? null;
+}
+
+async function renderVenueRoute() {
+  const card = document.getElementById('venue-live-card');
+  const content = document.getElementById('venue-live-content');
+  if (!state.venueSlug) {
+    setHidden(card, true);
+    return;
+  }
+
+  setHidden(card, false);
+  content.innerHTML = '<div class="empty-state">Caricamento campo...</div>';
+  const { venue, matches } = await loadVenueScheduleBySlug(state.venueSlug);
+  state.venue = venue;
+
+  if (!venue) {
+    content.innerHTML = '<div class="empty-state">Campo non trovato.</div>';
+    return;
+  }
+
+  const selected = getCurrentOrNextVenueMatch(matches);
+  if (!selected) {
+    content.innerHTML = `
+      <div class="venue-now">
+        <h2>${escapeHtml(venue.name)}</h2>
+        <div class="empty-state">Nessun match programmato per questo campo.</div>
+      </div>
+    `;
+    return;
+  }
+
+  content.innerHTML = `
+    <div class="venue-now">
+      <div>
+        <div class="badge badge-info">${selected.status === 'live' ? 'Live' : Boolean(selected.is_finished) ? 'Concluso' : 'Prossimo match'}</div>
+        <h2>${escapeHtml(selected.home?.name ?? 'TBD')} vs ${escapeHtml(selected.away?.name ?? 'TBD')}</h2>
+        <p class="muted">${escapeHtml(selected.sport?.name ?? '-')} · ${escapeHtml(selected.round_name ?? '-')}</p>
+      </div>
+      <div class="venue-now-side">
+        <strong>${escapeHtml(venue.name)}</strong>
+        <span>${escapeHtml(formatScheduleRange(selected))}</span>
+      </div>
+    </div>
+  `;
+
+  if (selected.sport_id) {
+    const select = getSportSelect();
+    if (select) {
+      select.value = String(selected.sport_id);
+    }
+  }
+}
+
+async function renderHonorRoll(sportId = null) {
+  const container = document.getElementById('honor-roll-modal-content');
+  if (!container) return;
+
+  if (!sportId) {
+    container.innerHTML = "<div class=\"empty-state\">Seleziona un torneo per consultare l'Albo d'Oro.</div>";
+    return;
+  }
+
+  const rows = await loadHonorRoll({ sportId });
+  if (!rows.length) {
+    container.innerHTML = '<div class="empty-state">Nessuna edizione archiviata per questo torneo.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="honor-grid">
+      ${rows
+        .map(
+          (entry) => `
+        <article class="honor-card">
+          <div class="honor-year">${escapeHtml(entry.edition_year ?? new Date(entry.archived_at ?? Date.now()).getFullYear())}</div>
+          <h3>${escapeHtml(entry.sport_name)}</h3>
+          <div class="muted">${escapeHtml(entry.year)}° anno</div>
+          <div class="honor-winner">${escapeHtml(entry.winner_team_name)}</div>
+          <div class="muted">${escapeHtml([entry.runner_up_team_name, entry.third_place_team_name].filter(Boolean).join(' - ') || 'Podio non disponibile')}</div>
+        </article>
+      `
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+function bindHonorRollModal() {
+  document.getElementById('public-archive-btn')?.addEventListener('click', () => {
+    const select = document.getElementById('honor-roll-sport-select');
+    const currentSportId = Number(getSportSelect()?.value || 0);
+    if (select && currentSportId) {
+      select.value = String(currentSportId);
+      renderHonorRoll(currentSportId).catch((error) => showToast(error.message, 'error'));
+    } else {
+      renderHonorRoll(null).catch((error) => showToast(error.message, 'error'));
+    }
+    openModal('modal-honor-roll');
+  });
+
+  document.getElementById('honor-roll-close-btn')?.addEventListener('click', () => {
+    closeModal('modal-honor-roll');
+  });
+
+  document.getElementById('modal-honor-roll')?.addEventListener('click', (event) => {
+    if (event.target.id === 'modal-honor-roll') {
+      closeModal('modal-honor-roll');
+    }
+  });
+
+  document.getElementById('honor-roll-sport-select')?.addEventListener('change', (event) => {
+    renderHonorRoll(Number(event.target.value || 0) || null).catch((error) => showToast(error.message, 'error'));
+  });
+}
+
 async function openMatchDetails(matchId) {
   const content = document.getElementById('match-details-content');
 
@@ -372,7 +526,7 @@ async function openMatchDetails(matchId) {
       run(
         db
           .from('matches')
-          .select('*, sport:sports(sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name)')
+          .select('*, sport:sports(sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name), venue:venues(name, slug)')
           .eq('id', Number(matchId))
           .single(),
         'Dettaglio match'
@@ -488,6 +642,7 @@ async function openMatchDetails(matchId) {
         <div class="muted">${escapeHtml(match.home?.name ?? 'TBD')} vs ${escapeHtml(
       match.away?.name ?? 'TBD'
     )}</div>
+        <div class="muted">${escapeHtml(formatScheduleRange(match))} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</div>
         <div class="match-details-updated muted">Aggiornato: ${formatDateTime(match.updated_at)}</div>
       </div>
       <div class="match-details-stats-grid">
@@ -556,6 +711,17 @@ async function loadTournamentData() {
   } else if (isKnockout) {
     renderKnockoutOverview(matches);
     renderPlayedMatches(matches, 'Nessun risultato disponibile nel tabellone.');
+
+    // Click match boxes in the SVG bracket (if present)
+    setTimeout(() => {
+      document.querySelectorAll('.kb-bracket-google [data-match-id]').forEach((el) => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => {
+          openMatchDetails(el.getAttribute('data-match-id'));
+        });
+      });
+    }, 0);
+
   } else {
     const standings = computeStandings(teams, matches, config);
     renderStandingsTable(standings);
@@ -604,10 +770,11 @@ function bindLogin() {
 }
 
 async function init() {
+  state.venueSlug = getVenueSlugFromQuery();
+  state.teamIdFromQuery = getTeamIdFromQuery();
+  state.audienceFromQuery = getAudienceFromQuery();
   bindLogin();
-
-  const sports = await loadSports();
-  renderSports(sports);
+  bindHonorRollModal();
 
   getSportSelect()?.addEventListener('change', () => {
     loadTournamentData().catch((error) => showToast(error.message, 'error'));
@@ -623,6 +790,25 @@ async function init() {
     }
   });
 
+  let sports = [];
+  try {
+    sports = await loadSports();
+  } catch (error) {
+    renderSports([]);
+    renderHonorRollSportOptions([]);
+    showToast(error.message, 'error');
+    return;
+  }
+
+  renderSports(sports);
+  renderHonorRollSportOptions(sports);
+  const initialSportId = getSportIdFromQuery();
+  if (initialSportId) {
+    getSportSelect().value = String(initialSportId);
+    state.selectedSportId = initialSportId;
+  }
+
+  await renderVenueRoute();
   await loadTournamentData();
 }
 

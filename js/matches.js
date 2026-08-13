@@ -1,4 +1,4 @@
-﻿import { db, run } from './db.js';
+import { db, run, runRpc } from './db.js';
 import { TEAM_SPORTS } from './app-config.js';
 
 const DEFAULT_CONFIG = {
@@ -13,6 +13,8 @@ const DEFAULT_CONFIG = {
   allow_mvp: true,
   allow_yellow_cards: true,
   allow_red_cards: true,
+  max_yellow_cards: 2,
+  max_red_cards: 1,
   ranking_weight_presence: 70,
   ranking_weight_fairplay: 30,
   athletics_attempts_per_event: 1,
@@ -25,14 +27,43 @@ const CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK = [
   'athletics_attempts_per_event',
   'athletics_min_events_per_player',
   'athletics_max_events_per_player',
+  'max_yellow_cards',
+  'max_red_cards',
 ];
 
 function isMissingSchemaColumn(error, columnName) {
   const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
   return (
     message.includes(`'${String(columnName).toLowerCase()}'`) &&
-    message.includes('schema cache')
+    (message.includes('schema cache') || message.includes('column'))
   );
+}
+
+function isScheduleSchemaMissing(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return ['venue_id', 'scheduled_start', 'scheduled_end', 'schedule_notes'].some((column) =>
+    message.includes(column)
+  );
+}
+
+function isCaptainSchemaMissing(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return message.includes('is_captain');
+}
+
+function isNetworkFetchError(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return /failed to fetch|networkerror|load failed/.test(message);
+}
+
+function normalizeTeamSaveError(error) {
+  if (isCaptainSchemaMissing(error)) {
+    return new Error('Aggiornamento squadra: applica la migrazione 009 e ricarica lo schema Supabase prima di impostare capitani.');
+  }
+  if (isNetworkFetchError(error)) {
+    return new Error('Aggiornamento squadra: richiesta Supabase non raggiunta. Controlla connessione, URL/API key in app-config.js e ricarica la pagina senza cache. Se stai impostando capitani, verifica anche che le migrazioni 009 e 011 siano applicate.');
+  }
+  return error;
 }
 
 export async function loadSports({ includeInactive = false } = {}) {
@@ -106,6 +137,12 @@ export async function upsertSportConfig(sportId, payload) {
           : Boolean((data ?? {}).allow_mvp ?? DEFAULT_CONFIG.allow_mvp),
         __allowMvpUnsupported: unsupportedColumns.has('allow_mvp'),
         __unsupportedConfigColumns: [...unsupportedColumns],
+        max_yellow_cards: unsupportedColumns.has('max_yellow_cards')
+          ? DEFAULT_CONFIG.max_yellow_cards
+          : Number((data ?? {}).max_yellow_cards ?? DEFAULT_CONFIG.max_yellow_cards),
+        max_red_cards: unsupportedColumns.has('max_red_cards')
+          ? DEFAULT_CONFIG.max_red_cards
+          : Number((data ?? {}).max_red_cards ?? DEFAULT_CONFIG.max_red_cards),
       };
     } catch (error) {
       const missingColumns = CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK.filter(
@@ -145,8 +182,9 @@ export async function loadPlayersByTeam(teamId) {
 export async function loadMatchesBySport(sportId, { includeUnfinished = true } = {}) {
   let query = db
     .from('matches')
-    .select('*, home:teams!home_team_id(name), away:teams!away_team_id(name), sport:sports(*)')
+    .select('*, home:teams!home_team_id(name), away:teams!away_team_id(name), sport:sports(*), venue:venues(id, name, slug)')
     .eq('sport_id', sportId)
+    .order('scheduled_start', { ascending: true })
     .order('id', { ascending: true });
 
   if (!includeUnfinished) {
@@ -160,17 +198,15 @@ export async function loadMatchesBySport(sportId, { includeUnfinished = true } =
 export async function listMatchesForAdmin(filters = {}) {
   let query = db
     .from('matches')
-    .select('*, sport:sports(name, sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name)')
+    .select('*, sport:sports(name, sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name), venue:venues(id, name, slug)')
+    .order('scheduled_start', { ascending: true })
     .order('id', { ascending: false });
 
   if (filters.sportId && filters.sportId !== 'all') {
     query = query.eq('sport_id', Number(filters.sportId));
   }
-  if (filters.status === 'finished') {
-    query = query.eq('is_finished', true);
-  }
-  if (filters.status === 'pending') {
-    query = query.eq('is_finished', false);
+  if (filters.venueId && filters.venueId !== 'all') {
+    query = query.eq('venue_id', Number(filters.venueId));
   }
 
   const { data } = await run(query, 'Caricamento calendario admin');
@@ -292,11 +328,122 @@ function buildUniquePairKey(homeTeamId, awayTeamId, roundName) {
   return `${a}:${b}:${roundName}`;
 }
 
+function isMissingRpcError(error) {
+  return /function .* does not exist|Could not find the function|schema cache/i.test(
+    String(error?.message ?? '')
+  );
+}
+
+function buildScheduleFields({
+  venueId = null,
+  scheduledStart = null,
+  scheduledEnd = null,
+  scheduleNotes = '',
+} = {}) {
+  const start = scheduledStart || null;
+  const end = scheduledEnd || null;
+  if ((start && !end) || (!start && end)) {
+    throw new Error('Compila sia inizio sia fine dello slot orario.');
+  }
+  if (start && end && new Date(end).getTime() <= new Date(start).getTime()) {
+    throw new Error('La fine dello slot deve essere successiva all inizio.');
+  }
+
+  return {
+    venue_id: venueId ? Number(venueId) : null,
+    scheduled_start: start,
+    scheduled_end: end,
+    schedule_notes: String(scheduleNotes ?? '').trim() || null,
+  };
+}
+
+function stripScheduleFields(payload) {
+  const {
+    venue_id: _venueId,
+    scheduled_start: _scheduledStart,
+    scheduled_end: _scheduledEnd,
+    schedule_notes: _scheduleNotes,
+    ...legacyPayload
+  } = payload;
+  return legacyPayload;
+}
+
+async function saveManualMatchViaRpc(payload) {
+  const result = await runRpc(
+    'save_manual_match_admin',
+    {
+      p_match_id: Number(payload.matchId || 0) || null,
+      p_sport_id: Number(payload.sportId),
+      p_home_team_id: Number(payload.homeTeamId),
+      p_away_team_id: Number(payload.awayTeamId),
+      p_round_name: payload.roundName || 'Girone (Andata)',
+      p_venue_id: payload.venueId ? Number(payload.venueId) : null,
+      p_scheduled_start: payload.scheduledStart || null,
+      p_scheduled_end: payload.scheduledEnd || null,
+      p_schedule_notes: String(payload.scheduleNotes ?? '').trim() || null,
+    },
+    'Salvataggio partita RPC'
+  );
+  const row = Array.isArray(result) ? result[0] : result;
+  if (row?.success === false) {
+    throw new Error(row.message || 'Salvataggio partita fallito');
+  }
+  return {
+    id: row?.saved_match_id ?? payload.matchId,
+    __savedViaRpc: true,
+  };
+}
+
+async function saveTeamViaRpc({ id, sportId, name, players, captainName = '' }) {
+  const result = await runRpc(
+    'save_team_admin',
+    {
+      p_team_id: Number(id || 0) || null,
+      p_sport_id: Number(sportId),
+      p_name: String(name ?? '').trim(),
+      p_players: Array.isArray(players) ? players : [],
+      p_captain_name: String(captainName ?? '').trim() || null,
+    },
+    'Salvataggio squadra RPC'
+  );
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.success === false) {
+    throw new Error(row?.message || 'Salvataggio squadra fallito');
+  }
+  return Number(row?.saved_team_id ?? id);
+}
+
+async function saveSportViaRpc(payload) {
+  const result = await runRpc(
+    'save_sport_admin',
+    {
+      p_sport_id: Number(payload.id || 0) || null,
+      p_name: String(payload.name ?? '').trim(),
+      p_year: Number(payload.year),
+      p_sport_type: payload.sport_type,
+      p_format: payload.format,
+      p_gender: payload.gender,
+      p_has_return_match: Boolean(payload.has_return_match),
+      p_is_active: payload.is_active !== false,
+    },
+    'Salvataggio torneo RPC'
+  );
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.success === false) {
+    throw new Error(row?.message || 'Salvataggio torneo fallito');
+  }
+  return Number(row.saved_sport_id ?? payload.id);
+}
+
 export async function createManualMatch({
   sportId,
   homeTeamId,
   awayTeamId,
   roundName = 'Girone (Andata)',
+  venueId = null,
+  scheduledStart = null,
+  scheduledEnd = null,
+  scheduleNotes = '',
 }) {
   const sport = await loadSportById(sportId);
   if (!sport) {
@@ -332,12 +479,100 @@ export async function createManualMatch({
     round_name: roundName,
     status: 'scheduled',
     is_finished: false,
+    ...buildScheduleFields({ venueId, scheduledStart, scheduledEnd, scheduleNotes }),
   };
 
   const { data } = await run(
     db.from('matches').insert(payload).select().single(),
     'Creazione partita'
-  );
+  ).catch(async (error) => {
+    if (isScheduleSchemaMissing(error)) {
+      return run(
+        db.from('matches').insert(stripScheduleFields(payload)).select().single(),
+        'Creazione partita senza campi/orari'
+      ).then((result) => {
+        result.data.__scheduleUnsupported = true;
+        return result;
+      });
+    }
+    if (isNetworkFetchError(error)) {
+      try {
+        return { data: await saveManualMatchViaRpc({ sportId, homeTeamId, awayTeamId, roundName, venueId, scheduledStart, scheduledEnd, scheduleNotes }) };
+      } catch (rpcError) {
+        if (isMissingRpcError(rpcError)) {
+          throw new Error('Creazione partita: richiesta REST bloccata dal browser/proxy. Applica la migrazione 010 per abilitare il fallback RPC.');
+        }
+        throw rpcError;
+      }
+    }
+    throw error;
+  });
+
+  return data;
+}
+
+export async function updateManualMatch({
+  matchId,
+  sportId,
+  homeTeamId,
+  awayTeamId,
+  roundName = 'Girone (Andata)',
+  venueId = null,
+  scheduledStart = null,
+  scheduledEnd = null,
+  scheduleNotes = '',
+}) {
+  const sport = await loadSportById(sportId);
+  if (!sport) {
+    throw new Error('Torneo non trovato');
+  }
+  if (!TEAM_SPORTS.includes(String(sport.sport_type ?? '').trim().toLowerCase())) {
+    throw new Error('Le partite sono disponibili solo per sport di squadra');
+  }
+
+  const homeId = Number(homeTeamId);
+  const awayId = Number(awayTeamId);
+
+  if (!Number(matchId)) {
+    throw new Error('Match non valido');
+  }
+  if (!homeId || !awayId || homeId === awayId) {
+    throw new Error('Seleziona due squadre differenti');
+  }
+
+  const payload = {
+    sport_id: Number(sportId),
+    home_team_id: homeId,
+    away_team_id: awayId,
+    round_name: roundName,
+    ...buildScheduleFields({ venueId, scheduledStart, scheduledEnd, scheduleNotes }),
+  };
+
+  const { data } = await run(
+    db.from('matches').update(payload).eq('id', Number(matchId)).select().single(),
+    'Aggiornamento partita'
+  ).catch(async (error) => {
+    if (isScheduleSchemaMissing(error)) {
+      return run(
+        db.from('matches').update(stripScheduleFields(payload)).eq('id', Number(matchId)).select().single(),
+        'Aggiornamento partita senza campi/orari'
+      ).then((result) => {
+        result.data.__scheduleUnsupported = true;
+        return result;
+      });
+    }
+    if (isNetworkFetchError(error)) {
+      try {
+        return { data: await saveManualMatchViaRpc({ matchId, sportId, homeTeamId, awayTeamId, roundName, venueId, scheduledStart, scheduledEnd, scheduleNotes }) };
+      } catch (rpcError) {
+        if (isMissingRpcError(rpcError)) {
+          throw new Error('Aggiornamento partita: richiesta REST bloccata dal browser/proxy. Applica la migrazione 010 per abilitare il fallback RPC.');
+        }
+        throw rpcError;
+      }
+    }
+    throw error;
+  });
 
   return data;
 }
@@ -457,18 +692,40 @@ export async function saveSport(payload) {
     is_active: payload.is_active !== false,
   };
 
+  try {
+    const sportId = await saveSportViaRpc(payload);
+    return await loadSportById(sportId);
+  } catch (error) {
+    if (!isMissingRpcError(error)) {
+      if (isNetworkFetchError(error)) {
+        throw new Error('Aggiornamento torneo: richiesta Supabase non raggiunta. Applica la migrazione 012 e ricarica la pagina senza cache.');
+      }
+      throw error;
+    }
+  }
+
   if (payload.id) {
     const { data } = await run(
       db.from('sports').update(dataPayload).eq('id', Number(payload.id)).select().single(),
       'Aggiornamento torneo'
-    );
+    ).catch((error) => {
+      if (isNetworkFetchError(error)) {
+        throw new Error('Aggiornamento torneo: richiesta Supabase non raggiunta. Applica la migrazione 012 e ricarica la pagina senza cache.');
+      }
+      throw error;
+    });
     return data;
   }
 
   const { data } = await run(
     db.from('sports').insert(dataPayload).select().single(),
     'Creazione torneo'
-  );
+  ).catch((error) => {
+    if (isNetworkFetchError(error)) {
+      throw new Error('Creazione torneo: richiesta Supabase non raggiunta. Applica la migrazione 012 e ricarica la pagina senza cache.');
+    }
+    throw error;
+  });
   return data;
 }
 
@@ -540,7 +797,7 @@ export async function deleteSport(sportId) {
   );
 }
 
-export async function saveTeam({ id, name, sport_id, players }) {
+export async function saveTeam({ id, name, sport_id, players, captainName = '' }) {
   if (!name || !sport_id) {
     throw new Error('Nome squadra e torneo sono obbligatori');
   }
@@ -564,28 +821,55 @@ export async function saveTeam({ id, name, sport_id, players }) {
   const requestedByKey = new Map(
     requestedPlayerNames.map((fullName) => [normalizePlayerNameKey(fullName), fullName])
   );
+  const captainKey = normalizePlayerNameKey(captainName);
+  const effectiveCaptainKey =
+    captainKey && requestedByKey.has(captainKey)
+      ? captainKey
+      : requestedPlayerNames.length === 1
+        ? normalizePlayerNameKey(requestedPlayerNames[0])
+        : '';
+
+  try {
+    return await saveTeamViaRpc({
+      id,
+      sportId: sport_id,
+      name: teamPayload.name,
+      players: requestedPlayerNames,
+      captainName,
+    });
+  } catch (error) {
+    if (!isMissingRpcError(error)) {
+      throw normalizeTeamSaveError(error);
+    }
+  }
 
   let teamId = Number(id);
   if (teamId) {
     await run(
       db.from('teams').update(teamPayload).eq('id', teamId),
       'Aggiornamento squadra'
-    );
+    ).catch((error) => {
+      throw normalizeTeamSaveError(error);
+    });
   } else {
     const { data } = await run(
       db.from('teams').insert(teamPayload).select().single(),
       'Creazione squadra'
-    );
+    ).catch((error) => {
+      throw normalizeTeamSaveError(error);
+    });
     teamId = Number(data.id);
   }
 
   const { data: existingPlayers } = await run(
     db
       .from('players')
-      .select('id, full_name')
+      .select('id, full_name, is_captain')
       .eq('team_id', teamId),
     'Caricamento giocatori squadra'
-  );
+  ).catch((error) => {
+    throw normalizeTeamSaveError(error);
+  });
 
   const existingRows = existingPlayers ?? [];
   const existingByKey = new Map();
@@ -618,9 +902,43 @@ export async function saveTeam({ id, name, sport_id, players }) {
 
   if (playersToInsert.length) {
     await run(
-      db.from('players').insert(playersToInsert),
+      db.from('players').insert(playersToInsert.map((row) => ({ ...row, is_captain: false }))),
       'Inserimento nuovi studenti squadra'
-    );
+    ).catch((error) => {
+      throw normalizeTeamSaveError(error);
+    });
+  }
+
+  const { data: refreshedPlayers } = await run(
+    db.from('players').select('id, full_name, is_captain').eq('team_id', teamId),
+    'Ricaricamento capitani squadra'
+  ).catch((error) => {
+    throw normalizeTeamSaveError(error);
+  });
+
+  const currentCaptainIds = (refreshedPlayers ?? [])
+    .filter((row) => Boolean(row.is_captain))
+    .map((row) => Number(row.id))
+    .filter((playerId) => Number.isFinite(playerId) && playerId > 0);
+  if (currentCaptainIds.length) {
+    await run(
+      db.from('players').update({ is_captain: false }).in('id', currentCaptainIds),
+      'Reset capitani squadra'
+    ).catch((error) => {
+      throw normalizeTeamSaveError(error);
+    });
+  }
+
+  const nextCaptain = (refreshedPlayers ?? []).find(
+    (row) => Boolean(effectiveCaptainKey) && normalizePlayerNameKey(row.full_name) === effectiveCaptainKey
+  );
+  if (nextCaptain) {
+    await run(
+      db.from('players').update({ is_captain: true }).eq('id', Number(nextCaptain.id)),
+      'Aggiornamento capitano squadra'
+    ).catch((error) => {
+      throw normalizeTeamSaveError(error);
+    });
   }
 
   const removablePlayers = existingRows.filter(

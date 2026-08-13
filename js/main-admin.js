@@ -13,6 +13,7 @@ import {
   loadTeamsBySport,
   saveSport,
   saveTeam,
+  updateManualMatch,
   upsertSportConfig,
 } from './matches.js';
 import {
@@ -38,7 +39,19 @@ import {
   previewCsvImport,
 } from './csv-import.js';
 import { TEAM_SPORTS } from './app-config.js';
+import {
+  combineLocalDateTime,
+  deleteVenue,
+  formatScheduleRange,
+  getVenueQrUrl,
+  loadVenues,
+  saveVenue,
+  slugifyVenueName,
+} from './schedule.js';
+import { archiveTournament, loadHonorRoll, unarchiveTournament } from './archive.js';
+import { sendTelegramMatchReminder, sendTelegramTeamReminder } from './telegram.js';
 import { db, run } from './db.js';
+import { APP_CONFIG } from './app-config.js';
 import { escapeHtml, getEl, medalByRank, showToast } from './utils.js';
 
 const state = {
@@ -49,6 +62,10 @@ const state = {
   csvPreview: null,
   athleticsReport: null,
   reportColumnPrefs: {},
+  venues: [],
+  honorRoll: [],
+  adminMatches: [],
+  matchesViewMode: 'table',
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
 
@@ -133,6 +150,136 @@ function resetFormValues(form) {
   form.querySelectorAll('input[type="hidden"]').forEach((input) => {
     input.value = '';
   });
+}
+
+function isFilterPanelVisible(filter) {
+  return Boolean(filter && !filter.closest('.hidden'));
+}
+
+function isFilterPanelOpen(filter) {
+  return isFilterPanelVisible(filter) && !filter.classList.contains('is-collapsed');
+}
+
+function setFilterToggleState(button, filters) {
+  if (!button) return;
+  const open = filters.some(isFilterPanelOpen);
+  button.classList.toggle('active', open);
+  button.setAttribute('aria-expanded', String(open));
+  button.setAttribute('aria-label', open ? 'Nascondi filtri' : 'Mostra filtri');
+}
+
+function bindFilterToggle(buttonId, filterIds) {
+  const button = getEl(buttonId);
+  const filters = filterIds.map((id) => getEl(id)).filter(Boolean);
+  if (!button || !filters.length) return;
+
+  button.addEventListener('click', () => {
+    const shouldOpen = !filters.some(isFilterPanelOpen);
+    filters.forEach((filter) => filter.classList.toggle('is-collapsed', !shouldOpen));
+    setFilterToggleState(button, filters);
+  });
+
+  setFilterToggleState(button, filters);
+}
+
+function closeMatchActionMenus(exceptMenu = null) {
+  document.querySelectorAll('.match-action-menu.open').forEach((menu) => {
+    if (menu !== exceptMenu) menu.classList.remove('open');
+  });
+}
+
+function getMatchCalendarStatus(match) {
+  if (match?.is_finished) {
+    return { key: 'finished', label: 'Concluso', badge: 'badge-success' };
+  }
+
+  if (match?.status === 'live') {
+    return { key: 'in_progress', label: 'In corso', badge: 'badge-danger' };
+  }
+
+  const start = match?.scheduled_start ? new Date(match.scheduled_start) : null;
+  const end = match?.scheduled_end ? new Date(match.scheduled_end) : null;
+  if (!start || Number.isNaN(start.getTime())) {
+    return { key: 'unscheduled', label: 'Da programmare', badge: 'badge-warning' };
+  }
+
+  const now = new Date();
+  if (start <= now && end && !Number.isNaN(end.getTime()) && end >= now) {
+    return { key: 'in_progress', label: 'In corso', badge: 'badge-danger' };
+  }
+
+  return { key: 'scheduled', label: 'Programmato', badge: 'badge-info' };
+}
+
+function getMatchTeamsLabel(match) {
+  return `${match?.home?.name ?? 'TBD'} vs ${match?.away?.name ?? 'TBD'}`;
+}
+
+function getMatchById(matchId) {
+  return state.adminMatches.find((item) => Number(item.id) === Number(matchId)) ?? null;
+}
+
+function buildMatchActionItems(match) {
+  const actions = [];
+  const isFinished = Boolean(match?.is_finished);
+
+  if (!isFinished && canEditMatches(state.admin?.ruolo)) {
+    actions.push(`<button class="match-action-item" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i><span>Apri live</span></button>`);
+    actions.push(`<button class="match-action-item" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i><span>Modifica</span></button>`);
+  }
+  if (match?.venue?.slug) {
+    actions.push(`<button class="match-action-item" data-action="qr-match" data-venue-id="${match.venue.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR campo</span></button>`);
+  }
+  if (canEditMatches(state.admin?.ruolo)) {
+    actions.push(`<button class="match-action-item" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i><span>Promemoria Telegram</span></button>`);
+    actions.push(`<button class="match-action-item danger" data-action="delete-match" data-id="${match.id}" type="button"><i class="fa-solid fa-trash"></i><span>Elimina</span></button>`);
+  }
+
+  return actions;
+}
+
+function renderMatchActionsMenu(match) {
+  const actions = buildMatchActionItems(match);
+  if (!actions.length) return '<span class="muted">-</span>';
+
+  return `
+    <div class="match-action-menu">
+      <button class="icon-btn match-action-toggle" data-action="toggle-match-menu" type="button" aria-label="Azioni match" aria-expanded="false">
+        <i class="fa-solid fa-ellipsis-vertical"></i>
+      </button>
+      <div class="match-action-dropdown">
+        ${actions.join('')}
+      </div>
+    </div>
+  `;
+}
+
+function formatCalendarDayKey(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return 'unscheduled';
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function formatCalendarDayLabel(key) {
+  if (key === 'unscheduled') return 'Da programmare';
+  const date = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return key;
+  return new Intl.DateTimeFormat('it-IT', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }).format(date);
+}
+
+function formatCalendarTime(value) {
+  if (!value) return '--:--';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--:--';
+  return new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 function getCsvMode() {
@@ -348,6 +495,9 @@ function switchView(viewId) {
   if (viewId === 'sports') loadSportsTable();
   if (viewId === 'teams') loadTeamsTable();
   if (viewId === 'matches') loadMatchesTable();
+  if (viewId === 'venues') loadVenuesTable();
+  if (viewId === 'archive') loadArchiveTable();
+  if (viewId === 'telegram') renderTelegramView();
   if (viewId === 'reports') loadReportData();
   if (viewId === 'events') loadEventsSection();
   if (viewId === 'settings') loadSettingsForSelectedSport();
@@ -416,6 +566,7 @@ function bindMobileSidebar() {
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setSidebarOpen(false);
+    if (event.key === 'Escape') closeMatchActionMenus();
   });
 }
 
@@ -464,6 +615,7 @@ function renderSportsOptions() {
     ['select-sport-team', false, false, false],
     ['select-sport-match', false, false, true],
     ['playoff-sport-select', false, false, true],
+    ['archive-sport-select', false, false, false],
     ['settings-sport-select', false, false, false],
     ['event-sport-select', false, false, false],
     ['athletics-sport-select', false, true, false],
@@ -489,9 +641,31 @@ function renderSportsOptions() {
   });
 }
 
+function renderVenueOptions() {
+  const targets = [
+    ['select-match-venue', false],
+    ['filter-match-venue', true],
+  ];
+
+  targets.forEach(([id, includeAll]) => {
+    const el = getEl(id);
+    if (!el) return;
+    const options = state.venues
+      .filter((venue) => includeAll || venue.is_active !== false)
+      .map((venue) => `<option value="${venue.id}">${escapeHtml(venue.name)}</option>`)
+      .join('');
+    el.innerHTML = `${includeAll ? '<option value="all">Tutti</option>' : '<option value="">-- Da definire --</option>'}${options}`;
+  });
+}
+
 async function refreshSportsState() {
   state.sports = await loadSports({ includeInactive: true });
   renderSportsOptions();
+}
+
+async function refreshVenuesState() {
+  state.venues = await loadVenues({ includeInactive: true });
+  renderVenueOptions();
 }
 
 async function loadDashboardStats() {
@@ -538,7 +712,7 @@ async function loadSportsTable() {
 
 async function loadTeamsTable() {
   const { data: teams } = await run(
-    db.from('teams').select('*, sports(name)').order('name', { ascending: true }),
+    db.from('teams').select('*, sports(name), players(full_name, is_captain)').order('name', { ascending: true }),
     'Caricamento tabella squadre'
   );
 
@@ -546,20 +720,23 @@ async function loadTeamsTable() {
   if (!body) return;
 
   body.innerHTML = (teams ?? [])
-    .map(
-      (team) => `
+    .map((team) => {
+      const captain = (team.players ?? []).find((player) => Boolean(player.is_captain));
+      return `
       <tr>
         <td><strong>${escapeHtml(team.name)}</strong></td>
         <td>${escapeHtml(team.sports?.name ?? '-')}</td>
+        <td>${captain ? escapeHtml(captain.full_name) : '<span class="badge badge-warning">Da impostare</span>'}</td>
         <td>
           <div class="table-actions" ${canManageAll(state.admin?.ruolo) ? '' : 'style="display:none"'}>
+            <button class="icon-btn telegram" data-action="telegram-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" title="Notifica Telegram"><i class="fa-brands fa-telegram"></i></button>
             <button class="icon-btn edit" data-action="edit-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${team.sport_id}"><i class="fa-solid fa-pen"></i></button>
             <button class="icon-btn delete" data-action="delete-team" data-id="${team.id}"><i class="fa-solid fa-trash"></i></button>
           </div>
         </td>
       </tr>
-    `
-    )
+    `;
+    })
     .join('');
 }
 
@@ -570,40 +747,397 @@ function renderMatchesTableRows(rows) {
   body.innerHTML = rows
     .map((match) => {
       const isFinished = Boolean(match.is_finished);
-      const actions = [];
-
-      if (!isFinished && canEditMatches(state.admin?.ruolo)) {
-        actions.push(`<button class="icon-btn live" data-action="start-live" data-id="${match.id}" title="Apri live"><i class="fa-solid fa-play"></i></button>`);
-      }
-      if (canEditMatches(state.admin?.ruolo)) {
-        actions.push(`<button class="icon-btn delete" data-action="delete-match" data-id="${match.id}" title="Elimina"><i class="fa-solid fa-trash"></i></button>`);
-      }
+      const actionsHtml = renderMatchActionsMenu(match);
+      const teamsLabel = getMatchTeamsLabel(match);
+      const matchTitle = `${match.round_name ?? '-'} - ${teamsLabel}`;
+      const scheduleLabel = formatScheduleRange(match);
+      const status = getMatchCalendarStatus(match);
 
       return `
-      <tr>
-        <td>${escapeHtml(match.sport?.name ?? '-')}</td>
-        <td>
-          <strong>${escapeHtml(match.home?.name ?? 'TBD')} vs ${escapeHtml(match.away?.name ?? 'TBD')}</strong>
-          <div class="muted" style="font-size:0.8rem;">${escapeHtml(match.round_name ?? '-')}</div>
+      <tr data-action="open-match-detail" data-id="${match.id}">
+        <td class="match-cell-sport"><span class="match-table-text" title="${escapeHtml(match.sport?.name ?? '-')}">${escapeHtml(match.sport?.name ?? '-')}</span></td>
+        <td class="match-cell-teams" title="${escapeHtml(matchTitle)}">
+          <strong class="match-teams-line">${escapeHtml(teamsLabel)}</strong>
         </td>
-        <td><span class="score-chip">${isFinished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -'}</span></td>
-        <td>${isFinished ? '<span class="badge badge-success">Finale</span>' : '<span class="badge badge-info">Da giocare</span>'}</td>
-        <td><div class="table-actions">${actions.join('')}</div></td>
+        <td class="match-cell-slot"><span class="match-table-text" title="${escapeHtml(scheduleLabel)}">${escapeHtml(scheduleLabel)}</span></td>
+        <td class="match-cell-venue"><span class="match-table-text" title="${escapeHtml(match.venue?.name ?? 'Da definire')}">${escapeHtml(match.venue?.name ?? 'Da definire')}</span></td>
+        <td class="match-cell-score"><span class="score-chip">${isFinished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -'}</span></td>
+        <td class="match-cell-status"><span class="badge ${status.badge}">${escapeHtml(status.label)}</span></td>
+        <td class="match-cell-actions">${actionsHtml}</td>
       </tr>`;
     })
     .join('');
+}
+
+function renderMatchesCalendar(rows) {
+  const board = getEl('matches-calendar-board');
+  if (!board) return;
+
+  if (!(rows ?? []).length) {
+    board.innerHTML = '<div class="empty-state">Nessun match trovato con i filtri selezionati.</div>';
+    return;
+  }
+
+  const groups = new Map();
+  (rows ?? []).forEach((match) => {
+    const key = formatCalendarDayKey(match.scheduled_start);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(match);
+  });
+
+  const orderedKeys = [...groups.keys()].sort((a, b) => {
+    if (a === 'unscheduled') return 1;
+    if (b === 'unscheduled') return -1;
+    return a.localeCompare(b);
+  });
+
+  board.innerHTML = `
+    <div class="calendar-board">
+      ${orderedKeys
+        .map((key) => {
+          const dayMatches = groups.get(key) ?? [];
+          return `
+            <section class="calendar-day-column">
+              <div class="calendar-day-title">${escapeHtml(formatCalendarDayLabel(key))}</div>
+              <div class="calendar-day-list">
+                ${dayMatches
+                  .map((match) => {
+                    const status = getMatchCalendarStatus(match);
+                    const start = formatCalendarTime(match.scheduled_start);
+                    const end = formatCalendarTime(match.scheduled_end);
+                    const timeLabel = match.scheduled_start ? `${start}${match.scheduled_end ? ` - ${end}` : ''}` : 'Da programmare';
+                    return `
+                      <button class="calendar-match-card status-${status.key}" data-action="open-match-detail" data-id="${match.id}" type="button">
+                        <span class="calendar-match-time">${escapeHtml(timeLabel)}</span>
+                        <strong>${escapeHtml(getMatchTeamsLabel(match))}</strong>
+                        <span>${escapeHtml(match.sport?.name ?? '-')} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</span>
+                        <span class="badge ${status.badge}">${escapeHtml(status.label)}</span>
+                      </button>
+                    `;
+                  })
+                  .join('')}
+              </div>
+            </section>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function renderMatchesViews(rows = state.adminMatches) {
+  renderMatchesTableRows(rows);
+  renderMatchesCalendar(rows);
+
+  const isCalendar = state.matchesViewMode === 'calendar';
+  getEl('matches-table-view')?.classList.toggle('hidden', isCalendar);
+  getEl('matches-calendar-view')?.classList.toggle('hidden', !isCalendar);
+
+  const toggle = getEl('btn-toggle-matches-view');
+  if (toggle) {
+    toggle.setAttribute('aria-pressed', String(isCalendar));
+    toggle.innerHTML = isCalendar
+      ? '<i class="fa-solid fa-table-list"></i> Vista tabella'
+      : '<i class="fa-solid fa-calendar-days"></i> Vista calendario';
+  }
+}
+
+async function handleSendTelegramMatchReminder(matchId) {
+  const match = state.adminMatches.find((item) => Number(item.id) === Number(matchId));
+  if (!match) {
+    showToast('Match non trovato.', 'error');
+    return;
+  }
+
+  const teams = `${match.home?.name ?? 'TBD'} vs ${match.away?.name ?? 'TBD'}`;
+  if (!confirm(`Inviare un promemoria Telegram per ${teams}?`)) return;
+
+  const result = await sendTelegramMatchReminder(matchId);
+  showToast(`Promemoria Telegram inviato${result?.messageId ? ` (#${result.messageId})` : ''}.`, 'success');
+}
+
+async function handleSendTelegramTeamReminder(teamId, teamName = '') {
+  const label = String(teamName || 'questa squadra').trim();
+  if (!confirm(`Inviare un messaggio Telegram per ${label}?`)) return;
+
+  const result = await sendTelegramTeamReminder(teamId);
+  showToast(`Notifica squadra inviata${result?.messageId ? ` (#${result.messageId})` : ''}.`, 'success');
 }
 
 async function loadMatchesTable() {
   const filters = {
     teamSearch: getEl('filter-match-team')?.value ?? '',
     sportId: getEl('filter-match-sport')?.value ?? 'all',
+    venueId: getEl('filter-match-venue')?.value ?? 'all',
     phase: getEl('filter-match-phase')?.value ?? 'all',
     status: getEl('filter-match-status')?.value ?? 'all',
   };
 
   const rows = await listMatchesForAdmin(filters);
-  renderMatchesTableRows(rows);
+  const statusFilter = String(filters.status ?? 'all');
+  state.adminMatches = statusFilter === 'all'
+    ? rows
+    : rows.filter((match) => getMatchCalendarStatus(match).key === statusFilter);
+  renderMatchesViews(state.adminMatches);
+}
+
+function openMatchDetail(matchId) {
+  const match = getMatchById(matchId);
+  if (!match) return;
+
+  const status = getMatchCalendarStatus(match);
+  const teams = getMatchTeamsLabel(match);
+  const schedule = formatScheduleRange(match);
+  const score = match.is_finished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -';
+  const canOpenLive = !match.is_finished && canEditMatches(state.admin?.ruolo);
+  const actions = [
+    canOpenLive
+      ? `<button class="btn btn-primary" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i> Live</button>`
+      : '',
+    canEditMatches(state.admin?.ruolo)
+      ? `<button class="btn btn-ghost" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i> Modifica</button>`
+      : '',
+    match.venue?.slug
+      ? `<button class="btn btn-ghost" data-action="qr-match" data-venue-id="${match.venue.id}" type="button"><i class="fa-solid fa-qrcode"></i> QR</button>`
+      : '',
+    canEditMatches(state.admin?.ruolo)
+      ? `<button class="btn btn-ghost" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i> Telegram</button>`
+      : '',
+  ].filter(Boolean);
+
+  getEl('match-detail-title').textContent = teams;
+  getEl('match-detail-content').innerHTML = `
+    <div class="match-detail-grid">
+      <div class="match-detail-main">
+        <div class="match-detail-score">${escapeHtml(score)}</div>
+        <span class="badge ${status.badge}">${escapeHtml(status.label)}</span>
+      </div>
+      <dl class="match-detail-list">
+        <div><dt>Torneo</dt><dd>${escapeHtml(match.sport?.name ?? '-')}</dd></div>
+        <div><dt>Fase</dt><dd>${escapeHtml(match.round_name ?? '-')}</dd></div>
+        <div><dt>Slot</dt><dd>${escapeHtml(schedule)}</dd></div>
+        <div><dt>Campo</dt><dd>${escapeHtml(match.venue?.name ?? 'Campo da definire')}</dd></div>
+        <div><dt>Note</dt><dd>${escapeHtml(match.schedule_notes || '-')}</dd></div>
+      </dl>
+      <div class="match-detail-actions">${actions.join('')}</div>
+    </div>
+  `;
+  openModal('modal-match-detail');
+}
+
+function renderVenuesTableRows(rows) {
+  const body = getEl('table-venues-body');
+  if (!body) return;
+
+  body.innerHTML = (rows ?? [])
+    .map((venue) => {
+      const url = getVenueQrUrl(venue, window.location.href);
+      const writeActions = canManageAll(state.admin?.ruolo)
+        ? `
+            <button class="icon-btn edit" data-action="edit-venue" data-id="${venue.id}" title="Modifica"><i class="fa-solid fa-pen"></i></button>
+            <button class="icon-btn delete" data-action="delete-venue" data-id="${venue.id}" title="Elimina"><i class="fa-solid fa-trash"></i></button>
+          `
+        : '';
+      return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(venue.name)}</strong>
+          <div class="muted" style="font-size:0.8rem;">/${escapeHtml(venue.slug)}${venue.description ? ` · ${escapeHtml(venue.description)}` : ''}</div>
+        </td>
+        <td>
+          <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>
+        </td>
+        <td>${venue.is_active ? '<span class="badge badge-success">Attivo</span>' : '<span class="badge badge-warning">Disattivo</span>'}</td>
+        <td>
+          <div class="table-actions">
+            <button class="icon-btn edit" data-action="qr-venue" data-id="${venue.id}" title="Mostra QR"><i class="fa-solid fa-qrcode"></i></button>
+            ${writeActions}
+          </div>
+        </td>
+      </tr>`;
+    })
+    .join('') || '<tr><td colspan="4" class="empty-state">Nessun campo configurato.</td></tr>';
+}
+
+async function loadVenuesTable() {
+  renderVenuesTableRows(state.venues);
+}
+
+function openVenueModal(venue = null) {
+  resetFormValues(getEl('form-venue'));
+  getEl('title-modal-venue').textContent = venue ? 'Modifica Campo' : 'Nuovo Campo';
+  getEl('edit-venue-id').value = venue?.id ?? '';
+  getEl('input-venue-name').value = venue?.name ?? '';
+  getEl('input-venue-slug').value = venue?.slug ?? '';
+  getEl('input-venue-description').value = venue?.description ?? '';
+  getEl('input-venue-active').checked = venue?.is_active !== false;
+  openModal('modal-venue');
+}
+
+async function saveVenueFromForm(event) {
+  event.preventDefault();
+  await saveVenue({
+    id: getEl('edit-venue-id').value || null,
+    name: getEl('input-venue-name').value,
+    slug: getEl('input-venue-slug').value || slugifyVenueName(getEl('input-venue-name').value),
+    description: getEl('input-venue-description').value,
+    is_active: getEl('input-venue-active').checked,
+  });
+  closeModal('modal-venue');
+  await refreshVenuesState();
+  await loadVenuesTable();
+  await loadMatchesTable();
+  showToast('Campo salvato.', 'success');
+}
+
+async function handleDeleteVenue(venueId) {
+  if (!confirm('Confermi eliminazione campo?')) return;
+  await deleteVenue(venueId);
+  await refreshVenuesState();
+  await loadVenuesTable();
+  await loadMatchesTable();
+  showToast('Campo eliminato.', 'success');
+}
+
+function showVenueQr(venue) {
+  if (!venue) return;
+  const url = getVenueQrUrl(venue, window.location.href);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(url)}`;
+  getEl('qr-modal-title').textContent = `QR · ${venue.name}`;
+  getEl('qr-modal-content').innerHTML = `
+    <div class="qr-preview">
+      <img src="${escapeHtml(qrUrl)}" alt="QR ${escapeHtml(venue.name)}" />
+      <div>
+        <h3>${escapeHtml(venue.name)}</h3>
+        <p class="muted">${escapeHtml(url)}</p>
+      </div>
+    </div>
+  `;
+  openModal('modal-venue-qr');
+}
+
+function getHonorEditionYear(entry) {
+  return entry?.edition_year ?? new Date(entry?.archived_at ?? Date.now()).getFullYear();
+}
+
+function renderHonorRollRows(rows) {
+  const body = getEl('table-honor-roll-body');
+  if (!body) return;
+
+  body.innerHTML = (rows ?? [])
+    .map(
+      (entry) => `
+      <tr>
+        <td>
+          <strong>${escapeHtml(getHonorEditionYear(entry))}</strong>
+          <div class="muted" style="font-size:0.8rem;">${escapeHtml(entry.year)}° anno</div>
+        </td>
+        <td>
+          <strong>${escapeHtml(entry.sport_name)}</strong>
+          <div class="muted" style="font-size:0.8rem;">${escapeHtml(entry.sport_type)} · ${escapeHtml(entry.format)}</div>
+        </td>
+        <td><strong>${escapeHtml(entry.winner_team_name)}</strong></td>
+        <td>${escapeHtml([entry.runner_up_team_name, entry.third_place_team_name].filter(Boolean).join(' · ') || '-')}</td>
+        <td>${escapeHtml(new Intl.DateTimeFormat('it-IT', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(entry.archived_at)))}</td>
+        <td>
+          <div class="table-actions" ${canManageAll(state.admin?.ruolo) ? '' : 'style="display:none"'}>
+            <button class="icon-btn delete" data-action="unarchive-entry" data-id="${entry.id}" title="Disarchivia"><i class="fa-solid fa-box-open"></i></button>
+          </div>
+        </td>
+      </tr>
+    `
+    )
+    .join('') || '<tr><td colspan="6" class="empty-state">Nessun torneo archiviato.</td></tr>';
+}
+
+async function loadArchiveTable() {
+  state.honorRoll = await loadHonorRoll();
+  renderHonorRollRows(state.honorRoll);
+}
+
+async function handleArchiveTournament() {
+  const sportId = Number(getEl('archive-sport-select')?.value || 0);
+  if (!sportId) {
+    showToast('Seleziona un torneo da archiviare.', 'error');
+    return;
+  }
+  const notes = prompt('Note archivio (opzionale):');
+  if (notes === null) return;
+  await archiveTournament(sportId, { notes });
+  await loadArchiveTable();
+  showToast('Torneo archiviato nell Albo d Oro.', 'success');
+}
+
+async function handleUnarchiveTournament(entryId) {
+  if (!confirm('Vuoi rimuovere questa voce dall Albo d Oro?')) return;
+  await unarchiveTournament(entryId);
+  await loadArchiveTable();
+  showToast('Torneo disarchiviato.', 'success');
+}
+
+function getTelegramChannelUrl() {
+  return String(APP_CONFIG.telegramChannelUrl ?? '').trim();
+}
+
+function printWithBodyClass(className) {
+  document.body.classList.add(className);
+  const cleanup = () => document.body.classList.remove(className);
+  window.addEventListener('afterprint', cleanup, { once: true });
+  window.print();
+  setTimeout(cleanup, 1500);
+}
+
+function printTelegramQr() {
+  printWithBodyClass('print-telegram-qr');
+}
+
+function printVenueQr() {
+  printWithBodyClass('print-venue-qr');
+}
+
+function renderTelegramView() {
+  const panel = getEl('telegram-channel-panel');
+  if (!panel) return;
+
+  const channelUrl = getTelegramChannelUrl();
+  const label = String(APP_CONFIG.telegramChannelLabel ?? 'Canale Telegram tornei').trim();
+
+  if (!channelUrl) {
+    panel.innerHTML = `
+      <div class="telegram-panel">
+        <div class="empty-state">
+          Configura prima <strong>APP_CONFIG.telegramChannelUrl</strong> in <code>js/app-config.js</code>.
+          Inserisci il link del canale Telegram, per esempio <code>https://t.me/nome_canale</code>.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(channelUrl)}`;
+  panel.innerHTML = `
+    <div class="telegram-panel">
+      <div class="telegram-info">
+        <div class="badge badge-info"><i class="fa-brands fa-telegram"></i> Telegram</div>
+        <h2>${escapeHtml(label)}</h2>
+        <p class="muted">Usa questo QR fuori dalle palestre o nelle circolari: studenti e capitani entreranno direttamente nel canale Telegram gestito dalla scuola.</p>
+        <div class="telegram-actions">
+          <a class="btn btn-primary" href="${escapeHtml(channelUrl)}" target="_blank" rel="noopener">
+            <i class="fa-brands fa-telegram"></i> Apri canale
+          </a>
+          <button class="btn btn-ghost" id="btn-print-telegram-qr" type="button">
+            <i class="fa-solid fa-print"></i> Stampa QR
+          </button>
+        </div>
+        <div class="telegram-url">${escapeHtml(channelUrl)}</div>
+      </div>
+      <div class="qr-preview telegram-qr">
+        <img src="${escapeHtml(qrUrl)}" alt="QR ${escapeHtml(label)}" />
+      </div>
+    </div>
+  `;
+
+  getEl('btn-print-telegram-qr')?.addEventListener('click', printTelegramQr);
 }
 
 function renderPlayerRankingTable(rows) {
@@ -657,6 +1191,7 @@ function renderReportLayouts(isAthletics) {
   getEl('report-team-filters')?.classList.toggle('hidden', isAthletics);
   getEl('report-team-layout')?.classList.toggle('hidden', isAthletics);
   getEl('report-athletics-layout')?.classList.toggle('hidden', !isAthletics);
+  setFilterToggleState(getEl('btn-toggle-report-filters'), [getEl('report-team-filters'), getEl('report-athletics-filters')].filter(Boolean));
 }
 
 function getReportColumnStorageKey(sportId) {
@@ -1255,6 +1790,27 @@ async function handleDeleteSport(sportId) {
   showToast('Torneo eliminato.', 'success');
 }
 
+function parsePlayersInput() {
+  return getEl('input-players-list').value
+    .split(/,|\n/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function populateCaptainSelect(selectedName = '') {
+  const captainSelect = getEl('select-team-captain');
+  if (!captainSelect) return;
+  const players = parsePlayersInput();
+  captainSelect.innerHTML =
+    '<option value="">-- Nessun capitano --</option>' +
+    players
+      .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+      .join('');
+  if (selectedName && players.some((name) => name === selectedName)) {
+    captainSelect.value = selectedName;
+  }
+}
+
 async function openTeamModal(team = null) {
   resetFormValues(getEl('form-team'));
   if (team) {
@@ -1264,20 +1820,23 @@ async function openTeamModal(team = null) {
     getEl('select-sport-team').value = String(team.sport_id);
     const players = await loadPlayersByTeam(team.id);
     getEl('input-players-list').value = players.map((item) => item.full_name).join(', ');
+    populateCaptainSelect(players.find((item) => Boolean(item.is_captain))?.full_name ?? '');
   } else {
     getEl('title-modal-team').textContent = 'Nuova Squadra';
+    populateCaptainSelect();
   }
   openModal('modal-team');
 }
 
 async function handleSaveTeam(event) {
   event.preventDefault();
-  const players = getEl('input-players-list').value.split(/,|\n/g).map((item) => item.trim()).filter(Boolean);
+  const players = parsePlayersInput();
   await saveTeam({
     id: getEl('edit-team-id').value || null,
     name: getEl('input-team-name').value,
     sport_id: getEl('select-sport-team').value,
     players,
+    captainName: getEl('select-team-captain')?.value ?? '',
   });
   closeModal('modal-team');
   await loadTeamsTable();
@@ -1309,21 +1868,86 @@ async function populateMatchTeams(sportId) {
   awaySelect.disabled = false;
 }
 
-async function handleSaveMatch(event) {
-  event.preventDefault();
-  await createManualMatch({
+async function openMatchModal(match = null) {
+  resetFormValues(getEl('form-match'));
+  getEl('title-modal-match').textContent = match ? 'Modifica Match' : 'Nuovo Match';
+  getEl('btn-submit-match').textContent = match ? 'Salva Match' : 'Crea Match';
+  getEl('edit-match-id').value = match?.id ?? '';
+
+  if (match?.sport_id) {
+    getEl('select-sport-match').value = String(match.sport_id);
+    await populateMatchTeams(match.sport_id);
+  } else {
+    const defaultSportId = getEl('select-sport-match')?.value || getTeamSports()[0]?.id || '';
+    if (defaultSportId) {
+      getEl('select-sport-match').value = String(defaultSportId);
+      await populateMatchTeams(defaultSportId);
+    }
+  }
+
+  getEl('select-match-phase').value = match?.round_name ?? 'Girone (Andata)';
+  getEl('select-home-team').value = match?.home_team_id ? String(match.home_team_id) : '';
+  getEl('select-away-team').value = match?.away_team_id ? String(match.away_team_id) : '';
+  getEl('select-match-venue').value = match?.venue_id ? String(match.venue_id) : '';
+
+  if (match?.scheduled_start) {
+    const start = new Date(match.scheduled_start);
+    getEl('input-match-date').value = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+    getEl('input-match-start').value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+  }
+  if (match?.scheduled_end) {
+    const end = new Date(match.scheduled_end);
+    getEl('input-match-end').value = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+  }
+  getEl('input-match-notes').value = match?.schedule_notes ?? '';
+
+  openModal('modal-match');
+}
+
+function buildMatchFormPayload() {
+  const date = getEl('input-match-date')?.value ?? '';
+  const startTime = getEl('input-match-start')?.value ?? '';
+  const endTime = getEl('input-match-end')?.value ?? '';
+  const hasSchedule = Boolean(date || startTime || endTime);
+
+  return {
+    matchId: Number(getEl('edit-match-id')?.value || 0) || null,
     sportId: Number(getEl('select-sport-match').value || 0),
     homeTeamId: Number(getEl('select-home-team').value || 0),
     awayTeamId: Number(getEl('select-away-team').value || 0),
     roundName: getEl('select-match-phase').value,
-  });
+    venueId: Number(getEl('select-match-venue').value || 0) || null,
+    scheduledStart: hasSchedule ? combineLocalDateTime(date, startTime) : null,
+    scheduledEnd: hasSchedule ? combineLocalDateTime(date, endTime) : null,
+    scheduleNotes: getEl('input-match-notes')?.value ?? '',
+  };
+}
+
+async function handleSaveMatch(event) {
+  event.preventDefault();
+  const payload = buildMatchFormPayload();
+  let savedMatch;
+  if (payload.matchId) {
+    savedMatch = await updateManualMatch(payload);
+  } else {
+    savedMatch = await createManualMatch(payload);
+  }
   closeModal('modal-match');
   await loadMatchesTable();
-  showToast('Partita creata.', 'success');
+  if (savedMatch?.__scheduleUnsupported) {
+    showToast('Partita salvata senza campo/orario. Applica la migrazione 009 e ricarica schema/cache Supabase.', 'error');
+    return;
+  }
+  if (savedMatch?.__savedViaRpc) {
+    showToast(payload.matchId ? 'Partita aggiornata via RPC.' : 'Partita creata via RPC.', 'success');
+    return;
+  }
+  showToast(payload.matchId ? 'Partita aggiornata.' : 'Partita creata.', 'success');
 }
 
 async function handleGenerateMatches() {
-  const sportId = Number(getEl('select-sport-match').value || 0);
+  const filterSport = getEl('filter-match-sport')?.value ?? 'all';
+  const sportId = Number(filterSport !== 'all' ? filterSport : getEl('select-sport-match').value || 0);
   if (!sportId) return showToast('Seleziona un torneo per la generazione.', 'error');
   const sport = getSportById(sportId);
   const inserted = await generateMatchesForSport(sportId, Boolean(sport?.has_return_match));
@@ -1417,6 +2041,8 @@ function buildSettingsPayloadForSport(sport) {
   if (visibility.calcio_discipline) {
     payload.allow_yellow_cards = getEl('set-allow-yellow').checked;
     payload.allow_red_cards = getEl('set-allow-red').checked;
+    payload.max_yellow_cards = Math.max(1, Number(getEl('set-max-yellow-cards')?.value || 2));
+    payload.max_red_cards = Math.max(1, Number(getEl('set-max-red-cards')?.value || 1));
   }
 
   if (visibility.pallavolo_live) {
@@ -1449,6 +2075,8 @@ function fillSettingsForm(config) {
   getEl('set-ath-max-events').value = config.athletics_max_events_per_player ?? 99;
   getEl('set-allow-yellow').checked = Boolean(config.allow_yellow_cards);
   getEl('set-allow-red').checked = Boolean(config.allow_red_cards);
+  getEl('set-max-yellow-cards').value = config.max_yellow_cards ?? 2;
+  getEl('set-max-red-cards').value = config.max_red_cards ?? 1;
   getEl('set-allow-mvp').checked = Boolean(config.allow_mvp ?? true);
 }
 
@@ -1723,7 +2351,10 @@ function bindCoreActions() {
 
   getEl('btn-new-sport')?.addEventListener('click', () => openSportModal(null));
   document.querySelectorAll('[data-open-team-modal]').forEach((btn) => btn.addEventListener('click', () => openTeamModal(null)));
-  document.querySelectorAll('[data-open-match-modal]').forEach((btn) => btn.addEventListener('click', () => openModal('modal-match')));
+  document.querySelectorAll('[data-open-match-modal]').forEach((btn) => btn.addEventListener('click', () => {
+    openMatchModal(null).catch((error) => showToast(error.message, 'error'));
+  }));
+  getEl('btn-new-venue')?.addEventListener('click', () => openVenueModal(null));
   getEl('btn-new-event')?.addEventListener('click', () => openEventModal(null));
   getEl('btn-csv-teams-players')?.addEventListener('click', () => openCsvImportModal('teams_players'));
   getEl('btn-csv-athletics-events')?.addEventListener('click', () => openCsvImportModal('athletics_events'));
@@ -1731,6 +2362,10 @@ function bindCoreActions() {
 
   getEl('btn-generate-matches')?.addEventListener('click', () => {
     handleGenerateMatches().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('btn-toggle-matches-view')?.addEventListener('click', () => {
+    state.matchesViewMode = state.matchesViewMode === 'calendar' ? 'table' : 'calendar';
+    renderMatchesViews();
   });
 
   getEl('btn-generate-semifinals')?.addEventListener('click', () => {
@@ -1741,13 +2376,19 @@ function bindCoreActions() {
     saveSettingsForSport().catch((error) => showToast(error.message, 'error'));
   });
 
+  getEl('btn-archive-tournament')?.addEventListener('click', () => {
+    handleArchiveTournament().catch((error) => showToast(error.message, 'error'));
+  });
+
+  getEl('btn-print-venue-qr')?.addEventListener('click', printVenueQr);
+
   document.querySelectorAll('[data-modal-close]').forEach((button) => {
     button.addEventListener('click', () => {
       closeModal(button.dataset.modalClose);
     });
   });
 
-  ['modal-sport', 'modal-team', 'modal-match', 'modal-event', 'modal-csv-import'].forEach((modalId) => {
+  ['modal-sport', 'modal-team', 'modal-match', 'modal-venue', 'modal-venue-qr', 'modal-match-detail', 'modal-event', 'modal-csv-import'].forEach((modalId) => {
     getEl(modalId)?.addEventListener('click', (event) => {
       if (event.target.id === modalId) closeModal(modalId);
     });
@@ -1791,9 +2432,20 @@ function bindCoreActions() {
   getEl('form-team')?.addEventListener('submit', (event) => {
     handleSaveTeam(event).catch((error) => showToast(error.message, 'error'));
   });
+  getEl('input-players-list')?.addEventListener('input', () => populateCaptainSelect(getEl('select-team-captain')?.value ?? ''));
 
   getEl('form-match')?.addEventListener('submit', (event) => {
     handleSaveMatch(event).catch((error) => showToast(error.message, 'error'));
+  });
+
+  getEl('form-venue')?.addEventListener('submit', (event) => {
+    saveVenueFromForm(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('input-venue-name')?.addEventListener('input', () => {
+    const slugInput = getEl('input-venue-slug');
+    if (slugInput && !slugInput.value.trim()) {
+      slugInput.value = slugifyVenueName(getEl('input-venue-name').value);
+    }
   });
 
   getEl('form-event')?.addEventListener('submit', (event) => {
@@ -1804,7 +2456,7 @@ function bindCoreActions() {
     saveEventResultForm(event).catch((error) => showToast(error.message, 'error'));
   });
 
-  ['filter-match-team', 'filter-match-sport', 'filter-match-phase', 'filter-match-status'].forEach((id) => {
+  ['filter-match-team', 'filter-match-sport', 'filter-match-venue', 'filter-match-phase', 'filter-match-status'].forEach((id) => {
     getEl(id)?.addEventListener('input', () => {
       loadMatchesTable().catch((error) => showToast(error.message, 'error'));
     });
@@ -1812,6 +2464,7 @@ function bindCoreActions() {
       loadMatchesTable().catch((error) => showToast(error.message, 'error'));
     });
   });
+  bindFilterToggle('btn-toggle-match-filters', ['match-filters']);
 
   getEl('select-sport-match')?.addEventListener('change', (event) => {
     populateMatchTeams(event.target.value).catch((error) => showToast(error.message, 'error'));
@@ -1865,9 +2518,15 @@ function bindCoreActions() {
     button.setAttribute('aria-expanded', 'false');
   });
 
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('.match-action-menu')) return;
+    closeMatchActionMenus();
+  });
+
   ['rep-filter-team', 'rep-filter-pres', 'rep-filter-fouls', 'rep-filter-score'].forEach((id) => {
     getEl(id)?.addEventListener('change', applyReportFilters);
   });
+  bindFilterToggle('btn-toggle-report-filters', ['report-team-filters', 'report-athletics-filters']);
   getEl('rep-ath-player-select')?.addEventListener('change', (event) => {
     if (String(event.target?.value ?? 'all') !== 'all') {
       const search = getEl('rep-ath-player-search');
@@ -1886,6 +2545,7 @@ function bindCoreActions() {
     state.selectedEventId = null;
     loadEventsSection().catch((error) => showToast(error.message, 'error'));
   });
+  bindFilterToggle('btn-toggle-athletics-filters', ['athletics-filters']);
 
   getEl('event-select-results')?.addEventListener('change', (event) => {
     state.selectedEventId = Number(event.target.value || 0) || null;
@@ -1907,11 +2567,24 @@ function bindCoreActions() {
     }
   });
 
+  getEl('table-honor-roll-body')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const id = Number(actionEl.dataset.id);
+    if (actionEl.dataset.action === 'unarchive-entry') {
+      handleUnarchiveTournament(id).catch((error) => showToast(error.message, 'error'));
+    }
+  });
+
   getEl('table-teams-body')?.addEventListener('click', (event) => {
     const actionEl = event.target.closest('[data-action]');
     if (!actionEl) return;
     const action = actionEl.dataset.action;
     const id = Number(actionEl.dataset.id);
+    if (action === 'telegram-team') {
+      handleSendTelegramTeamReminder(id, actionEl.dataset.name).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
     if (action === 'edit-team') {
       return openTeamModal({
         id,
@@ -1929,9 +2602,86 @@ function bindCoreActions() {
     if (!actionEl) return;
     const action = actionEl.dataset.action;
     const id = Number(actionEl.dataset.id);
+
+    if (action === 'toggle-match-menu') {
+      const menu = actionEl.closest('.match-action-menu');
+      if (!menu) return;
+      const shouldOpen = !menu.classList.contains('open');
+      closeMatchActionMenus(menu);
+      menu.classList.toggle('open', shouldOpen);
+      actionEl.setAttribute('aria-expanded', String(shouldOpen));
+      return;
+    }
+
+    if (action === 'open-match-detail') {
+      if (event.target.closest('.match-action-menu')) return;
+      openMatchDetail(id);
+      return;
+    }
+
+    closeMatchActionMenus();
     if (action === 'start-live') return goToLive(id);
+    if (action === 'edit-match') {
+      const match = state.adminMatches.find((item) => Number(item.id) === id);
+      if (match) {
+        openMatchModal(match).catch((error) => showToast(error.message, 'error'));
+      }
+      return;
+    }
+    if (action === 'qr-match') {
+      const venue = state.venues.find((item) => Number(item.id) === Number(actionEl.dataset.venueId));
+      showVenueQr(venue);
+      return;
+    }
+    if (action === 'telegram-match') {
+      handleSendTelegramMatchReminder(id).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
     if (action === 'delete-match') {
       handleDeleteMatch(id).catch((error) => showToast(error.message, 'error'));
+    }
+  });
+
+  getEl('matches-calendar-board')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    if (actionEl.dataset.action === 'open-match-detail') {
+      openMatchDetail(Number(actionEl.dataset.id));
+    }
+  });
+
+  getEl('match-detail-content')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+    const id = Number(actionEl.dataset.id);
+    if (action === 'start-live') return goToLive(id);
+    if (action === 'edit-match') {
+      closeModal('modal-match-detail');
+      const match = getMatchById(id);
+      if (match) openMatchModal(match).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
+    if (action === 'qr-match') {
+      const venue = state.venues.find((item) => Number(item.id) === Number(actionEl.dataset.venueId));
+      showVenueQr(venue);
+      return;
+    }
+    if (action === 'telegram-match') {
+      handleSendTelegramMatchReminder(id).catch((error) => showToast(error.message, 'error'));
+    }
+  });
+
+  getEl('table-venues-body')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const action = actionEl.dataset.action;
+    const id = Number(actionEl.dataset.id);
+    const venue = state.venues.find((item) => Number(item.id) === id);
+    if (action === 'qr-venue') return showVenueQr(venue);
+    if (action === 'edit-venue') return openVenueModal(venue);
+    if (action === 'delete-venue') {
+      handleDeleteVenue(id).catch((error) => showToast(error.message, 'error'));
     }
   });
 
@@ -1970,7 +2720,7 @@ async function init() {
   bindCoreActions();
   applyRolePermissions();
 
-  await refreshSportsState();
+  await Promise.all([refreshSportsState(), refreshVenuesState()]);
   await loadDashboardStats();
 
   if (state.sports.length) {
@@ -1980,6 +2730,9 @@ async function init() {
       const el = getEl(id);
       if (el && !el.value && firstSport?.id) el.value = String(firstSport.id);
     });
+    if (getEl('archive-sport-select') && firstSport?.id) {
+      getEl('archive-sport-select').value = String(firstSport.id);
+    }
     ['select-sport-match', 'playoff-sport-select'].forEach((id) => {
       const el = getEl(id);
       if (el && !el.value && firstTeamSport?.id) el.value = String(firstTeamSport.id);

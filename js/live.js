@@ -28,7 +28,7 @@ export async function loadLiveMatch(matchId) {
   const { data } = await run(
     db
       .from('matches')
-      .select('*, sport:sports(*), home:teams!home_team_id(*), away:teams!away_team_id(*)')
+      .select('*, sport:sports(*), home:teams!home_team_id(*), away:teams!away_team_id(*), venue:venues(id, name, slug)')
       .eq('id', Number(matchId))
       .single(),
     'Caricamento match live'
@@ -51,13 +51,17 @@ export async function loadLiveMatch(matchId) {
 
   const [homePlayersResult, awayPlayersResult] = await Promise.all([
     run(
-      db.from('players').select('*').eq('team_id', Number(data.home_team_id)).order('full_name', {
+      db.from('players').select('*').eq('team_id', Number(data.home_team_id)).order('is_captain', {
+        ascending: false,
+      }).order('full_name', {
         ascending: true,
       }),
       'Caricamento rosa casa'
     ),
     run(
-      db.from('players').select('*').eq('team_id', Number(data.away_team_id)).order('full_name', {
+      db.from('players').select('*').eq('team_id', Number(data.away_team_id)).order('is_captain', {
+        ascending: false,
+      }).order('full_name', {
         ascending: true,
       }),
       'Caricamento rosa ospite'
@@ -264,7 +268,31 @@ export async function finalizeLiveMatch({
   payload,
   statsPayload,
   expectedVersion,
+  signaturesPayload = null,
 }) {
+  if (Array.isArray(signaturesPayload)) {
+    try {
+      const result = await runRpc(
+        'finalize_match_with_signatures',
+        {
+          match_id: Number(matchId),
+          payload,
+          stats_payload: statsPayload,
+          signatures_payload: signaturesPayload,
+          expected_version: Number(expectedVersion),
+        },
+        'Finalizzazione match con firme'
+      );
+
+      return normalizeRpcResult(result);
+    } catch (error) {
+      if (!isMissingRpcError(error)) {
+        throw error;
+      }
+      throw new Error('Applica la migrazione 009 prima di chiudere match con firme capitani.');
+    }
+  }
+
   try {
     const result = await runRpc(
       'finalize_match',

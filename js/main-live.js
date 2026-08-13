@@ -32,6 +32,11 @@ const state = {
   hasLock: false,
   editable: false,
   unsubscribe: null,
+  signatures: {
+    home: null,
+    away: null,
+  },
+  signaturePadsBound: false,
 };
 
 const autosaveSnapshot = debounce(() => {
@@ -41,6 +46,14 @@ const autosaveSnapshot = debounce(() => {
 function getMatchIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
   return Number(params.get('match') || 0);
+}
+
+function openModal(id) {
+  getEl(id)?.classList.add('open');
+}
+
+function closeModal(id) {
+  getEl(id)?.classList.remove('open');
 }
 
 function setEditable(enabled) {
@@ -103,17 +116,48 @@ function getMaxFouls() {
   return Math.max(1, Number(state.config?.max_fouls ?? 3));
 }
 
+function getMaxYellowCards() {
+  return Math.max(1, Number(state.config?.max_yellow_cards ?? 2));
+}
+
+function getMaxRedCards() {
+  return Math.max(1, Number(state.config?.max_red_cards ?? 1));
+}
+
 function isPlayerExpelled(entry) {
   const fouls = Number(entry?.fouls ?? 0);
+  const yellowCards = Number(entry?.yellow_cards ?? 0);
   const redCards = Number(entry?.red_cards ?? 0);
   if (isSoccerMatch()) {
-    return redCards > 0;
+    return redCards >= getMaxRedCards() || yellowCards >= getMaxYellowCards();
   }
   return fouls >= getMaxFouls();
 }
 
 function getTimeoutLimit() {
   return Math.max(0, Number(state.config?.timeouts_per_team ?? 2));
+}
+
+function getCaptain(side) {
+  const players = side === 'home' ? state.homePlayers : state.awayPlayers;
+  return players.find((player) => Boolean(player.is_captain)) ?? null;
+}
+
+function getScheduleLabel() {
+  const start = state.match?.scheduled_start ? new Date(state.match.scheduled_start) : null;
+  if (!start || Number.isNaN(start.getTime())) return 'Orario da definire';
+
+  const startLabel = new Intl.DateTimeFormat('it-IT', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(start);
+  const end = state.match?.scheduled_end ? new Date(state.match.scheduled_end) : null;
+  if (!end || Number.isNaN(end.getTime())) return startLabel;
+
+  const endLabel = new Intl.DateTimeFormat('it-IT', {
+    timeStyle: 'short',
+  }).format(end);
+  return `${startLabel} - ${endLabel}`;
 }
 
 function renderHeader() {
@@ -124,7 +168,7 @@ function renderHeader() {
   getEl('live-timer').textContent = formatDuration(state.duration);
   getEl('live-quarter').textContent = `Q${state.quarter}`;
   getEl('live-match-title').textContent = `${state.match.home?.name ?? 'Casa'} vs ${state.match.away?.name ?? 'Ospite'}`;
-  getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'}`;
+  getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · ${getScheduleLabel()}`;
   const timeoutLimit = getTimeoutLimit();
   getEl('timeout-home-count').textContent = String(state.timeouts.home);
   getEl('timeout-away-count').textContent = String(state.timeouts.away);
@@ -150,24 +194,26 @@ function renderRosterTable(tableId, players) {
       const mvpEnabled = Boolean(state.config?.allow_mvp ?? true);
       const allowYellow = Boolean(state.config?.allow_yellow_cards);
       const allowRed = Boolean(state.config?.allow_red_cards);
+      const maxYellowCards = getMaxYellowCards();
+      const maxRedCards = getMaxRedCards();
       const mvpActive = rowState.is_mvp_vote && mvpEnabled ? 'mvp-star active' : 'mvp-star';
       const expelled = isPlayerExpelled(rowState);
       const mvpDisabled = !state.editable || !mvpEnabled || expelled;
       const playedDisabled = !state.editable || expelled;
       const foulDisabled = !state.editable || expelled || rowState.fouls >= getMaxFouls();
-      const yellowDisabled = !state.editable || expelled || !allowYellow;
-      const redDisabled = !state.editable || expelled || !allowRed;
+      const yellowDisabled = !state.editable || expelled || !allowYellow || Number(rowState.yellow_cards ?? 0) >= maxYellowCards;
+      const redDisabled = !state.editable || expelled || !allowRed || Number(rowState.red_cards ?? 0) >= maxRedCards;
 
       return `
       <tr data-player-id="${player.id}" class="${expelled ? 'live-player-expelled' : ''}">
         <td class="text-center"><input type="checkbox" data-action="toggle-played" ${rowState.played ? 'checked' : ''} ${playedDisabled ? 'disabled' : ''}></td>
-        <td><strong>${escapeHtml(player.full_name)}</strong></td>
+        <td><strong>${escapeHtml(player.full_name)}</strong>${player.is_captain ? ' <span class="badge badge-warning">Capitano</span>' : ''}</td>
         <td class="text-center ${useFouls ? '' : 'hidden'}" data-col="fouls"><span class="${foulClass}" id="foul-${player.id}">${rowState.fouls}</span></td>
         <td class="text-center"><button class="${mvpActive}" data-action="toggle-mvp" title="${mvpEnabled ? 'Vota MVP' : 'MVP disabilitato nelle impostazioni torneo'}" ${mvpDisabled ? 'disabled' : ''}><i class="fa-solid fa-star"></i></button></td>
         <td class="text-center ${useCards ? '' : 'hidden'}" data-col="cards">
           <div class="live-player-cards">
-            <span class="card-pill yellow">Y ${rowState.yellow_cards}</span>
-            <span class="card-pill red">R ${rowState.red_cards}</span>
+            <span class="card-pill yellow">Y ${rowState.yellow_cards}/${maxYellowCards}</span>
+            <span class="card-pill red">R ${rowState.red_cards}/${maxRedCards}</span>
           </div>
         </td>
         <td class="text-center">
@@ -208,9 +254,9 @@ function applySportSpecificControls() {
   });
 
   if (isVolley) {
-    getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · Set`;
+    getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · Set`;
   } else if (isSoccer) {
-    getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · Goal`;
+    getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · Goal`;
   }
 
   const showFouls = !isSoccer;
@@ -425,7 +471,13 @@ function addYellowCard(playerId) {
   if (!state.editable || !Boolean(state.config?.allow_yellow_cards)) return;
   const entry = ensurePlayer(playerId);
   if (isPlayerExpelled(entry)) return;
-  entry.yellow_cards = Number(entry.yellow_cards ?? 0) + 1;
+  const maxYellowCards = getMaxYellowCards();
+  entry.yellow_cards = Math.min(maxYellowCards, Number(entry.yellow_cards ?? 0) + 1);
+  if (entry.yellow_cards >= maxYellowCards) {
+    entry.played = false;
+    entry.is_mvp_vote = false;
+    showToast('Giocatore espulso per limite cartellini gialli.', 'error');
+  }
   renderRosters();
   autosaveSnapshot();
 }
@@ -435,7 +487,8 @@ function addRedCard(playerId) {
   if (!state.editable || !Boolean(state.config?.allow_red_cards)) return;
   const entry = ensurePlayer(playerId);
   if (isPlayerExpelled(entry)) return;
-  entry.red_cards = Number(entry.red_cards ?? 0) + 1;
+  const maxRedCards = getMaxRedCards();
+  entry.red_cards = Math.min(maxRedCards, Number(entry.red_cards ?? 0) + 1);
   entry.played = false;
   entry.is_mvp_vote = false;
   renderRosters();
@@ -457,16 +510,13 @@ function useTimeout(team) {
   autosaveSnapshot();
 }
 
-async function finalizeMatch() {
-  if (!state.editable) return;
-
+function validateBeforeFinalization() {
   if (['calcio', 'basket', 'pallavolo'].includes(getSportType())) {
     const minPlayers = Math.max(1, Number(state.config?.min_players ?? 1));
     const homePresences = state.homePlayers.filter((player) => Boolean(ensurePlayer(player.id).played)).length;
     const awayPresences = state.awayPlayers.filter((player) => Boolean(ensurePlayer(player.id).played)).length;
     if (homePresences < minPlayers || awayPresences < minPlayers) {
-      showToast(`Servono almeno ${minPlayers} presenze per squadra (${homePresences}-${awayPresences}).`, 'error');
-      return;
+      throw new Error(`Servono almeno ${minPlayers} presenze per squadra (${homePresences}-${awayPresences}).`);
     }
   }
 
@@ -476,16 +526,172 @@ async function finalizeMatch() {
     const homeSets = Number(state.homeScore ?? 0);
     const awaySets = Number(state.awayScore ?? 0);
     if (homeSets < setsToWin && awaySets < setsToWin) {
-      showToast(`Per chiudere il match servono almeno ${setsToWin} set vinti da una squadra.`, 'error');
-      return;
+      throw new Error(`Per chiudere il match servono almeno ${setsToWin} set vinti da una squadra.`);
     }
     if (homeSets === awaySets) {
-      showToast('Impossibile chiudere il match con set in parità.', 'error');
-      return;
+      throw new Error('Impossibile chiudere il match con set in parità.');
     }
   }
 
-  if (!confirm('Confermi chiusura e salvataggio definitivo del match?')) {
+  const homeCaptain = getCaptain('home');
+  const awayCaptain = getCaptain('away');
+  if (!homeCaptain || !awayCaptain) {
+    throw new Error('Imposta un capitano per entrambe le squadre dalla gestione squadre.');
+  }
+
+  return { homeCaptain, awayCaptain };
+}
+
+function openFinalizeModal() {
+  const { homeCaptain, awayCaptain } = validateBeforeFinalization();
+
+  state.signatures = { home: null, away: null };
+  getEl('signature-home-captain').textContent = homeCaptain.full_name;
+  getEl('signature-away-captain').textContent = awayCaptain.full_name;
+  getEl('signature-report-summary').innerHTML = `
+    <div class="signature-score-line">
+      <strong>${escapeHtml(state.match.home?.name ?? 'Casa')}</strong>
+      <span class="score-chip">${state.homeScore} - ${state.awayScore}</span>
+      <strong>${escapeHtml(state.match.away?.name ?? 'Ospite')}</strong>
+    </div>
+    <div class="muted">${escapeHtml(state.match.sport?.name ?? '-')} · ${escapeHtml(state.match.round_name ?? '-')} · ${escapeHtml(state.match.venue?.name ?? 'Campo da definire')} · ${escapeHtml(getScheduleLabel())}</div>
+  `;
+
+  document.querySelectorAll('.signature-canvas').forEach((canvas) => {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+  updateSignatureStatus('home');
+  updateSignatureStatus('away');
+  openModal('modal-finalize-signatures');
+}
+
+function closeFinalizeModal() {
+  closeModal('modal-finalize-signatures');
+}
+
+function updateSignatureStatus(side) {
+  const status = getEl(`signature-${side}-status`);
+  if (!status) return;
+  status.textContent = state.signatures[side] ? 'Firma acquisita' : 'Firma richiesta';
+  status.className = `signature-status ${state.signatures[side] ? 'ready' : ''}`;
+}
+
+function resizeSignatureCanvas(canvas) {
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  const rect = canvas.getBoundingClientRect();
+  const nextWidth = Math.max(320, Math.round(rect.width * ratio));
+  const nextHeight = Math.max(150, Math.round(rect.height * ratio));
+  if (canvas.width === nextWidth && canvas.height === nextHeight) return;
+  canvas.width = nextWidth;
+  canvas.height = nextHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(ratio, ratio);
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#0f172a';
+}
+
+function bindSignaturePads() {
+  if (state.signaturePadsBound) return;
+  state.signaturePadsBound = true;
+
+  document.querySelectorAll('.signature-canvas').forEach((canvas) => {
+    const side = canvas.dataset.signatureSide;
+    let drawing = false;
+    let hasInk = false;
+
+    const getPoint = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+    };
+
+    const startDrawing = (event) => {
+      if (!state.editable) return;
+      resizeSignatureCanvas(canvas);
+      drawing = true;
+      hasInk = true;
+      canvas.setPointerCapture?.(event.pointerId);
+      const point = getPoint(event);
+      const ctx = canvas.getContext('2d');
+      ctx.beginPath();
+      ctx.moveTo(point.x, point.y);
+      event.preventDefault();
+    };
+
+    const draw = (event) => {
+      if (!drawing) return;
+      const point = getPoint(event);
+      const ctx = canvas.getContext('2d');
+      ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+      event.preventDefault();
+    };
+
+    const stopDrawing = () => {
+      if (!drawing) return;
+      drawing = false;
+      if (hasInk) {
+        state.signatures[side] = canvas.toDataURL('image/png');
+        updateSignatureStatus(side);
+      }
+    };
+
+    canvas.addEventListener('pointerdown', startDrawing);
+    canvas.addEventListener('pointermove', draw);
+    canvas.addEventListener('pointerup', stopDrawing);
+    canvas.addEventListener('pointercancel', stopDrawing);
+    canvas.addEventListener('pointerleave', stopDrawing);
+  });
+
+  document.querySelectorAll('[data-clear-signature]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const side = button.dataset.clearSignature;
+      const canvas = document.querySelector(`.signature-canvas[data-signature-side="${side}"]`);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      state.signatures[side] = null;
+      updateSignatureStatus(side);
+    });
+  });
+}
+
+function buildSignaturesPayload() {
+  const homeCaptain = getCaptain('home');
+  const awayCaptain = getCaptain('away');
+  const now = new Date().toISOString();
+
+  return [
+    {
+      team_side: 'home',
+      team_id: Number(state.match.home_team_id),
+      player_id: Number(homeCaptain?.id ?? 0),
+      captain_name: homeCaptain?.full_name ?? '',
+      signature_data_url: state.signatures.home,
+      signed_at: now,
+      user_agent: navigator.userAgent,
+    },
+    {
+      team_side: 'away',
+      team_id: Number(state.match.away_team_id),
+      player_id: Number(awayCaptain?.id ?? 0),
+      captain_name: awayCaptain?.full_name ?? '',
+      signature_data_url: state.signatures.away,
+      signed_at: now,
+      user_agent: navigator.userAgent,
+    },
+  ];
+}
+
+async function submitFinalizationWithSignatures() {
+  if (!state.editable) return;
+  if (!state.signatures.home || !state.signatures.away) {
+    showToast('Servono entrambe le firme dei capitani.', 'error');
     return;
   }
 
@@ -499,6 +705,7 @@ async function finalizeMatch() {
       away_score: state.awayScore,
     },
     statsPayload: buildStatsPayload(),
+    signaturesPayload: buildSignaturesPayload(),
     expectedVersion: state.lockVersion,
   });
 
@@ -508,13 +715,27 @@ async function finalizeMatch() {
   }
 
   state.lockVersion = Number(result?.new_version ?? state.lockVersion + 1);
-  showToast('Match finalizzato con successo.', 'success');
+  showToast('Match finalizzato con firme capitani.', 'success');
+  closeFinalizeModal();
   setTimeout(() => {
     window.location.href = 'admin.html';
   }, 900);
 }
 
+async function finalizeMatch() {
+  if (!state.editable) return;
+
+  try {
+    openFinalizeModal();
+  } catch (error) {
+    showToast(error.message, 'error');
+    return;
+  }
+}
+
 function bindLiveControls() {
+  bindSignaturePads();
+
   getEl('btn-back-admin')?.addEventListener('click', () => {
     window.location.href = 'admin.html';
   });
@@ -538,6 +759,14 @@ function bindLiveControls() {
   });
   getEl('btn-timeout-home')?.addEventListener('click', () => useTimeout('home'));
   getEl('btn-timeout-away')?.addEventListener('click', () => useTimeout('away'));
+  getEl('btn-cancel-finalize-signatures')?.addEventListener('click', closeFinalizeModal);
+  getEl('btn-cancel-finalize-signatures-secondary')?.addEventListener('click', closeFinalizeModal);
+  getEl('btn-confirm-finalize-signatures')?.addEventListener('click', () => {
+    submitFinalizationWithSignatures().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('modal-finalize-signatures')?.addEventListener('click', (event) => {
+    if (event.target.id === 'modal-finalize-signatures') closeFinalizeModal();
+  });
 
   ['table-live-home', 'table-live-away'].forEach((tableId) => {
     getEl(tableId)?.addEventListener('change', (event) => {

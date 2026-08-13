@@ -5,6 +5,8 @@
   lockTtlSeconds: 90,
   lockRefreshSeconds: 30,
   liveAutosaveDebounceMs: 800,
+  telegramChannelUrl: 'https://t.me/itsoscup',
+  telegramChannelLabel: 'Canale Ufficiale ITSOSCup.it',
 };
 
 export const ROLES = {
@@ -26,4 +28,3 @@ export const TOURNAMENT_FORMATS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione Diretta',
 };
-
