@@ -1,6 +1,7 @@
 ﻿import { APP_CONFIG } from './app-config.js';
 import { db, run, runRpc, subscribeTable } from './db.js';
 import { loadSportConfig } from './matches.js';
+import { getDeviceInfo } from './device.js';
 
 function normalizeRpcResult(result) {
   if (Array.isArray(result)) {
@@ -149,6 +150,7 @@ export async function refreshLiveLock(matchId) {
       throw new Error('Sessione non valida');
     }
 
+    const device = getDeviceInfo();
     const { data } = await run(
       db
         .from('matches')
@@ -226,25 +228,50 @@ export async function commitLiveUpdate({
       throw new Error('Sessione non valida');
     }
 
-    const { data } = await run(
-      db
-        .from('matches')
-        .update({
-          home_score: Number(payload.home_score ?? 0),
-          away_score: Number(payload.away_score ?? 0),
-          duration: Number(payload.duration ?? 0),
-          status: 'live',
-          live_payload: payload,
-          lock_version: Number(expectedVersion) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', Number(matchId))
-        .eq('lock_owner', user.id)
-        .eq('lock_version', Number(expectedVersion))
-        .select('lock_version, updated_at')
-        .maybeSingle(),
-      'Salvataggio snapshot fallback'
-    );
+    const updatePayload = {
+      home_score: Number(payload.home_score ?? 0),
+      away_score: Number(payload.away_score ?? 0),
+      duration: Number(payload.duration ?? 0),
+      status: 'live',
+      live_payload: payload,
+      lock_version: Number(expectedVersion) + 1,
+      updated_device_id: device.id,
+      updated_device_label: device.label,
+      updated_at: new Date().toISOString(),
+    };
+
+    let data;
+    try {
+      const result = await run(
+        db
+          .from('matches')
+          .update(updatePayload)
+          .eq('id', Number(matchId))
+          .eq('lock_owner', user.id)
+          .eq('lock_version', Number(expectedVersion))
+          .select('lock_version, updated_at')
+          .maybeSingle(),
+        'Salvataggio snapshot fallback'
+      );
+      data = result.data;
+    } catch (error) {
+      const message = String(error?.message ?? '').toLowerCase();
+      if (!message.includes('updated_device_id') && !message.includes('updated_device_label')) throw error;
+      delete updatePayload.updated_device_id;
+      delete updatePayload.updated_device_label;
+      const result = await run(
+        db
+          .from('matches')
+          .update(updatePayload)
+          .eq('id', Number(matchId))
+          .eq('lock_owner', user.id)
+          .eq('lock_version', Number(expectedVersion))
+          .select('lock_version, updated_at')
+          .maybeSingle(),
+        'Salvataggio snapshot fallback senza dispositivo'
+      );
+      data = result.data;
+    }
 
     if (!data) {
       return {

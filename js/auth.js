@@ -1,6 +1,37 @@
 ﻿import { db, run } from './db.js';
 import { ROLES } from './app-config.js';
 
+const ADMIN_OFFLINE_CACHE_KEY = 'tornei_admin_offline_profile';
+
+function isNetworkLikeError(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return /failed to fetch|networkerror|load failed|non raggiungibile|sdk non raggiungibile|verifica connessione/.test(message);
+}
+
+function cacheAdminSession(user, admin) {
+  try {
+    window.localStorage.setItem(
+      ADMIN_OFFLINE_CACHE_KEY,
+      JSON.stringify({
+        user: user ? { id: user.id, email: user.email ?? admin?.email ?? null } : null,
+        admin,
+        cached_at: new Date().toISOString(),
+      })
+    );
+  } catch (_error) {
+    // Offline auth cache is best-effort.
+  }
+}
+
+function loadCachedAdminSession() {
+  try {
+    const raw = window.localStorage.getItem(ADMIN_OFFLINE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 export async function getSession() {
   const {
     data: { session },
@@ -37,25 +68,42 @@ export async function getAdminProfile(userId) {
 }
 
 export async function requireAdmin({
-  redirectTo = 'index.html',
+  redirectTo = './',
   allowedRoles = [ROLES.SUPER_ADMIN, ROLES.MATCH_MANAGER, ROLES.REPORT_VIEWER],
 } = {}) {
-  const user = await getCurrentUser();
-  if (!user) {
-    window.location.href = redirectTo;
-    return { user: null, admin: null, allowed: false };
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      window.location.href = redirectTo;
+      return { user: null, admin: null, allowed: false };
+    }
+
+    const admin = await getAdminProfile(user.id);
+    const allowed = Boolean(admin && allowedRoles.includes(admin.ruolo));
+
+    if (!allowed) {
+      await db.auth.signOut();
+      window.location.href = redirectTo;
+      return { user, admin, allowed: false };
+    }
+
+    cacheAdminSession(user, admin);
+    return { user, admin, allowed: true, offline: false };
+  } catch (error) {
+    if (!isNetworkLikeError(error)) throw error;
+    const cached = loadCachedAdminSession();
+    const allowed = Boolean(cached?.admin && allowedRoles.includes(cached.admin.ruolo));
+    if (!allowed) {
+      window.location.href = redirectTo;
+      return { user: null, admin: null, allowed: false, offline: true };
+    }
+    return {
+      user: cached.user ?? { id: cached.admin.id, email: cached.admin.email },
+      admin: cached.admin,
+      allowed: true,
+      offline: true,
+    };
   }
-
-  const admin = await getAdminProfile(user.id);
-  const allowed = Boolean(admin && allowedRoles.includes(admin.ruolo));
-
-  if (!allowed) {
-    await db.auth.signOut();
-    window.location.href = redirectTo;
-    return { user, admin, allowed: false };
-  }
-
-  return { user, admin, allowed: true };
 }
 
 export async function signInAdmin(email, password) {

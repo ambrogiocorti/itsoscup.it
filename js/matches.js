@@ -1,5 +1,6 @@
 import { db, run, runRpc } from './db.js';
 import { TEAM_SPORTS } from './app-config.js';
+import { buildDeviceAuditFields } from './device.js';
 
 const DEFAULT_CONFIG = {
   points_win: 3,
@@ -20,6 +21,16 @@ const DEFAULT_CONFIG = {
   athletics_attempts_per_event: 1,
   athletics_min_events_per_player: 1,
   athletics_max_events_per_player: 99,
+  ranking_tiebreakers: ['points', 'head_to_head', 'goal_diff', 'goals_for', 'fair_play', 'draw'],
+  min_rest_minutes: 0,
+  privacy_settings: {
+    player_name: 'full',
+    show_class: true,
+    show_personal_stats: true,
+    show_mvp: true,
+    show_disciplinary: true,
+  },
+  advanced_live_events_enabled: false,
 };
 
 const CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK = [
@@ -29,6 +40,10 @@ const CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK = [
   'athletics_max_events_per_player',
   'max_yellow_cards',
   'max_red_cards',
+  'ranking_tiebreakers',
+  'min_rest_minutes',
+  'privacy_settings',
+  'advanced_live_events_enabled',
 ];
 
 function isMissingSchemaColumn(error, columnName) {
@@ -44,6 +59,16 @@ function isScheduleSchemaMissing(error) {
   return ['venue_id', 'scheduled_start', 'scheduled_end', 'schedule_notes'].some((column) =>
     message.includes(column)
   );
+}
+
+function isDeviceSchemaMissing(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return ['updated_device_id', 'updated_device_label'].some((column) => message.includes(column));
+}
+
+function stripDeviceFields(payload) {
+  const { updated_device_id, updated_device_label, ...rest } = payload;
+  return rest;
 }
 
 function isCaptainSchemaMissing(error) {
@@ -131,18 +156,13 @@ export async function upsertSportConfig(sportId, payload) {
       }
 
       return {
+        ...DEFAULT_CONFIG,
         ...(data ?? {}),
-        allow_mvp: unsupportedColumns.has('allow_mvp')
-          ? DEFAULT_CONFIG.allow_mvp
-          : Boolean((data ?? {}).allow_mvp ?? DEFAULT_CONFIG.allow_mvp),
+        ...Object.fromEntries(
+          [...unsupportedColumns].map((column) => [column, DEFAULT_CONFIG[column]])
+        ),
         __allowMvpUnsupported: unsupportedColumns.has('allow_mvp'),
         __unsupportedConfigColumns: [...unsupportedColumns],
-        max_yellow_cards: unsupportedColumns.has('max_yellow_cards')
-          ? DEFAULT_CONFIG.max_yellow_cards
-          : Number((data ?? {}).max_yellow_cards ?? DEFAULT_CONFIG.max_yellow_cards),
-        max_red_cards: unsupportedColumns.has('max_red_cards')
-          ? DEFAULT_CONFIG.max_red_cards
-          : Number((data ?? {}).max_red_cards ?? DEFAULT_CONFIG.max_red_cards),
       };
     } catch (error) {
       const missingColumns = CONFIG_COLUMNS_WITH_SCHEMA_FALLBACK.filter(
@@ -258,6 +278,104 @@ export function generateRoundRobinMatches(teams, hasReturnMatch = false) {
   return matches;
 }
 
+export function getRankingTiebreakers(config = DEFAULT_CONFIG) {
+  const allowed = new Set(['points', 'head_to_head', 'goal_diff', 'goals_for', 'fair_play', 'draw']);
+  const raw = config?.ranking_tiebreakers;
+  const values = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+      ? raw.split(',')
+      : DEFAULT_CONFIG.ranking_tiebreakers;
+  const normalized = values
+    .map((item) => String(item ?? '').trim().toLowerCase())
+    .filter((item) => allowed.has(item));
+  return normalized.length ? [...new Set(normalized)] : [...DEFAULT_CONFIG.ranking_tiebreakers];
+}
+
+function getStatTeamId(stat) {
+  return Number(stat?.team_id ?? stat?.teamId ?? 0) || null;
+}
+
+function getMatchStatsSnapshot(match) {
+  const snapshot = match?.live_payload?.stats_snapshot;
+  return Array.isArray(snapshot) ? snapshot : [];
+}
+
+function addFairPlayPenalty(table, match, homeScore, awayScore) {
+  const homeId = Number(match.home_team_id);
+  const awayId = Number(match.away_team_id);
+  const stats = getMatchStatsSnapshot(match);
+
+  if (!stats.length) {
+    table[homeId].fairPlayPenalty += Math.max(0, awayScore - homeScore) * 0;
+    table[awayId].fairPlayPenalty += Math.max(0, homeScore - awayScore) * 0;
+    return;
+  }
+
+  for (const stat of stats) {
+    const teamId = getStatTeamId(stat);
+    if (!teamId || !table[teamId]) continue;
+    table[teamId].fairPlayPenalty += Number(stat.fouls ?? 0);
+    table[teamId].fairPlayPenalty += Number(stat.yellow_cards ?? 0) * 2;
+    table[teamId].fairPlayPenalty += Number(stat.red_cards ?? 0) * 5;
+  }
+}
+
+function buildHeadToHeadRows(teamA, teamB, matches, config) {
+  const table = {
+    [teamA.id]: { points: 0, goalsFor: 0, goalsAgainst: 0 },
+    [teamB.id]: { points: 0, goalsFor: 0, goalsAgainst: 0 },
+  };
+
+  for (const match of matches ?? []) {
+    if (!match?.is_finished) continue;
+    const homeId = Number(match.home_team_id);
+    const awayId = Number(match.away_team_id);
+    const isPair =
+      (homeId === Number(teamA.id) && awayId === Number(teamB.id)) ||
+      (homeId === Number(teamB.id) && awayId === Number(teamA.id));
+    if (!isPair) continue;
+
+    const homeScore = Number(match.home_score ?? 0);
+    const awayScore = Number(match.away_score ?? 0);
+    table[homeId].goalsFor += homeScore;
+    table[homeId].goalsAgainst += awayScore;
+    table[awayId].goalsFor += awayScore;
+    table[awayId].goalsAgainst += homeScore;
+
+    if (homeScore > awayScore) {
+      table[homeId].points += Number(config.points_win ?? 3);
+      table[awayId].points += Number(config.points_loss ?? 0);
+    } else if (awayScore > homeScore) {
+      table[awayId].points += Number(config.points_win ?? 3);
+      table[homeId].points += Number(config.points_loss ?? 0);
+    } else {
+      table[homeId].points += Number(config.points_draw ?? 1);
+      table[awayId].points += Number(config.points_draw ?? 1);
+    }
+  }
+
+  return {
+    a: {
+      ...table[teamA.id],
+      goalDiff: table[teamA.id].goalsFor - table[teamA.id].goalsAgainst,
+    },
+    b: {
+      ...table[teamB.id],
+      goalDiff: table[teamB.id].goalsFor - table[teamB.id].goalsAgainst,
+    },
+  };
+}
+
+function compareHeadToHead(teamA, teamB, matches, config) {
+  const { a, b } = buildHeadToHeadRows(teamA, teamB, matches, config);
+  return (
+    b.points - a.points ||
+    b.goalDiff - a.goalDiff ||
+    b.goalsFor - a.goalsFor
+  );
+}
+
 export function computeStandings(teams, matches, config = DEFAULT_CONFIG) {
   const table = {};
 
@@ -272,6 +390,7 @@ export function computeStandings(teams, matches, config = DEFAULT_CONFIG) {
       goalsFor: 0,
       goalsAgainst: 0,
       points: 0,
+      fairPlayPenalty: 0,
     };
   }
 
@@ -307,20 +426,64 @@ export function computeStandings(teams, matches, config = DEFAULT_CONFIG) {
       home.points += Number(config.points_draw ?? 1);
       away.points += Number(config.points_draw ?? 1);
     }
+
+    addFairPlayPenalty(table, match, homeScore, awayScore);
   }
+
+  const tiebreakers = getRankingTiebreakers(config);
 
   return Object.values(table)
     .map((row) => ({
       ...row,
       goalDiff: row.goalsFor - row.goalsAgainst,
     }))
-    .sort(
-      (a, b) =>
-        b.points - a.points ||
-        b.goalDiff - a.goalDiff ||
-        b.goalsFor - a.goalsFor ||
-        a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
-    );
+    .sort((a, b) => {
+      for (const rule of tiebreakers) {
+        let result = 0;
+        if (rule === 'points') result = b.points - a.points;
+        if (rule === 'head_to_head') result = compareHeadToHead(a, b, matches, config);
+        if (rule === 'goal_diff') result = b.goalDiff - a.goalDiff;
+        if (rule === 'goals_for') result = b.goalsFor - a.goalsFor;
+        if (rule === 'fair_play') result = a.fairPlayPenalty - b.fairPlayPenalty;
+        if (rule === 'draw') result = Number(a.id) - Number(b.id);
+        if (result !== 0) return result;
+      }
+      return a.name.localeCompare(b.name, 'it', { sensitivity: 'base' });
+    });
+}
+
+export function getPrivacySettings(config = DEFAULT_CONFIG) {
+  const raw = config?.privacy_settings;
+  const settings = typeof raw === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(raw);
+        } catch (_error) {
+          return {};
+        }
+      })()
+    : raw ?? {};
+
+  return {
+    ...DEFAULT_CONFIG.privacy_settings,
+    ...(settings ?? {}),
+    player_name: ['full', 'abbreviated', 'hidden'].includes(settings?.player_name)
+      ? settings.player_name
+      : DEFAULT_CONFIG.privacy_settings.player_name,
+  };
+}
+
+export function formatPublicPlayerName(name, privacySettings = DEFAULT_CONFIG.privacy_settings) {
+  const clean = String(name ?? '').trim();
+  if (!clean) return 'Studente';
+  if (privacySettings.player_name === 'hidden') return 'Studente';
+  if (privacySettings.player_name !== 'abbreviated') return clean;
+
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return `${parts[0][0] ?? ''}.`;
+  const first = parts[0];
+  const lastInitial = parts.slice(1).map((part) => `${part[0] ?? ''}.`).join(' ');
+  return `${first} ${lastInitial}`.trim();
 }
 
 function buildUniquePairKey(homeTeamId, awayTeamId, roundName) {
@@ -480,18 +643,23 @@ export async function createManualMatch({
     status: 'scheduled',
     is_finished: false,
     ...buildScheduleFields({ venueId, scheduledStart, scheduledEnd, scheduleNotes }),
+    ...buildDeviceAuditFields(),
   };
 
   const { data } = await run(
     db.from('matches').insert(payload).select().single(),
     'Creazione partita'
   ).catch(async (error) => {
-    if (isScheduleSchemaMissing(error)) {
+    if (isScheduleSchemaMissing(error) || isDeviceSchemaMissing(error)) {
+      let fallbackPayload = { ...payload };
+      if (isScheduleSchemaMissing(error)) fallbackPayload = stripScheduleFields(fallbackPayload);
+      if (isDeviceSchemaMissing(error)) fallbackPayload = stripDeviceFields(fallbackPayload);
       return run(
-        db.from('matches').insert(stripScheduleFields(payload)).select().single(),
+        db.from('matches').insert(fallbackPayload).select().single(),
         'Creazione partita senza campi/orari'
       ).then((result) => {
-        result.data.__scheduleUnsupported = true;
+        result.data.__scheduleUnsupported = isScheduleSchemaMissing(error);
+        result.data.__deviceUnsupported = isDeviceSchemaMissing(error);
         return result;
       });
     }
@@ -546,18 +714,23 @@ export async function updateManualMatch({
     away_team_id: awayId,
     round_name: roundName,
     ...buildScheduleFields({ venueId, scheduledStart, scheduledEnd, scheduleNotes }),
+    ...buildDeviceAuditFields(),
   };
 
   const { data } = await run(
     db.from('matches').update(payload).eq('id', Number(matchId)).select().single(),
     'Aggiornamento partita'
   ).catch(async (error) => {
-    if (isScheduleSchemaMissing(error)) {
+    if (isScheduleSchemaMissing(error) || isDeviceSchemaMissing(error)) {
+      let fallbackPayload = { ...payload };
+      if (isScheduleSchemaMissing(error)) fallbackPayload = stripScheduleFields(fallbackPayload);
+      if (isDeviceSchemaMissing(error)) fallbackPayload = stripDeviceFields(fallbackPayload);
       return run(
-        db.from('matches').update(stripScheduleFields(payload)).eq('id', Number(matchId)).select().single(),
+        db.from('matches').update(fallbackPayload).eq('id', Number(matchId)).select().single(),
         'Aggiornamento partita senza campi/orari'
       ).then((result) => {
-        result.data.__scheduleUnsupported = true;
+        result.data.__scheduleUnsupported = isScheduleSchemaMissing(error);
+        result.data.__deviceUnsupported = isDeviceSchemaMissing(error);
         return result;
       });
     }
@@ -575,6 +748,170 @@ export async function updateManualMatch({
   });
 
   return data;
+}
+
+export async function loadMatchStaff(matchId) {
+  if (!Number(matchId)) return {};
+
+  const { data } = await run(
+    db
+      .from('match_staff_assignments')
+      .select('*')
+      .eq('match_id', Number(matchId)),
+    'Caricamento staff match'
+  );
+
+  return (data ?? []).reduce((acc, row) => {
+    acc[row.role] = row;
+    return acc;
+  }, {});
+}
+
+export async function saveMatchStaff(matchId, staffPayload = {}) {
+  if (!Number(matchId)) throw new Error('Match non valido per salvare lo staff.');
+
+  const roleNames = {
+    referee: 'Arbitro',
+    scorekeeper: 'Segnapunti',
+    field_manager: 'Responsabile campo',
+    supervisor: 'Docente supervisore',
+  };
+
+  const rows = Object.entries(roleNames)
+    .map(([role, label]) => ({
+      match_id: Number(matchId),
+      role,
+      name: String(staffPayload[role] ?? '').trim() || null,
+      notes: label,
+    }))
+    .filter((row) => row.name);
+
+  await run(
+    db.from('match_staff_assignments').delete().eq('match_id', Number(matchId)),
+    'Pulizia staff match'
+  );
+
+  if (!rows.length) return [];
+
+  const { data } = await run(
+    db.from('match_staff_assignments').insert(rows).select(),
+    'Salvataggio staff match'
+  );
+  return data ?? [];
+}
+
+export async function createPlatformBackup({ sportId = null, reason = '' } = {}) {
+  const result = await runRpc(
+    'create_platform_backup',
+    {
+      p_sport_id: sportId ? Number(sportId) : null,
+      p_reason: String(reason ?? '').trim() || null,
+    },
+    'Creazione backup'
+  );
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.success === false) {
+    throw new Error(row?.message || 'Creazione backup fallita');
+  }
+  return row;
+}
+
+export async function restorePlatformBackup({ backupId, reason }) {
+  const result = await runRpc(
+    'restore_platform_backup',
+    {
+      p_backup_id: Number(backupId),
+      p_reason: String(reason ?? '').trim(),
+    },
+    'Ripristino backup'
+  );
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.success === false) {
+    throw new Error(row?.message || 'Ripristino backup fallito');
+  }
+  return row;
+}
+
+export async function loadPlatformBackups({ limit = 10 } = {}) {
+  const { data } = await run(
+    db
+      .from('platform_backups')
+      .select('id, scope, sport_id, reason, created_at, restored_at, restore_reason')
+      .order('created_at', { ascending: false })
+      .limit(Math.max(1, Math.min(50, Number(limit) || 10))),
+    'Caricamento backup'
+  );
+  return data ?? [];
+}
+
+export async function deletePlatformBackup(backupId) {
+  await run(
+    db
+      .from('platform_backups')
+      .delete()
+      .eq('id', Number(backupId)),
+    'Eliminazione backup'
+  );
+}
+
+export async function loadActiveAnnouncements() {
+  const { data } = await run(
+    db
+      .from('urgent_announcements')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(3),
+    'Caricamento comunicazioni'
+  );
+  return data ?? [];
+}
+
+export async function reportIssue({ reporter = '', message = '', pageUrl = window.location.href } = {}) {
+  const cleanMessage = String(message ?? '').trim();
+  if (cleanMessage.length < 8) {
+    throw new Error('Descrivi il problema con almeno 8 caratteri.');
+  }
+
+  const { data } = await run(
+    db
+      .from('issue_reports')
+      .insert({
+        reporter: String(reporter ?? '').trim() || null,
+        message: cleanMessage,
+        page_url: pageUrl,
+        user_agent: navigator.userAgent,
+      })
+      .select()
+      .single(),
+    'Segnalazione problema'
+  );
+  return data;
+}
+
+export async function reopenMatchForCorrection(matchId, reason) {
+  const cleanReason = String(reason ?? '').trim();
+  if (!Number(matchId)) {
+    throw new Error('Match non valido');
+  }
+  if (cleanReason.length < 8) {
+    throw new Error('Motivazione obbligatoria: inserisci almeno 8 caratteri.');
+  }
+
+  const result = await runRpc(
+    'reopen_match_for_correction',
+    {
+      p_match_id: Number(matchId),
+      p_reason: cleanReason,
+    },
+    'Riapertura match'
+  );
+
+  const row = Array.isArray(result) ? result[0] : result;
+  if (!row || row.success === false) {
+    throw new Error(row?.message || 'Riapertura match non riuscita');
+  }
+  return row;
 }
 
 export async function generateMatchesForSport(sportId, hasReturnMatch = false) {

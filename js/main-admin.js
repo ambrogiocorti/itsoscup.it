@@ -1,16 +1,22 @@
 ﻿import { requireAdmin, signOutAdmin, canEditMatches, canManageAll } from './auth.js';
 import {
   createManualMatch,
+  createPlatformBackup,
   deleteMatch,
+  deletePlatformBackup,
   deleteSport,
   deleteTeam,
   generateMatchesForSport,
   generateSemifinals,
   listMatchesForAdmin,
+  loadMatchStaff,
+  loadPlatformBackups,
   loadPlayersByTeam,
   loadSportConfig,
   loadSports,
   loadTeamsBySport,
+  reopenMatchForCorrection,
+  restorePlatformBackup,
   saveSport,
   saveTeam,
   updateManualMatch,
@@ -50,9 +56,14 @@ import {
 } from './schedule.js';
 import { archiveTournament, loadHonorRoll, unarchiveTournament } from './archive.js';
 import { sendTelegramMatchReminder, sendTelegramTeamReminder } from './telegram.js';
+import { registerOfflineSupport } from './offline.js';
+import { saveLiveMatchCache, countCachedMatches, getOfflineManifest } from './offline-store.js';
+import { getDeviceInfo, promptDeviceLabel } from './device.js';
+import { startTourIfNeeded } from './onboarding.js';
+import { loadLiveMatch } from './live.js';
 import { db, run } from './db.js';
 import { APP_CONFIG } from './app-config.js';
-import { escapeHtml, formatDuration, getEl, medalByRank, showToast } from './utils.js';
+import { escapeHtml, formatDuration, getEl, medalByRank, showAppConfirm, showAppPrompt, showToast } from './utils.js';
 
 const state = {
   admin: null,
@@ -68,6 +79,8 @@ const state = {
   matchesViewMode: 'table',
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
+
+registerOfflineSupport();
 
 const CSV_MODE_META = {
   teams_players: {
@@ -94,7 +107,25 @@ const SPORT_TYPE_LABELS = {
 const FORMAT_LABELS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione diretta',
+  gironi_playoff: 'Gironi + Playoff',
+  doppia_eliminazione: 'Doppia eliminazione',
+  terzo_posto: 'Finale terzo posto',
+  italiana: "Torneo all'italiana",
+  gironi_multipli: 'Gironi multipli',
+  migliori_seconde: 'Migliori seconde',
+  svizzero: 'Torneo svizzero',
 };
+
+const RANKING_RULE_LABELS = {
+  points: 'Punti in classifica',
+  head_to_head: 'Scontri diretti',
+  goal_diff: 'Differenza reti / punti',
+  goals_for: 'Reti / punti segnati',
+  fair_play: 'Fair play',
+  draw: 'Sorteggio / ordine casuale',
+};
+
+const DEFAULT_RANKING_RULES = ['points', 'head_to_head', 'goal_diff', 'goals_for', 'fair_play', 'draw'];
 
 const REPORT_COLUMNS_STORAGE_PREFIX = 'report_columns_v1_';
 const REPORT_COLUMN_GROUPS = {
@@ -219,6 +250,65 @@ function getMatchById(matchId) {
   return state.adminMatches.find((item) => Number(item.id) === Number(matchId)) ?? null;
 }
 
+function getMatchTeamIds(match) {
+  return [Number(match?.home_team_id ?? 0), Number(match?.away_team_id ?? 0)]
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+function getPayloadTeamIds(payload) {
+  return [Number(payload?.homeTeamId ?? 0), Number(payload?.awayTeamId ?? 0)]
+    .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+function getTimeRange(startValue, endValue) {
+  const start = startValue ? new Date(startValue).getTime() : NaN;
+  const end = endValue ? new Date(endValue).getTime() : NaN;
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return { start, end };
+}
+
+function rangesOverlap(a, b) {
+  if (!a || !b) return false;
+  return a.start < b.end && b.start < a.end;
+}
+
+function minutesBetweenRanges(a, b) {
+  if (!a || !b) return Number.POSITIVE_INFINITY;
+  if (rangesOverlap(a, b)) return 0;
+  const gapMs = a.end <= b.start ? b.start - a.end : a.start - b.end;
+  return Math.max(0, Math.round(gapMs / 60000));
+}
+
+function isRelevantScheduleMatch(match, payload) {
+  return (
+    Number(match.id) !== Number(payload.matchId ?? 0) &&
+    Number(match.sport_id) === Number(payload.sportId) &&
+    match.status !== 'cancelled'
+  );
+}
+
+function didMatchVariationChange(originalMatch, payload) {
+  if (!originalMatch) return false;
+  return didOperationalScheduleChange(originalMatch, payload) ||
+    String(originalMatch.schedule_notes ?? '') !== String(payload.scheduleNotes ?? '');
+}
+
+function didOperationalScheduleChange(originalMatch, payload) {
+  if (!originalMatch) return false;
+  const originalStart = originalMatch.scheduled_start ? new Date(originalMatch.scheduled_start).getTime() : null;
+  const originalEnd = originalMatch.scheduled_end ? new Date(originalMatch.scheduled_end).getTime() : null;
+  const nextStart = payload.scheduledStart ? new Date(payload.scheduledStart).getTime() : null;
+  const nextEnd = payload.scheduledEnd ? new Date(payload.scheduledEnd).getTime() : null;
+  return (
+    Number(originalMatch.home_team_id ?? 0) !== Number(payload.homeTeamId ?? 0) ||
+    Number(originalMatch.away_team_id ?? 0) !== Number(payload.awayTeamId ?? 0) ||
+    Number(originalMatch.venue_id ?? 0) !== Number(payload.venueId ?? 0) ||
+    originalStart !== nextStart ||
+    originalEnd !== nextEnd
+  );
+}
+
+
 function buildMatchActionItems(match) {
   const actions = [];
   const isFinished = Boolean(match?.is_finished);
@@ -229,6 +319,9 @@ function buildMatchActionItems(match) {
   }
   if (isFinished) {
     actions.push(`<button class="match-action-item" data-action="download-match-report" data-id="${match.id}" type="button"><i class="fa-solid fa-file-pdf"></i><span>Scarica referto</span></button>`);
+    if (canManageAll(state.admin?.ruolo)) {
+      actions.push(`<button class="match-action-item" data-action="reopen-match" data-id="${match.id}" type="button"><i class="fa-solid fa-unlock-keyhole"></i><span>Riapri correzione</span></button>`);
+    }
   }
   if (match?.venue?.slug) {
     actions.push(`<button class="match-action-item" data-action="qr-match" data-venue-id="${match.venue.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR campo</span></button>`);
@@ -308,8 +401,17 @@ async function loadMatchReportData(matches) {
         'Caricamento firme referto'
       ).catch(() => ({ data: [] }))
     : Promise.resolve({ data: [] });
+  const staffPromise = matchIds.length
+    ? run(
+        db
+          .from('match_staff_assignments')
+          .select('match_id, role, name')
+          .in('match_id', matchIds),
+        'Caricamento staff referto'
+      ).catch(() => ({ data: [] }))
+    : Promise.resolve({ data: [] });
 
-  const [playersResult, statsResult, signaturesResult] = await Promise.all([
+  const [playersResult, statsResult, signaturesResult, staffResult] = await Promise.all([
     teamIds.length
       ? run(
           db.from('players').select('id, team_id, full_name, is_captain').in('team_id', teamIds).order('full_name', { ascending: true }),
@@ -323,6 +425,7 @@ async function loadMatchReportData(matches) {
         )
       : Promise.resolve({ data: [] }),
     signaturePromise,
+    staffPromise,
   ]);
 
   const playersByTeam = new Map();
@@ -342,7 +445,12 @@ async function loadMatchReportData(matches) {
     signaturesByMatchSide.set(`${Number(signature.match_id)}:${signature.team_side}`, signature);
   });
 
-  return { playersByTeam, statsByMatchPlayer, signaturesByMatchSide };
+  const staffByMatchRole = new Map();
+  (staffResult.data ?? []).forEach((staff) => {
+    staffByMatchRole.set(`${Number(staff.match_id)}:${staff.role}`, staff);
+  });
+
+  return { playersByTeam, statsByMatchPlayer, signaturesByMatchSide, staffByMatchRole };
 }
 
 function getMatchReportSnapshotStat(match, playerId) {
@@ -444,6 +552,23 @@ function renderMatchReportSignatures(match, reportData) {
   `;
 }
 
+function renderMatchReportStaff(match, reportData) {
+  const getStaffName = (role) =>
+    reportData.staffByMatchRole?.get(`${Number(match.id)}:${role}`)?.name ?? 'Non assegnato';
+
+  return `
+    <section class="match-report-staff">
+      <h3>Staff referto</h3>
+      <div class="match-report-meta">
+        <div><span>Arbitro</span><strong>${escapeHtml(getStaffName('referee'))}</strong></div>
+        <div><span>Segnapunti</span><strong>${escapeHtml(getStaffName('scorekeeper'))}</strong></div>
+        <div><span>Responsabile campo</span><strong>${escapeHtml(getStaffName('field_manager'))}</strong></div>
+        <div><span>Docente supervisore</span><strong>${escapeHtml(getStaffName('supervisor'))}</strong></div>
+      </div>
+    </section>
+  `;
+}
+
 function renderSingleMatchReport(match, reportData) {
   const homeRows = getMatchReportPlayerRows(match, 'home', reportData);
   const awayRows = getMatchReportPlayerRows(match, 'away', reportData);
@@ -456,20 +581,20 @@ function renderSingleMatchReport(match, reportData) {
         <div>
           <p>Referto partita</p>
           <h1>${escapeHtml(getMatchTeamsLabel(match))}</h1>
+          <div class="match-report-header-meta">
+            <span><strong>Torneo</strong> ${escapeHtml(match.sport?.name ?? '-')}</span>
+            <span><strong>Fase</strong> ${escapeHtml(match.round_name ?? '-')}</span>
+            <span><strong>Campo</strong> ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</span>
+            <span><strong>Slot</strong> ${escapeHtml(formatScheduleRange(match))}</span>
+            <span><strong>Chiuso il</strong> ${escapeHtml(formatReportDateTime(match.finished_at))}</span>
+            <span><strong>Durata live</strong> ${escapeHtml(formatDuration(livePayload.duration ?? match.duration ?? 0))}</span>
+          </div>
         </div>
         <div class="match-report-score">${escapeHtml(score)}</div>
       </header>
 
-      <section class="match-report-meta">
-        <div><span>Torneo</span><strong>${escapeHtml(match.sport?.name ?? '-')}</strong></div>
-        <div><span>Fase</span><strong>${escapeHtml(match.round_name ?? '-')}</strong></div>
-        <div><span>Campo</span><strong>${escapeHtml(match.venue?.name ?? 'Campo da definire')}</strong></div>
-        <div><span>Slot</span><strong>${escapeHtml(formatScheduleRange(match))}</strong></div>
-        <div><span>Chiuso il</span><strong>${escapeHtml(formatReportDateTime(match.finished_at))}</strong></div>
-        <div><span>Durata live</span><strong>${escapeHtml(formatDuration(livePayload.duration ?? match.duration ?? 0))}</strong></div>
-      </section>
-
       ${match.schedule_notes ? `<section class="match-report-notes"><strong>Note:</strong> ${escapeHtml(match.schedule_notes)}</section>` : ''}
+      ${renderMatchReportStaff(match, reportData)}
       ${renderMatchReportPlayersTable(match.home?.name ?? 'Casa', homeRows)}
       ${renderMatchReportPlayersTable(match.away?.name ?? 'Ospite', awayRows)}
       ${renderMatchReportSignatures(match, reportData)}
@@ -516,30 +641,38 @@ function openPrintableMatchReports(matches, reportData, printWindow) {
         <meta charset="UTF-8" />
         <title>${escapeHtml(title)}</title>
         <style>
-          @page { size: A4; margin: 12mm; }
+          @page { size: A4 portrait; margin: 12mm; }
           * { box-sizing: border-box; }
-          body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; }
-          .match-report-page { page-break-after: always; padding: 0; }
-          .match-report-page:last-child { page-break-after: auto; }
-          .match-report-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 16px; }
-          .match-report-header p { margin: 0 0 6px; color: #475569; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-          .match-report-header h1 { margin: 0; font-size: 24px; line-height: 1.15; }
-          .match-report-score { min-width: 112px; padding: 10px 14px; border: 2px solid #0f172a; text-align: center; font-size: 26px; font-weight: 800; }
-          .match-report-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
-          .match-report-meta div, .match-report-notes, .match-report-signature-grid div { border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; }
-          .match-report-meta span, .match-report-signature-grid span { display: block; color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
-          .match-report-meta strong { font-size: 12px; }
-          .match-report-notes { margin-bottom: 16px; font-size: 12px; }
-          h3 { margin: 16px 0 8px; font-size: 15px; }
-          table { width: 100%; border-collapse: collapse; font-size: 11px; }
-          th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: left; }
-          th { background: #f1f5f9; font-size: 10px; text-transform: uppercase; }
+          body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; font-size: 11px; }
+          .match-report-page { page-break-after: always; break-after: page; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+          .match-report-page:last-child { page-break-after: auto; break-after: auto; }
+          .match-report-header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; break-inside: avoid; }
+          .match-report-header p { margin: 0 0 4px; color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+          .match-report-header h1 { margin: 0; font-size: 24px; line-height: 1.08; }
+          .match-report-header-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 8px; color: #334155; font-size: 10px; line-height: 1.25; }
+          .match-report-header-meta span { white-space: nowrap; }
+          .match-report-header-meta strong { color: #64748b; font-size: 8.5px; text-transform: uppercase; margin-right: 3px; }
+          .match-report-score { min-width: 104px; padding: 8px 12px; border: 2px solid #0f172a; text-align: center; font-size: 28px; font-weight: 800; }
+          .match-report-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin: 0; }
+          .match-report-meta div, .match-report-notes, .match-report-signature-grid div { border: 1px solid #cbd5e1; padding: 7px; border-radius: 6px; }
+          .match-report-meta span, .match-report-signature-grid span { display: block; color: #64748b; font-size: 9px; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+          .match-report-meta strong { font-size: 10.5px; line-height: 1.2; }
+          .match-report-notes { margin: 0; font-size: 10.5px; break-inside: avoid; }
+          .match-report-staff,
+          .match-report-signatures { break-inside: avoid; }
+          h3 { margin: 3px 0 6px; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; font-size: 10px; break-inside: auto; }
+          thead { display: table-header-group; }
+          tr { break-inside: avoid; page-break-inside: avoid; }
+          th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: left; line-height: 1.2; }
+          th { background: #f1f5f9; font-size: 8.5px; text-transform: uppercase; }
           th:not(:first-child), td:not(:first-child) { text-align: center; }
-          .match-report-signature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+          .match-report-staff .match-report-meta { grid-template-columns: repeat(2, 1fr); }
+          .match-report-signature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
           .match-report-signature-grid strong, .match-report-signature-grid small { display: block; }
-          .match-report-signature-grid small { color: #64748b; margin-top: 6px; }
-          .match-report-signature-grid em { display: block; margin-top: 12px; color: #64748b; font-size: 11px; }
-          .match-report-signature-img { display: block; width: 100%; max-height: 96px; object-fit: contain; margin-top: 10px; border-top: 1px solid #cbd5e1; padding-top: 8px; }
+          .match-report-signature-grid small { color: #64748b; margin-top: 4px; }
+          .match-report-signature-grid em { display: block; margin-top: 10px; color: #64748b; font-size: 10px; }
+          .match-report-signature-img { display: block; width: 100%; max-height: 82px; object-fit: contain; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px; }
           @media print {
             body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
           }
@@ -575,6 +708,286 @@ async function downloadMatchReports(matches, printWindow = null) {
 async function downloadAllFinishedMatchReports(printWindow) {
   const rows = await listMatchesForAdmin({});
   await downloadMatchReports(rows, printWindow);
+}
+
+async function prepareMatchesForOffline() {
+  const rows = state.adminMatches.length ? state.adminMatches : await listMatchesForAdmin({});
+  const targets = rows.filter((match) => !match.is_finished && match.status !== 'cancelled');
+  if (!targets.length) {
+    showToast('Nessun match da preparare offline.', 'error');
+    return;
+  }
+
+  let cached = 0;
+  const failed = [];
+  for (const match of targets) {
+    try {
+      const liveData = await loadLiveMatch(match.id);
+      let stats = [];
+      try {
+        const statsResult = await run(
+          db.from('match_stats').select('*').eq('match_id', Number(match.id)),
+          'Preparazione statistiche offline'
+        );
+        stats = statsResult.data ?? [];
+      } catch (_error) {
+        stats = [];
+      }
+      if (saveLiveMatchCache(match.id, liveData, { stats, source: 'admin-prepare' })) cached += 1;
+    } catch (error) {
+      failed.push(`${getMatchTeamsLabel(match)}: ${error.message}`);
+    }
+  }
+
+  const totalCached = countCachedMatches();
+  if (failed.length) {
+    showToast(`Preparati offline ${cached}/${targets.length} match. Cache totale: ${totalCached}. Alcuni match non sono stati salvati.`, 'error');
+    return;
+  }
+  showToast(`Modalita offline pronta: ${cached} match salvati su questo dispositivo. Cache totale: ${totalCached}.`, 'success');
+}
+
+function renderOfflineAdminDashboard() {
+  const manifest = getOfflineManifest();
+  const rows = Object.values(manifest.matches ?? {}).sort((a, b) =>
+    String(a.scheduled_start ?? '').localeCompare(String(b.scheduled_start ?? ''))
+  );
+
+  getEl('count-sports').textContent = '-';
+  getEl('count-teams').textContent = '-';
+  getEl('count-matches').textContent = String(rows.length);
+  getEl('count-events').textContent = '-';
+
+  let panel = getEl('offline-admin-panel');
+  if (!panel) {
+    panel = document.createElement('section');
+    panel.id = 'offline-admin-panel';
+    panel.className = 'card';
+    panel.style.marginTop = '16px';
+    getEl('view-dashboard')?.appendChild(panel);
+  }
+
+  panel.innerHTML = `
+    <div class="card-header"><i class="fa-solid fa-wifi"></i> Modalita offline</div>
+    <div class="card-body">
+      <div class="empty-state" style="margin-bottom: 12px">
+        Supabase non e raggiungibile. Puoi aprire solo i match preparati offline su questo dispositivo.
+      </div>
+      ${
+        rows.length
+          ? `<div class="offline-match-list">
+              ${rows
+                .map(
+                  (row) => `
+                <a class="offline-match-link" href="live.html?match=${row.match_id}">
+                  <strong>${escapeHtml(row.label)}</strong>
+                  <span>${escapeHtml(row.sport ?? '-')} · ${escapeHtml(row.scheduled_start ? formatReportDateTime(row.scheduled_start) : 'Senza orario')}</span>
+                  <small>Cache: ${escapeHtml(formatReportDateTime(row.cached_at))}</small>
+                </a>
+              `
+                )
+                .join('')}
+            </div>`
+          : '<div class="empty-state">Nessun match preparato offline. Quando torni online usa “Prepara offline” nel calendario.</div>'
+      }
+    </div>
+  `;
+}
+
+function startAdminTour() {
+  startTourIfNeeded('admin', [
+    {
+      selector: '#admin-sidebar',
+      title: 'Menu principale',
+      text: 'Da qui passi tra dashboard, report, calendario, campi, albo, Telegram, tornei, squadre, atletica e impostazioni.',
+    },
+    {
+      selector: '#sidebar-device-card',
+      title: 'Nome dispositivo',
+      text: 'La postazione viene nominata al primo accesso e poi resta bloccata, cosi il registro modifiche riconosce sempre lo stesso dispositivo.',
+    },
+    {
+      selector: '#link-reports',
+      title: 'Report',
+      text: 'Consulta ranking, presenze, fair play e dati esportabili. I referti PDF dei match conclusi si scaricano dal calendario.',
+    },
+    {
+      selector: '#link-matches',
+      title: 'Calendario',
+      text: 'Qui programmi match, apri live, stampi referti e invii promemoria Telegram.',
+    },
+    {
+      selector: '#link-venues',
+      title: 'Campi e QR',
+      text: 'Gestisci palestre e campi. Ogni campo puo avere un QR da esporre fuori dalla palestra.',
+    },
+    {
+      selector: '#link-teams',
+      title: 'Squadre',
+      text: 'Gestisci rose, capitani, disponibilita e controlli sul numero minimo di partecipanti.',
+    },
+    {
+      selector: '#link-events',
+      title: 'Atletica',
+      text: 'Registra eventi, risultati, batterie, classifiche e record scolastici.',
+    },
+    {
+      selector: '#link-telegram',
+      title: 'Telegram',
+      text: 'Configura e invia comunicazioni al canale della scuola, anche dai pulsanti rapidi di match e squadre.',
+    },
+    {
+      selector: '#link-settings',
+      title: 'Impostazioni',
+      text: 'Configura criteri di classifica, privacy, limiti cartellini, backup, moduli avanzati e modalita live.',
+    },
+    {
+      selector: null,
+      title: 'Prepara offline',
+      text: 'Prima dell evento salva su questo dispositivo i dati necessari per usare il live senza connessione.',
+    },
+    {
+      selector: null,
+      title: 'Flusso consigliato',
+      text: 'Online prepara calendario e dati offline; durante le partite usa il live anche senza rete; quando torna Internet sincronizza le bozze locali.',
+    },
+  ]);
+}
+
+function formatAuditAction(action) {
+  const labels = {
+    match_updated: 'Match aggiornato',
+    match_reopened: 'Match riaperto',
+    match_finalized: 'Match finalizzato',
+    result_changed: 'Risultato modificato',
+    schedule_changed: 'Calendario modificato',
+  };
+  return labels[action] ?? action ?? 'Modifica';
+}
+
+function formatAuditValue(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'boolean') return value ? 'Si' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function renderAuditChangedFields(entry) {
+  const fields = Array.isArray(entry.changed_fields) ? entry.changed_fields : [];
+  const visibleFields = fields.filter((field) =>
+    [
+      'home_score',
+      'away_score',
+      'status',
+      'is_finished',
+      'scheduled_start',
+      'scheduled_end',
+      'venue_id',
+      'round_name',
+      'home_team_id',
+      'away_team_id',
+      'correction_reason',
+    ].includes(field)
+  );
+
+  if (!visibleFields.length) {
+    return '<div class="audit-fields muted">Campi tecnici aggiornati.</div>';
+  }
+
+  return `
+    <div class="audit-fields">
+      ${visibleFields
+        .map((field) => {
+          const before = formatAuditValue(entry.before_data?.[field]);
+          const after = formatAuditValue(entry.after_data?.[field]);
+          return `
+            <div class="audit-field-row">
+              <strong>${escapeHtml(field)}</strong>
+              <span>${escapeHtml(before)} -> ${escapeHtml(after)}</span>
+            </div>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+async function renderMatchAuditLog(matchId) {
+  const target = getEl('match-detail-audit-list');
+  if (!target) return;
+
+  try {
+    let data = [];
+    try {
+      const result = await run(
+        db
+          .from('audit_log')
+          .select('id, action, actor_label, actor_id, device_id, device_label, changed_at, reason, before_data, after_data, changed_fields')
+          .eq('entity_type', 'match')
+          .eq('entity_id', Number(matchId))
+          .order('changed_at', { ascending: false })
+          .limit(12),
+        'Caricamento registro modifiche'
+      );
+      data = result.data ?? [];
+    } catch (error) {
+      const message = String(error?.message ?? '').toLowerCase();
+      if (!message.includes('device_id') && !message.includes('device_label')) throw error;
+      const result = await run(
+        db
+          .from('audit_log')
+          .select('id, action, actor_label, actor_id, changed_at, reason, before_data, after_data, changed_fields')
+          .eq('entity_type', 'match')
+          .eq('entity_id', Number(matchId))
+          .order('changed_at', { ascending: false })
+          .limit(12),
+        'Caricamento registro modifiche'
+      );
+      data = result.data ?? [];
+    }
+
+    if (!data.length) {
+      target.innerHTML = '<div class="empty-state">Nessuna modifica registrata. Applica la migrazione 021 per iniziare a tracciare le modifiche.</div>';
+      return;
+    }
+
+    target.innerHTML = data
+      .map(
+        (entry) => `
+          <article class="audit-log-item">
+            <div class="audit-log-head">
+              <strong>${escapeHtml(formatAuditAction(entry.action))}</strong>
+              <span>${escapeHtml(formatReportDateTime(entry.changed_at))}</span>
+            </div>
+            <div class="muted">Da: ${escapeHtml(formatAuditActor(entry))}</div>
+            ${entry.reason ? `<div class="audit-reason"><strong>Motivo:</strong> ${escapeHtml(entry.reason)}</div>` : ''}
+            ${renderAuditChangedFields(entry)}
+          </article>
+        `
+      )
+      .join('');
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}. Applica la migrazione 021 e ricarica la pagina.</div>`;
+  }
+}
+
+function formatAuditActor(entry) {
+  const actorLabel = String(entry?.actor_label ?? '').trim();
+  const deviceLabel = String(entry?.device_label ?? '').trim();
+  const isUuid = (value) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  if (actorLabel && !isUuid(actorLabel) && deviceLabel) return `${actorLabel} · ${deviceLabel}`;
+  if (actorLabel && !isUuid(actorLabel)) return actorLabel;
+  if (deviceLabel) return deviceLabel;
+  return 'Postazione non registrata';
+}
+
+function updateSidebarDeviceLabel() {
+  const device = getDeviceInfo();
+  const target = getEl('sidebar-device-label');
+  if (target) target.textContent = device.label;
+  const card = getEl('sidebar-device-card');
+  if (card) card.title = `Dispositivo: ${device.label}\nID tecnico: ${device.id}`;
 }
 
 function formatCalendarDayKey(value) {
@@ -808,7 +1221,11 @@ async function handleCsvConfirmImport() {
   closeModal('modal-csv-import');
 }
 
-function switchView(viewId) {
+async function switchView(viewId) {
+  if (viewId === 'settings' && !(await verifySettingsPassword('settings'))) {
+    showToast('Accesso impostazioni annullato.', 'error');
+    return;
+  }
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
@@ -826,6 +1243,28 @@ function switchView(viewId) {
   if (viewId === 'settings') loadSettingsForSelectedSport();
 }
 
+async function verifySettingsPassword(scope = 'settings') {
+  const expected = scope === 'super'
+    ? String(APP_CONFIG.superAdminSettingsPassword || APP_CONFIG.settingsAccessPassword || '')
+    : String(APP_CONFIG.settingsAccessPassword || '');
+  if (!expected) {
+    return true;
+  }
+  const inserted = await showAppPrompt(
+    scope === 'super' ? 'Inserisci la password per le impostazioni Superadmin.' : 'Inserisci la password per le impostazioni.',
+    {
+      title: scope === 'super' ? 'Accesso Superadmin' : 'Accesso impostazioni',
+      inputLabel: 'Password',
+      inputType: 'password',
+      confirmLabel: 'Accedi',
+    }
+  );
+  if (inserted === null) return false;
+  if (inserted === expected) return true;
+  showToast('Password non corretta.', 'error');
+  return false;
+}
+
 function getSportById(sportId) {
   return state.sports.find((item) => Number(item.id) === Number(sportId));
 }
@@ -833,7 +1272,7 @@ function getSportById(sportId) {
 function formatRoleLabel(role) {
   if (role === 'super_admin') return 'Super Admin';
   if (role === 'match_manager') return 'Match Manager';
-  if (role === 'report_viewer') return 'Report Viewer';
+  if (role === 'report_viewer') return 'Report Manager';
   return 'Ruolo non assegnato';
 }
 
@@ -920,7 +1359,7 @@ function bindSidebar() {
   document.querySelectorAll('.sidebar-link[data-view]').forEach((button) => {
     button.addEventListener('click', () => {
       const view = button.dataset.view;
-      if (view) switchView(view);
+      if (view) switchView(view).catch((error) => showToast(error.message, 'error'));
       if (isMobileLayout()) setSidebarOpen(false);
     });
   });
@@ -1014,7 +1453,7 @@ function renderSportsTableRows() {
       <tr>
         <td><strong>${escapeHtml(sport.name)}</strong></td>
         <td>${escapeHtml(sport.sport_type)}</td>
-        <td>${escapeHtml(sport.format)}</td>
+        <td>${escapeHtml(FORMAT_LABELS[sport.format] ?? sport.format)}</td>
         <td>${sport.year ?? '-'}</td>
         <td>${sport.is_active ? '<span class="badge badge-success">Attivo</span>' : '<span class="badge badge-warning">Disattivo</span>'}</td>
         <td>
@@ -1160,8 +1599,11 @@ function renderMatchesViews(rows = state.adminMatches) {
   if (toggle) {
     toggle.setAttribute('aria-pressed', String(isCalendar));
     toggle.innerHTML = isCalendar
-      ? '<i class="fa-solid fa-table-list"></i> Vista tabella'
-      : '<i class="fa-solid fa-calendar-days"></i> Vista calendario';
+      ? '<i class="fa-solid fa-table-list"></i>'
+      : '<i class="fa-solid fa-calendar-days"></i>';
+    const label = isCalendar ? 'Vista tabella' : 'Vista calendario';
+    toggle.setAttribute('title', label);
+    toggle.setAttribute('aria-label', label);
   }
 }
 
@@ -1173,7 +1615,10 @@ async function handleSendTelegramMatchReminder(matchId) {
   }
 
   const teams = `${match.home?.name ?? 'TBD'} vs ${match.away?.name ?? 'TBD'}`;
-  if (!confirm(`Inviare un promemoria Telegram per ${teams}?`)) return;
+  if (!(await showAppConfirm(`Inviare un promemoria Telegram per ${teams}?`, {
+    title: 'Promemoria Telegram',
+    confirmLabel: 'Invia',
+  }))) return;
 
   const result = await sendTelegramMatchReminder(matchId);
   showToast(`Promemoria Telegram inviato${result?.messageId ? ` (#${result.messageId})` : ''}.`, 'success');
@@ -1181,7 +1626,10 @@ async function handleSendTelegramMatchReminder(matchId) {
 
 async function handleSendTelegramTeamReminder(teamId, teamName = '') {
   const label = String(teamName || 'questa squadra').trim();
-  if (!confirm(`Inviare un messaggio Telegram per ${label}?`)) return;
+  if (!(await showAppConfirm(`Inviare un messaggio Telegram per ${label}?`, {
+    title: 'Notifica squadra',
+    confirmLabel: 'Invia',
+  }))) return;
 
   const result = await sendTelegramTeamReminder(teamId);
   showToast(`Notifica squadra inviata${result?.messageId ? ` (#${result.messageId})` : ''}.`, 'success');
@@ -1229,6 +1677,9 @@ function openMatchDetail(matchId) {
     match.is_finished
       ? `<button class="btn btn-primary" data-action="download-match-report" data-id="${match.id}" type="button"><i class="fa-solid fa-file-pdf"></i> Referto PDF</button>`
       : '',
+    match.is_finished && canManageAll(state.admin?.ruolo)
+      ? `<button class="btn btn-warning" data-action="reopen-match" data-id="${match.id}" type="button"><i class="fa-solid fa-unlock-keyhole"></i> Riapri</button>`
+      : '',
   ].filter(Boolean);
 
   getEl('match-detail-title').textContent = teams;
@@ -1245,10 +1696,22 @@ function openMatchDetail(matchId) {
         <div><dt>Campo</dt><dd>${escapeHtml(match.venue?.name ?? 'Campo da definire')}</dd></div>
         <div><dt>Note</dt><dd>${escapeHtml(match.schedule_notes || '-')}</dd></div>
       </dl>
+      <section class="match-detail-staff">
+        <h3>Staff partita</h3>
+        <div id="match-detail-staff-list" class="staff-chip-grid"><div class="empty-state">Caricamento staff...</div></div>
+      </section>
       <div class="match-detail-actions">${actions.join('')}</div>
+      <section class="match-detail-audit">
+        <button class="match-detail-toggle" data-action="toggle-audit-log" data-id="${match.id}" type="button" aria-expanded="false">
+          <span>Registro modifiche</span>
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="match-detail-audit-list" class="audit-log-list hidden" data-loaded="false" hidden></div>
+      </section>
     </div>
   `;
   openModal('modal-match-detail');
+  renderMatchDetailStaff(match.id).catch(() => undefined);
 }
 
 function renderVenuesTableRows(rows) {
@@ -1317,7 +1780,11 @@ async function saveVenueFromForm(event) {
 }
 
 async function handleDeleteVenue(venueId) {
-  if (!confirm('Confermi eliminazione campo?')) return;
+  if (!(await showAppConfirm('Confermi eliminazione campo?', {
+    title: 'Elimina campo',
+    tone: 'danger',
+    confirmLabel: 'Elimina',
+  }))) return;
   await deleteVenue(venueId);
   await refreshVenuesState();
   await loadVenuesTable();
@@ -1387,7 +1854,13 @@ async function handleArchiveTournament() {
     showToast('Seleziona un torneo da archiviare.', 'error');
     return;
   }
-  const notes = prompt('Note archivio (opzionale):');
+  const notes = await showAppPrompt('Note archivio (opzionale):', {
+    title: 'Archivia torneo',
+    inputLabel: 'Note',
+    multiline: true,
+    placeholder: 'Es. edizione conclusa regolarmente',
+    confirmLabel: 'Archivia',
+  });
   if (notes === null) return;
   await archiveTournament(sportId, { notes });
   await loadArchiveTable();
@@ -1395,7 +1868,11 @@ async function handleArchiveTournament() {
 }
 
 async function handleUnarchiveTournament(entryId) {
-  if (!confirm('Vuoi rimuovere questa voce dall Albo d Oro?')) return;
+  if (!(await showAppConfirm('Vuoi rimuovere questa voce dall Albo d Oro?', {
+    title: 'Disarchivia torneo',
+    tone: 'danger',
+    confirmLabel: 'Disarchivia',
+  }))) return;
   await unarchiveTournament(entryId);
   await loadArchiveTable();
   showToast('Torneo disarchiviato.', 'success');
@@ -2109,7 +2586,11 @@ async function handleSaveSport(event) {
 }
 
 async function handleDeleteSport(sportId) {
-  if (!confirm('Confermi eliminazione torneo?')) return;
+  if (!(await showAppConfirm('Confermi eliminazione torneo?', {
+    title: 'Elimina torneo',
+    tone: 'danger',
+    confirmLabel: 'Elimina',
+  }))) return;
   await deleteSport(sportId);
   await refreshSportsState();
   await loadSportsTable();
@@ -2137,6 +2618,32 @@ function populateCaptainSelect(selectedName = '') {
   }
 }
 
+async function confirmStudentCompatibilityWarnings({ sportId, teamId, players }) {
+  const normalizedPlayers = new Set(
+    (players ?? []).map((name) => String(name).trim().toLowerCase()).filter(Boolean)
+  );
+  if (!sportId || !normalizedPlayers.size) return true;
+
+  const teams = await loadTeamsBySport(sportId);
+  const otherTeams = teams.filter((team) => Number(team.id) !== Number(teamId || 0));
+  const conflicts = [];
+
+  for (const team of otherTeams) {
+    const teamPlayers = await loadPlayersByTeam(team.id);
+    teamPlayers.forEach((player) => {
+      if (normalizedPlayers.has(String(player.full_name ?? '').trim().toLowerCase())) {
+        conflicts.push(`${player.full_name} risulta gia in ${team.name}`);
+      }
+    });
+  }
+
+  if (!conflicts.length) return true;
+  return showAppConfirm(`Possibili iscrizioni incompatibili:\n\n${conflicts.map((item) => `- ${item}`).join('\n')}\n\nVuoi salvare comunque?`, {
+    title: 'Controllo iscrizioni',
+    confirmLabel: 'Salva comunque',
+  });
+}
+
 async function openTeamModal(team = null) {
   resetFormValues(getEl('form-team'));
   if (team) {
@@ -2157,10 +2664,14 @@ async function openTeamModal(team = null) {
 async function handleSaveTeam(event) {
   event.preventDefault();
   const players = parsePlayersInput();
+  const teamId = getEl('edit-team-id').value || null;
+  const sportId = getEl('select-sport-team').value;
+  const canSave = await confirmStudentCompatibilityWarnings({ sportId, teamId, players });
+  if (!canSave) return;
   await saveTeam({
-    id: getEl('edit-team-id').value || null,
+    id: teamId,
     name: getEl('input-team-name').value,
-    sport_id: getEl('select-sport-team').value,
+    sport_id: sportId,
     players,
     captainName: getEl('select-team-captain')?.value ?? '',
   });
@@ -2170,7 +2681,11 @@ async function handleSaveTeam(event) {
 }
 
 async function handleDeleteTeam(teamId) {
-  if (!confirm('Confermi eliminazione squadra?')) return;
+  if (!(await showAppConfirm('Confermi eliminazione squadra?', {
+    title: 'Elimina squadra',
+    tone: 'danger',
+    confirmLabel: 'Elimina',
+  }))) return;
   await deleteTeam(teamId);
   await loadTeamsTable();
   showToast('Squadra eliminata.', 'success');
@@ -2192,6 +2707,118 @@ async function populateMatchTeams(sportId) {
   awaySelect.innerHTML = options;
   homeSelect.disabled = false;
   awaySelect.disabled = false;
+}
+
+async function renderMatchDetailStaff(matchId) {
+  const target = getEl('match-detail-staff-list');
+  if (!target) return;
+
+  try {
+    const staff = await loadMatchStaff(matchId);
+    const items = [
+      ['Arbitro', staff.referee?.name],
+      ['Segnapunti', staff.scorekeeper?.name],
+      ['Responsabile campo', staff.field_manager?.name],
+      ['Docente supervisore', staff.supervisor?.name],
+    ];
+
+    target.innerHTML = items
+      .map(
+        ([label, value]) => `
+        <div class="staff-chip">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value || 'Da assegnare')}</strong>
+        </div>
+      `
+      )
+      .join('');
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function buildMatchConflictWarnings(payload) {
+  const warnings = [];
+  const newRange = getTimeRange(payload.scheduledStart, payload.scheduledEnd);
+  const teamIds = getPayloadTeamIds(payload);
+
+  if (!newRange) {
+    warnings.push('La partita non ha uno slot completo: restera da programmare.');
+    return warnings;
+  }
+
+  const existingMatches = state.adminMatches.filter((match) => isRelevantScheduleMatch(match, payload));
+  const teamNamesById = new Map();
+  existingMatches.forEach((match) => {
+    if (match.home_team_id) teamNamesById.set(Number(match.home_team_id), match.home?.name ?? `Squadra ${match.home_team_id}`);
+    if (match.away_team_id) teamNamesById.set(Number(match.away_team_id), match.away?.name ?? `Squadra ${match.away_team_id}`);
+  });
+
+  for (const match of existingMatches) {
+    const otherRange = getTimeRange(match.scheduled_start, match.scheduled_end);
+    if (!otherRange) continue;
+
+    if (payload.venueId && Number(match.venue_id ?? 0) === Number(payload.venueId) && rangesOverlap(newRange, otherRange)) {
+      warnings.push(`Campo gia occupato: ${match.venue?.name ?? 'campo'} per ${getMatchTeamsLabel(match)} (${formatScheduleRange(match)}).`);
+    }
+
+    const overlappingTeams = getMatchTeamIds(match).filter((teamId) => teamIds.includes(teamId));
+    if (overlappingTeams.length && rangesOverlap(newRange, otherRange)) {
+      warnings.push(`Squadra gia impegnata: ${overlappingTeams.map((id) => teamNamesById.get(id) ?? `#${id}`).join(', ')} in ${getMatchTeamsLabel(match)}.`);
+    }
+  }
+
+  let config = null;
+  try {
+    config = await loadSportConfig(payload.sportId);
+  } catch (_error) {
+    config = null;
+  }
+
+  const minRestMinutes = Math.max(0, Number(config?.min_rest_minutes ?? 0));
+  if (minRestMinutes > 0) {
+    existingMatches.forEach((match) => {
+      const otherRange = getTimeRange(match.scheduled_start, match.scheduled_end);
+      if (!otherRange) return;
+      const commonTeams = getMatchTeamIds(match).filter((teamId) => teamIds.includes(teamId));
+      if (!commonTeams.length) return;
+      const gap = minutesBetweenRanges(newRange, otherRange);
+      if (gap < minRestMinutes) {
+        warnings.push(`Riposo insufficiente (${gap} min): ${commonTeams.map((id) => teamNamesById.get(id) ?? `#${id}`).join(', ')} sotto il limite di ${minRestMinutes} min.`);
+      }
+    });
+  }
+
+  const minPlayers = Math.max(0, Number(config?.min_players ?? 0));
+  if (minPlayers > 0) {
+    const playerCounts = await Promise.all(
+      teamIds.map(async (teamId) => {
+        try {
+          const players = await loadPlayersByTeam(teamId);
+          return { teamId, count: players.length };
+        } catch (_error) {
+          return { teamId, count: minPlayers };
+        }
+      })
+    );
+
+    playerCounts
+      .filter((row) => row.count < minPlayers)
+      .forEach((row) => {
+        warnings.push(`Numero minimo partecipanti non raggiunto: squadra #${row.teamId} ha ${row.count}/${minPlayers} studenti.`);
+      });
+  }
+
+  return [...new Set(warnings)];
+}
+
+async function confirmMatchConflictWarnings(payload) {
+  const warnings = await buildMatchConflictWarnings(payload);
+  if (!warnings.length) return true;
+  return showAppConfirm(`Controllo automatico conflitti:\n\n${warnings.map((item) => `- ${item}`).join('\n')}\n\nVuoi salvare comunque?`, {
+    title: 'Conflitti calendario',
+    confirmLabel: 'Salva comunque',
+  });
 }
 
 async function openMatchModal(match = null) {
@@ -2252,6 +2879,29 @@ function buildMatchFormPayload() {
 async function handleSaveMatch(event) {
   event.preventDefault();
   const payload = buildMatchFormPayload();
+  const originalMatch = payload.matchId ? getMatchById(payload.matchId) : null;
+  if (didOperationalScheduleChange(originalMatch, payload)) {
+    const reason = await showAppPrompt('Motivo della variazione/rinvio:', {
+      title: 'Motivo variazione',
+      inputLabel: 'Motivo',
+      multiline: true,
+      placeholder: 'Indica perche stai cambiando orario, campo o programmazione...',
+      confirmLabel: 'Continua',
+    });
+    if (reason === null) return;
+    const cleanReason = reason.trim();
+    if (cleanReason.length < 5) {
+      showToast('Inserisci una motivazione di almeno 5 caratteri per la variazione.', 'error');
+      return;
+    }
+    payload.scheduleNotes = [payload.scheduleNotes, `Variazione: ${cleanReason}`]
+      .filter((item) => String(item ?? '').trim())
+      .join(' | ');
+  }
+  const shouldSendVariationTelegram = didMatchVariationChange(originalMatch, payload);
+  const canSaveDespiteWarnings = await confirmMatchConflictWarnings(payload);
+  if (!canSaveDespiteWarnings) return;
+
   let savedMatch;
   if (payload.matchId) {
     savedMatch = await updateManualMatch(payload);
@@ -2260,6 +2910,11 @@ async function handleSaveMatch(event) {
   }
   closeModal('modal-match');
   await loadMatchesTable();
+  if (payload.matchId && shouldSendVariationTelegram) {
+    sendTelegramMatchReminder(payload.matchId)
+      .then(() => showToast('Variazione salvata e comunicata su Telegram.', 'success'))
+      .catch((error) => showToast(`Partita salvata, ma Telegram non inviato: ${error.message}`, 'error'));
+  }
   if (savedMatch?.__scheduleUnsupported) {
     showToast('Partita salvata senza campo/orario. Applica la migrazione 009 e ricarica schema/cache Supabase.', 'error');
     return;
@@ -2290,10 +2945,32 @@ async function handleGenerateSemifinals() {
 }
 
 async function handleDeleteMatch(matchId) {
-  if (!confirm('Confermi eliminazione match?')) return;
+  if (!(await showAppConfirm('Confermi eliminazione match?', {
+    title: 'Elimina match',
+    tone: 'danger',
+    confirmLabel: 'Elimina',
+  }))) return;
   await deleteMatch(matchId);
   await loadMatchesTable();
   showToast('Match eliminato.', 'success');
+}
+
+async function handleReopenMatchForCorrection(matchId) {
+  const match = getMatchById(matchId);
+  const teams = match ? getMatchTeamsLabel(match) : 'questo match';
+  const reason = await showAppPrompt(`Motivo della riapertura per ${teams}:\n\nLa motivazione restera nel registro modifiche.`, {
+    title: 'Riapri match',
+    inputLabel: 'Motivo',
+    multiline: true,
+    confirmLabel: 'Riapri',
+  });
+  if (reason === null) return;
+
+  await reopenMatchForCorrection(matchId, reason);
+  closeModal('modal-match-detail');
+  await loadMatchesTable();
+  await loadDashboardStats();
+  showToast('Match riaperto per correzione. Ora puoi aprire il live e richiuderlo con nuove firme.', 'success');
 }
 
 function goToLive(matchId) {
@@ -2313,9 +2990,10 @@ function getSettingsVisibility(sportType, format) {
     };
   }
   const isAthletics = sportType === 'atletica';
+  const usesStandings = ['gironi', 'gironi_playoff', 'italiana', 'gironi_multipli', 'migliori_seconde', 'svizzero'].includes(format);
   return {
     comuni_team: !isAthletics,
-    classifica_gironi: !isAthletics && format === 'gironi',
+    classifica_gironi: !isAthletics && usesStandings,
     basket_live: sportType === 'basket',
     calcio_discipline: sportType === 'calcio',
     pallavolo_live: sportType === 'pallavolo',
@@ -2338,11 +3016,118 @@ function applySettingsVisibility(sport) {
   getEl('settings-selected-format').value = FORMAT_LABELS[format] ?? '-';
 }
 
+function parseRankingTiebreakersInput(value) {
+  const allowed = new Set(DEFAULT_RANKING_RULES);
+  const rawValues = Array.isArray(value) ? value : String(value ?? '').split(',');
+  const parsed = rawValues
+    .map((item) => String(item).trim().toLowerCase())
+    .filter((item) => allowed.has(item));
+  const unique = [...new Set(parsed)];
+  return unique.length ? unique : [...DEFAULT_RANKING_RULES];
+}
+
+function getRankingRulesFromDom() {
+  const list = getEl('set-ranking-tiebreakers-list');
+  const values = [...(list?.querySelectorAll('[data-ranking-rule]') ?? [])].map((item) => item.dataset.rankingRule);
+  return parseRankingTiebreakersInput(values);
+}
+
+function renderRankingRulesList(rules = DEFAULT_RANKING_RULES) {
+  const list = getEl('set-ranking-tiebreakers-list');
+  if (!list) return;
+  const ordered = parseRankingTiebreakersInput(rules);
+  const missing = DEFAULT_RANKING_RULES.filter((rule) => !ordered.includes(rule));
+  const allRules = [...ordered, ...missing];
+
+  list.innerHTML = allRules
+    .map(
+      (rule, index) => `
+      <div class="ranking-sort-item" draggable="true" data-ranking-rule="${escapeHtml(rule)}">
+        <span class="ranking-sort-handle"><i class="fa-solid fa-grip-vertical"></i></span>
+        <strong>${index + 1}. ${escapeHtml(RANKING_RULE_LABELS[rule] ?? rule)}</strong>
+      </div>
+    `
+    )
+    .join('');
+}
+
+function renumberRankingRulesList() {
+  getEl('set-ranking-tiebreakers-list')
+    ?.querySelectorAll('.ranking-sort-item strong')
+    .forEach((label, index) => {
+      const rule = label.closest('[data-ranking-rule]')?.dataset.rankingRule;
+      label.textContent = `${index + 1}. ${RANKING_RULE_LABELS[rule] ?? rule}`;
+    });
+}
+
+function bindRankingRulesDrag() {
+  const list = getEl('set-ranking-tiebreakers-list');
+  if (!list) return;
+
+  let dragged = null;
+  list.addEventListener('dragstart', (event) => {
+    dragged = event.target.closest('[data-ranking-rule]');
+    if (!dragged) return;
+    dragged.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+  });
+
+  list.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    const target = event.target.closest('[data-ranking-rule]');
+    if (!dragged || !target || dragged === target) return;
+    const rect = target.getBoundingClientRect();
+    const after = event.clientY > rect.top + rect.height / 2;
+    list.insertBefore(dragged, after ? target.nextSibling : target);
+  });
+
+  list.addEventListener('dragend', () => {
+    dragged?.classList.remove('dragging');
+    dragged = null;
+    renumberRankingRulesList();
+  });
+}
+
+function normalizePrivacySettings(config = {}) {
+  const raw = config.privacy_settings;
+  const parsed = typeof raw === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(raw);
+        } catch (_error) {
+          return {};
+        }
+      })()
+    : raw ?? {};
+  return {
+    player_name: ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'full',
+    show_class: parsed.show_class !== false,
+    show_personal_stats: parsed.show_personal_stats !== false,
+    show_mvp: parsed.show_mvp !== false,
+    show_disciplinary: parsed.show_disciplinary !== false,
+  };
+}
+
+function buildSuperSettingsPayload() {
+  return {
+    ranking_tiebreakers: getRankingRulesFromDom(),
+    min_rest_minutes: Math.max(0, Number(getEl('set-min-rest-minutes')?.value || 0)),
+    advanced_live_events_enabled: Boolean(getEl('set-advanced-live-events')?.checked),
+    privacy_settings: {
+      player_name: getEl('set-privacy-player-name')?.value || 'full',
+      show_class: Boolean(getEl('set-privacy-show-class')?.checked),
+      show_personal_stats: Boolean(getEl('set-privacy-show-stats')?.checked),
+      show_mvp: Boolean(getEl('set-privacy-show-mvp')?.checked),
+      show_disciplinary: Boolean(getEl('set-privacy-show-disciplinary')?.checked),
+    },
+  };
+}
+
 function buildSettingsPayloadForSport(sport) {
   const sportType = sport?.sport_type ?? '';
   const format = sport?.format ?? '';
   const visibility = getSettingsVisibility(sportType, format);
-  const payload = {};
+  const payload = buildSuperSettingsPayload();
 
   if (visibility.comuni_team) {
     payload.max_fouls = Number(getEl('set-max-fouls').value || 3);
@@ -2404,6 +3189,18 @@ function fillSettingsForm(config) {
   getEl('set-max-yellow-cards').value = config.max_yellow_cards ?? 2;
   getEl('set-max-red-cards').value = config.max_red_cards ?? 1;
   getEl('set-allow-mvp').checked = Boolean(config.allow_mvp ?? true);
+  const tiebreakers = Array.isArray(config.ranking_tiebreakers)
+    ? config.ranking_tiebreakers
+    : parseRankingTiebreakersInput(config.ranking_tiebreakers);
+  renderRankingRulesList(tiebreakers);
+  getEl('set-min-rest-minutes').value = config.min_rest_minutes ?? 0;
+  getEl('set-advanced-live-events').checked = Boolean(config.advanced_live_events_enabled);
+  const privacy = normalizePrivacySettings(config);
+  getEl('set-privacy-player-name').value = privacy.player_name;
+  getEl('set-privacy-show-class').checked = Boolean(privacy.show_class);
+  getEl('set-privacy-show-stats').checked = Boolean(privacy.show_personal_stats);
+  getEl('set-privacy-show-mvp').checked = Boolean(privacy.show_mvp);
+  getEl('set-privacy-show-disciplinary').checked = Boolean(privacy.show_disciplinary);
 }
 
 async function loadSettingsForSelectedSport() {
@@ -2442,8 +3239,100 @@ async function saveSettingsForSport() {
   }
   showToast('Impostazioni salvate.', 'success');
 }
+
+async function openSuperSettingsModal() {
+  if (!(await verifySettingsPassword('super'))) return;
+  const sportId = Number(getEl('settings-sport-select')?.value || 0);
+  if (!sportId) {
+    showToast('Seleziona un torneo prima di aprire le impostazioni superadmin.', 'error');
+    return;
+  }
+  openModal('modal-super-settings');
+  renderPlatformBackupsList();
+}
+
+async function handleCreatePlatformBackup() {
+  const sportId = Number(getEl('settings-sport-select')?.value || 0) || null;
+  const reason = await showAppPrompt('Motivo del backup:', {
+    title: 'Crea backup',
+    inputLabel: 'Motivo',
+    placeholder: 'Es. prima della finale',
+    confirmLabel: 'Crea backup',
+  });
+  if (reason === null) return;
+  const result = await createPlatformBackup({ sportId, reason });
+  await renderPlatformBackupsList();
+  showToast(`Backup creato: #${result.backup_id}.`, 'success');
+}
+
+function renderPlatformBackupRows(rows = []) {
+  const body = getEl('table-platform-backups-body');
+  if (!body) return;
+  body.innerHTML = rows.length
+    ? rows
+        .map(
+          (backup) => `
+        <tr>
+          <td><strong>#${backup.id}</strong></td>
+          <td>${escapeHtml(formatReportDateTime(backup.created_at))}</td>
+          <td>${escapeHtml(backup.scope === 'sport' ? `Torneo #${backup.sport_id}` : 'Completo')}</td>
+          <td>${escapeHtml(backup.reason || '-')}</td>
+          <td>${backup.restored_at ? `<span class="badge badge-warning">Ripristinato ${escapeHtml(formatReportDateTime(backup.restored_at))}</span>` : '<span class="badge badge-success">Disponibile</span>'}</td>
+          <td>
+            <div class="table-actions">
+              <button class="btn btn-ghost btn-compact" type="button" data-action="restore-backup" data-id="${backup.id}"><i class="fa-solid fa-rotate-left"></i> Ripristina</button>
+              <button class="btn btn-danger btn-compact" type="button" data-action="delete-backup" data-id="${backup.id}"><i class="fa-solid fa-trash"></i> Elimina</button>
+            </div>
+          </td>
+        </tr>
+      `
+        )
+        .join('')
+    : '<tr><td colspan="6" class="empty-state">Nessun backup disponibile.</td></tr>';
+}
+
+async function renderPlatformBackupsList() {
+  try {
+    renderPlatformBackupRows(await loadPlatformBackups({ limit: 12 }));
+  } catch (error) {
+    const body = getEl('table-platform-backups-body');
+    if (body) body.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(error.message)}</td></tr>`;
+  }
+}
+
+async function handleRestorePlatformBackup(backupId) {
+  if (!backupId) return;
+  const reason = await showAppPrompt('Motivo del ripristino:', {
+    title: `Ripristina backup #${backupId}`,
+    inputLabel: 'Motivo',
+    multiline: true,
+    placeholder: 'Spiega perche stai ripristinando questo backup...',
+    confirmLabel: 'Ripristina',
+  });
+  if (reason === null) return;
+  const result = await restorePlatformBackup({ backupId, reason });
+  await loadSettingsForSelectedSport();
+  await loadMatchesTable();
+  await renderPlatformBackupsList();
+  showToast(result.message || 'Backup ripristinato.', 'success');
+}
+
+async function handleDeletePlatformBackup(backupId) {
+  if (!backupId) return;
+  if (!(await showAppConfirm(`Eliminare definitivamente il backup #${backupId}?`, {
+    title: 'Elimina backup',
+    tone: 'danger',
+    confirmLabel: 'Elimina',
+  }))) return;
+  await deletePlatformBackup(backupId);
+  await renderPlatformBackupsList();
+  showToast('Backup eliminato.', 'success');
+}
+
 async function openEventModal(eventItem = null) {
   resetFormValues(getEl('form-event'));
+  resetFormValues(getEl('form-event-result'));
+  const selectedAthleticsSportId = getEl('athletics-sport-select')?.value;
   if (eventItem) {
     getEl('title-modal-event').textContent = 'Modifica Evento';
     getEl('edit-event-id').value = eventItem.id;
@@ -2453,6 +3342,7 @@ async function openEventModal(eventItem = null) {
     getEl('input-event-order').value = eventItem.sort_order;
   } else {
     getEl('title-modal-event').textContent = 'Nuovo Evento';
+    if (selectedAthleticsSportId) getEl('event-sport-select').value = String(selectedAthleticsSportId);
   }
   openModal('modal-event');
 }
@@ -2479,7 +3369,11 @@ async function saveEventFromForm(event) {
 }
 
 async function handleDeleteEvent(eventId) {
-  if (!confirm('Confermi disattivazione evento?')) return;
+  if (!(await showAppConfirm('Confermi disattivazione evento?', {
+    title: 'Disattiva evento',
+    tone: 'danger',
+    confirmLabel: 'Disattiva',
+  }))) return;
   await deleteAthleticsEvent(eventId);
   await loadEventsSection();
   showToast('Evento disattivato.', 'success');
@@ -2656,6 +3550,8 @@ async function saveEventResultForm(event) {
   state.selectedEventId = eventId;
   await renderEventResults(eventId);
   await loadEventsSection();
+  getEl('input-event-value').value = '';
+  getEl('input-event-notes').value = '';
   if (saveResult?.__attemptColumnsUnsupported) {
     showToast('Risultato salvato con fallback (tentativi non disponibili finché non applichi migrazione/cached schema).', 'error');
     return;
@@ -2670,9 +3566,11 @@ async function saveEventResultForm(event) {
   showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
+  bindRankingRulesDrag();
+
   getEl('btn-logout').addEventListener('click', async () => {
     await signOutAdmin();
-    window.location.href = 'index.html';
+    window.location.href = '../';
   });
 
   getEl('btn-new-sport')?.addEventListener('click', () => openSportModal(null));
@@ -2681,7 +3579,7 @@ function bindCoreActions() {
     openMatchModal(null).catch((error) => showToast(error.message, 'error'));
   }));
   getEl('btn-new-venue')?.addEventListener('click', () => openVenueModal(null));
-  getEl('btn-new-event')?.addEventListener('click', () => openEventModal(null));
+  getEl('btn-toggle-athletics-result')?.addEventListener('click', () => openEventModal(null));
   getEl('btn-csv-teams-players')?.addEventListener('click', () => openCsvImportModal('teams_players'));
   getEl('btn-csv-athletics-events')?.addEventListener('click', () => openCsvImportModal('athletics_events'));
   getEl('btn-csv-athletics-results')?.addEventListener('click', () => openCsvImportModal('athletics_results'));
@@ -2692,6 +3590,9 @@ function bindCoreActions() {
   getEl('btn-toggle-matches-view')?.addEventListener('click', () => {
     state.matchesViewMode = state.matchesViewMode === 'calendar' ? 'table' : 'calendar';
     renderMatchesViews();
+  });
+  getEl('btn-prepare-offline')?.addEventListener('click', () => {
+    prepareMatchesForOffline().catch((error) => showToast(error.message, 'error'));
   });
   getEl('btn-download-finished-match-reports')?.addEventListener('click', () => {
     try {
@@ -2709,6 +3610,28 @@ function bindCoreActions() {
   getEl('btn-save-settings')?.addEventListener('click', () => {
     saveSettingsForSport().catch((error) => showToast(error.message, 'error'));
   });
+  getEl('btn-open-super-settings')?.addEventListener('click', () => {
+    openSuperSettingsModal().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('btn-save-super-settings')?.addEventListener('click', () => {
+    saveSettingsForSport()
+      .then(() => closeModal('modal-super-settings'))
+      .catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('btn-create-platform-backup')?.addEventListener('click', () => {
+    handleCreatePlatformBackup().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('table-platform-backups-body')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const backupId = Number(actionEl.dataset.id);
+    if (actionEl.dataset.action === 'restore-backup') {
+      handleRestorePlatformBackup(backupId).catch((error) => showToast(error.message, 'error'));
+    }
+    if (actionEl.dataset.action === 'delete-backup') {
+      handleDeletePlatformBackup(backupId).catch((error) => showToast(error.message, 'error'));
+    }
+  });
 
   getEl('btn-archive-tournament')?.addEventListener('click', () => {
     handleArchiveTournament().catch((error) => showToast(error.message, 'error'));
@@ -2722,7 +3645,7 @@ function bindCoreActions() {
     });
   });
 
-  ['modal-sport', 'modal-team', 'modal-match', 'modal-venue', 'modal-venue-qr', 'modal-match-detail', 'modal-event', 'modal-csv-import'].forEach((modalId) => {
+  ['modal-sport', 'modal-team', 'modal-match', 'modal-super-settings', 'modal-venue', 'modal-venue-qr', 'modal-match-detail', 'modal-event', 'modal-csv-import'].forEach((modalId) => {
     getEl(modalId)?.addEventListener('click', (event) => {
       if (event.target.id === modalId) closeModal(modalId);
     });
@@ -2788,6 +3711,17 @@ function bindCoreActions() {
 
   getEl('form-event-result')?.addEventListener('submit', (event) => {
     saveEventResultForm(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('view-events')?.addEventListener('click', (event) => {
+    const toggle = event.target.closest('[data-action="toggle-collapsible-card"]');
+    if (!toggle) return;
+    const card = toggle.closest('[data-collapsible-card]');
+    if (!card) return;
+    const willOpen = card.classList.contains('is-collapsed');
+    card.classList.toggle('is-collapsed', !willOpen);
+    toggle.setAttribute('aria-expanded', String(willOpen));
+    toggle.querySelector('.card-toggle-chevron')?.classList.toggle('fa-chevron-up', willOpen);
+    toggle.querySelector('.card-toggle-chevron')?.classList.toggle('fa-chevron-down', !willOpen);
   });
 
   ['filter-match-team', 'filter-match-sport', 'filter-match-venue', 'filter-match-phase', 'filter-match-status'].forEach((id) => {
@@ -2964,11 +3898,36 @@ function bindCoreActions() {
     }
     if (action === 'qr-match') {
       const venue = state.venues.find((item) => Number(item.id) === Number(actionEl.dataset.venueId));
+      closeModal('modal-match-detail');
       showVenueQr(venue);
       return;
     }
     if (action === 'telegram-match') {
       handleSendTelegramMatchReminder(id).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
+    if (action === 'toggle-audit-log') {
+      event.preventDefault();
+      event.stopPropagation();
+      const list = getEl('match-detail-audit-list');
+      const button = actionEl;
+      if (!list) return;
+      const willOpen = button.getAttribute('aria-expanded') !== 'true';
+      list.classList.toggle('hidden', !willOpen);
+      list.hidden = !willOpen;
+      button.setAttribute('aria-expanded', String(willOpen));
+      button.querySelector('i')?.classList.toggle('fa-chevron-up', willOpen);
+      button.querySelector('i')?.classList.toggle('fa-chevron-down', !willOpen);
+      if (willOpen && list.dataset.loaded !== 'true') {
+        list.innerHTML = '<div class="empty-state">Caricamento registro...</div>';
+        renderMatchAuditLog(id)
+          .then(() => {
+            list.dataset.loaded = 'true';
+          })
+          .catch((error) => {
+            list.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+          });
+      }
       return;
     }
     if (action === 'download-match-report') {
@@ -2979,6 +3938,10 @@ function bindCoreActions() {
       } catch (error) {
         showToast(error.message, 'error');
       }
+      return;
+    }
+    if (action === 'reopen-match') {
+      handleReopenMatchForCorrection(id).catch((error) => showToast(error.message, 'error'));
       return;
     }
     if (action === 'delete-match') {
@@ -3008,6 +3971,7 @@ function bindCoreActions() {
     }
     if (action === 'qr-match') {
       const venue = state.venues.find((item) => Number(item.id) === Number(actionEl.dataset.venueId));
+      closeModal('modal-match-detail');
       showVenueQr(venue);
       return;
     }
@@ -3023,6 +3987,32 @@ function bindCoreActions() {
       } catch (error) {
         showToast(error.message, 'error');
       }
+      return;
+    }
+    if (action === 'toggle-audit-log') {
+      event.preventDefault();
+      const list = getEl('match-detail-audit-list');
+      if (!list) return;
+      const willOpen = actionEl.getAttribute('aria-expanded') !== 'true';
+      list.classList.toggle('hidden', !willOpen);
+      list.hidden = !willOpen;
+      actionEl.setAttribute('aria-expanded', String(willOpen));
+      actionEl.querySelector('i')?.classList.toggle('fa-chevron-up', willOpen);
+      actionEl.querySelector('i')?.classList.toggle('fa-chevron-down', !willOpen);
+      if (willOpen && list.dataset.loaded !== 'true') {
+        list.innerHTML = '<div class="empty-state">Caricamento registro...</div>';
+        renderMatchAuditLog(id)
+          .then(() => {
+            list.dataset.loaded = 'true';
+          })
+          .catch((error) => {
+            list.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+          });
+      }
+      return;
+    }
+    if (action === 'reopen-match') {
+      handleReopenMatchForCorrection(id).catch((error) => showToast(error.message, 'error'));
     }
   });
 
@@ -3059,20 +4049,30 @@ function bindCoreActions() {
       handleDeleteEvent(id).catch((error) => showToast(error.message, 'error'));
     }
   });
+
 }
 
 async function init() {
-  const session = await requireAdmin({ redirectTo: 'index.html' });
+  const session = await requireAdmin({ redirectTo: '../' });
   if (!session.allowed) return;
 
   state.admin = session.admin;
   getEl('admin-name').textContent = formatAdminDisplayName(state.admin);
   getEl('admin-role').textContent = formatRoleLabel(state.admin?.ruolo);
+  await promptDeviceLabel();
+  updateSidebarDeviceLabel();
 
   bindSidebar();
   bindMobileSidebar();
   bindCoreActions();
   applyRolePermissions();
+
+  if (session.offline) {
+    renderOfflineAdminDashboard();
+    showToast('Modalita offline: disponibili solo i match gia preparati su questo dispositivo.', 'error');
+    startAdminTour();
+    return;
+  }
 
   await Promise.all([refreshSportsState(), refreshVenuesState()]);
   await loadDashboardStats();
@@ -3102,9 +4102,11 @@ async function init() {
     await loadSettingsForSelectedSport();
   }
 
-  if (canManageAll(state.admin?.ruolo)) switchView('dashboard');
-  else if (canEditMatches(state.admin?.ruolo)) switchView('matches');
-  else switchView('reports');
+  if (canManageAll(state.admin?.ruolo)) await switchView('dashboard');
+  else if (canEditMatches(state.admin?.ruolo)) await switchView('matches');
+  else await switchView('reports');
+
+  startAdminTour();
 }
 
 init().catch((error) => {

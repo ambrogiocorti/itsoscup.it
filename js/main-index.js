@@ -1,11 +1,15 @@
 import { signInAdmin } from './auth.js';
 import {
   computeStandings,
+  formatPublicPlayerName,
+  getPrivacySettings,
+  loadActiveAnnouncements,
   loadMatchesBySport,
   loadSportById,
   loadSportConfig,
   loadSports,
   loadTeamsBySport,
+  reportIssue,
 } from './matches.js';
 import {
   computeAthleticsRanking,
@@ -16,17 +20,22 @@ import {
 import { db, run, subscribeTable } from './db.js';
 import { loadHonorRoll } from './archive.js';
 import { formatScheduleRange, loadVenueScheduleBySlug } from './schedule.js';
+import { registerOfflineSupport } from './offline.js';
+import { startTourIfNeeded } from './onboarding.js';
 import {
   escapeHtml,
   formatDateTime,
   medalByRank,
   setHidden,
+  showAppPrompt,
   showToast,
 } from './utils.js';
 import { buildKnockoutBracket, renderKnockoutBracketHtml } from './knockout-bracket.js';
 
 const DEFAULT_SUBTITLE =
   'Risultati e classifica in tempo reale';
+
+registerOfflineSupport();
 
 const SPORT_TYPE_LABELS = {
   calcio: 'Calcio',
@@ -38,6 +47,13 @@ const SPORT_TYPE_LABELS = {
 const FORMAT_LABELS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione diretta',
+  gironi_playoff: 'Gironi + Playoff',
+  doppia_eliminazione: 'Doppia eliminazione',
+  terzo_posto: 'Finale terzo posto',
+  italiana: "Torneo all'italiana",
+  gironi_multipli: 'Gironi multipli',
+  migliori_seconde: 'Migliori seconde',
+  svizzero: 'Torneo svizzero',
 };
 
 const state = {
@@ -281,14 +297,196 @@ function renderPlayedMatches(matches, emptyMessage = 'Nessuna partita giocata.')
   });
 }
 
+function getUpcomingRows(matches) {
+  const now = Date.now();
+  const rows = (matches ?? []).filter((match) => match.status !== 'cancelled');
+  const current = rows.find((match) => {
+    const start = match.scheduled_start ? new Date(match.scheduled_start).getTime() : NaN;
+    const end = match.scheduled_end ? new Date(match.scheduled_end).getTime() : NaN;
+    return match.status === 'live' || (Number.isFinite(start) && Number.isFinite(end) && start <= now && end >= now);
+  });
+  const next = rows
+    .filter((match) => !match.is_finished)
+    .filter((match) => {
+      const start = match.scheduled_start ? new Date(match.scheduled_start).getTime() : NaN;
+      return Number.isFinite(start) && start >= now;
+    })
+    .sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
+    .slice(0, 3);
+  const last = rows
+    .filter((match) => Boolean(match.is_finished))
+    .sort((a, b) => new Date(b.finished_at ?? b.updated_at ?? 0).getTime() - new Date(a.finished_at ?? a.updated_at ?? 0).getTime())[0] ?? null;
+
+  return { current, next, last };
+}
+
+function renderUpcomingMatchChip(match, label) {
+  if (!match) {
+    return `
+      <article class="upcoming-chip is-empty">
+        <span>${escapeHtml(label)}</span>
+        <strong>Nessun dato</strong>
+      </article>
+    `;
+  }
+
+  const score = match.is_finished || match.status === 'live'
+    ? `${match.home_score ?? 0} - ${match.away_score ?? 0}`
+    : formatScheduleRange(match);
+
+  return `
+    <button class="upcoming-chip" data-match-id="${match.id}" type="button">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(match.home?.name ?? 'TBD')} vs ${escapeHtml(match.away?.name ?? 'TBD')}</strong>
+      <small>${escapeHtml(score)} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</small>
+    </button>
+  `;
+}
+
+async function renderUpcoming(matches) {
+  const container = document.getElementById('upcoming-content');
+  if (!container) return;
+
+  const { current, next, last } = getUpcomingRows(matches);
+  let announcements = [];
+  try {
+    announcements = await loadActiveAnnouncements();
+  } catch (_error) {
+    announcements = [];
+  }
+
+  container.innerHTML = `
+    <div class="upcoming-grid">
+      ${renderUpcomingMatchChip(current, 'In corso')}
+      ${next.map((match, index) => renderUpcomingMatchChip(match, `Prossima ${index + 1}`)).join('') || renderUpcomingMatchChip(null, 'Prossime partite')}
+      ${renderUpcomingMatchChip(last, 'Ultimo risultato')}
+    </div>
+    ${
+      announcements.length
+        ? `<div class="urgent-list">
+            ${announcements
+              .map(
+                (item) => `
+              <article class="urgent-item severity-${escapeHtml(item.severity ?? 'info')}">
+                <strong>${escapeHtml(item.title)}</strong>
+                ${item.body ? `<span>${escapeHtml(item.body)}</span>` : ''}
+              </article>
+            `
+              )
+              .join('')}
+          </div>`
+        : ''
+    }
+  `;
+
+  container.querySelectorAll('[data-match-id]').forEach((button) => {
+    button.addEventListener('click', () => openMatchDetails(button.dataset.matchId));
+  });
+}
+
+async function renderTeamProfile({ teamId, teams, matches, standings, config }) {
+  const card = document.getElementById('team-profile-card');
+  const content = document.getElementById('team-profile-content');
+  if (!card || !content) return;
+
+  if (!teamId) {
+    setHidden(card, true);
+    return;
+  }
+
+  const team = (teams ?? []).find((item) => Number(item.id) === Number(teamId));
+  if (!team) {
+    setHidden(card, false);
+    content.innerHTML = '<div class="empty-state">Squadra non trovata in questo torneo.</div>';
+    return;
+  }
+
+  setHidden(card, false);
+  const privacy = getPrivacySettings(config);
+  const teamMatches = (matches ?? [])
+    .filter((match) => Number(match.home_team_id) === Number(teamId) || Number(match.away_team_id) === Number(teamId))
+    .sort((a, b) => {
+      const aTime = a.scheduled_start ? new Date(a.scheduled_start).getTime() : Number.MAX_SAFE_INTEGER;
+      const bTime = b.scheduled_start ? new Date(b.scheduled_start).getTime() : Number.MAX_SAFE_INTEGER;
+      return aTime - bTime || Number(a.id) - Number(b.id);
+    });
+  const nextMatch = teamMatches.find((match) => !match.is_finished && match.status !== 'cancelled') ?? null;
+  const position = standings.findIndex((row) => Number(row.id) === Number(teamId)) + 1;
+
+  let players = [];
+  try {
+    const { data } = await run(
+      db.from('players').select('id, full_name, is_captain').eq('team_id', Number(teamId)).order('full_name', { ascending: true }),
+      'Caricamento rosa squadra'
+    );
+    players = data ?? [];
+  } catch (_error) {
+    players = [];
+  }
+
+  content.innerHTML = `
+    <div class="team-profile-grid">
+      <section class="team-profile-main">
+        <h2>${escapeHtml(team.name)}</h2>
+        <div class="team-profile-metrics">
+          <span>Posizione <strong>${position > 0 ? position : '-'}</strong></span>
+          <span>Partite <strong>${teamMatches.length}</strong></span>
+          <span>Prossima <strong>${nextMatch ? formatScheduleRange(nextMatch) : '-'}</strong></span>
+        </div>
+      </section>
+      <section>
+        <h3>Rosa</h3>
+        <div class="team-roster-list">
+          ${
+            players.length
+              ? players
+                  .map(
+                    (player) => `
+                <span>${escapeHtml(formatPublicPlayerName(player.full_name, privacy))}${player.is_captain ? ' · Capitano' : ''}</span>
+              `
+                  )
+                  .join('')
+              : '<span>Nessuna rosa pubblicata.</span>'
+          }
+        </div>
+      </section>
+      <section style="grid-column: 1 / -1">
+        <h3>Calendario squadra</h3>
+        <div class="team-match-list">
+          ${
+            teamMatches.length
+              ? teamMatches
+                  .map(
+                    (match) => `
+                <button class="team-match-row" data-match-id="${match.id}" type="button">
+                  <strong>${escapeHtml(match.home?.name ?? 'TBD')} vs ${escapeHtml(match.away?.name ?? 'TBD')}</strong>
+                  <span>${escapeHtml(match.is_finished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : formatScheduleRange(match))}</span>
+                </button>
+              `
+                  )
+                  .join('')
+              : '<div class="empty-state">Nessuna partita per questa squadra.</div>'
+          }
+        </div>
+      </section>
+    </div>
+  `;
+
+  content.querySelectorAll('[data-match-id]').forEach((button) => {
+    button.addEventListener('click', () => openMatchDetails(button.dataset.matchId));
+  });
+}
+
 async function renderAthletics(sportId) {
   const eventsContainer = document.getElementById('athletics-events-container');
   const rankingContainer = document.getElementById('athletics-ranking-container');
 
-  const [events, leaderboard] = await Promise.all([
+  const [events, leaderboard, config] = await Promise.all([
     loadAthleticsEvents(sportId),
     loadAthleticsLeaderboard(sportId),
+    loadSportConfig(sportId),
   ]);
+  const privacy = getPrivacySettings(config);
 
   if (!events.length) {
     eventsContainer.innerHTML = '<div class="empty-state">Nessun evento atletica configurato.</div>';
@@ -312,7 +510,7 @@ async function renderAthletics(sportId) {
                       .map(
                         (row) =>
                           `<div>${row.medal} ${escapeHtml(
-                            row.player?.full_name ?? '-'
+                            formatPublicPlayerName(row.player?.full_name ?? '-', privacy)
                           )} <span class="muted">(${Number(row.value).toFixed(2)})</span></div>`
                       )
                       .join('')
@@ -351,8 +549,8 @@ async function renderAthletics(sportId) {
               (row, index) => `
             <tr>
               <td>${medalByRank(index)}</td>
-              <td><strong>${escapeHtml(row.playerName)}</strong></td>
-              <td>${escapeHtml(row.teamName)}</td>
+              <td><strong>${escapeHtml(formatPublicPlayerName(row.playerName, privacy))}</strong></td>
+              <td>${privacy.show_class ? escapeHtml(row.teamName) : '-'}</td>
               <td class="text-center">${row.events}</td>
               <td class="text-center">O ${row.medals.gold} · A ${row.medals.silver} · B ${row.medals.bronze}</td>
               <td class="text-center"><strong>${row.score}</strong></td>
@@ -542,12 +740,15 @@ async function openMatchDetails(matchId) {
 
     const match = matchResult.data;
     let maxFouls = 3;
+    let privacy = getPrivacySettings();
     if (Number(match?.sport_id) > 0) {
       try {
         const config = await loadSportConfig(Number(match.sport_id));
         maxFouls = Number(config?.max_fouls ?? 3);
+        privacy = getPrivacySettings(config);
       } catch (_error) {
         maxFouls = 3;
+        privacy = getPrivacySettings();
       }
     }
     maxFouls = Math.max(1, Math.min(12, Math.round(maxFouls)));
@@ -604,21 +805,23 @@ async function openMatchDetails(matchId) {
             )
             .join('');
 
-          const playerLabel =
+          const playerLabel = formatPublicPlayerName(
             playerById.get(Number(row.player_id))?.full_name ??
-            row.player_name ??
-            `Giocatore #${Number(row.player_id)}`;
+              row.player_name ??
+              `Giocatore #${Number(row.player_id)}`,
+            privacy
+          );
 
           return `<div class="match-player-row">
           <span class="match-player-left">
             <span class="match-player-name">${escapeHtml(playerLabel)}</span>
             ${
-              row.is_mvp_vote
+              privacy.show_mvp && row.is_mvp_vote
                 ? '<i class="fa-solid fa-star match-player-mvp" title="MVP"></i>'
                 : ''
             }
             ${
-              showCards
+              showCards && privacy.show_disciplinary
                 ? `<span class="match-card-pills">
                     <span class="match-card-pill yellow">Y ${yellowCards}</span>
                     <span class="match-card-pill red">R ${redCards}</span>
@@ -628,6 +831,7 @@ async function openMatchDetails(matchId) {
           </span>
           ${
             showFouls
+            && privacy.show_disciplinary
               ? `<span class="match-player-fouls" title="Falli ${fouls}/${maxFouls}">
                   ${foulDots}
                 </span>`
@@ -649,13 +853,17 @@ async function openMatchDetails(matchId) {
         <section class="match-details-team-panel">
           <div class="badge badge-info">${escapeHtml(match.home?.name ?? 'Casa')}</div>
           <div class="match-details-player-list">${
-            byTeam(match.home_team_id).join('') || '<div class="muted match-details-empty">Nessuna statistica.</div>'
+            privacy.show_personal_stats
+              ? byTeam(match.home_team_id).join('') || '<div class="muted match-details-empty">Nessuna statistica.</div>'
+              : '<div class="muted match-details-empty">Statistiche personali non pubbliche.</div>'
           }</div>
         </section>
         <section class="match-details-team-panel">
           <div class="badge badge-warning">${escapeHtml(match.away?.name ?? 'Ospite')}</div>
           <div class="match-details-player-list">${
-            byTeam(match.away_team_id).join('') || '<div class="muted match-details-empty">Nessuna statistica.</div>'
+            privacy.show_personal_stats
+              ? byTeam(match.away_team_id).join('') || '<div class="muted match-details-empty">Nessuna statistica.</div>'
+              : '<div class="muted match-details-empty">Statistiche personali non pubbliche.</div>'
           }</div>
         </section>
       </div>
@@ -684,6 +892,9 @@ async function loadTournamentData() {
       '<div class="empty-state">Seleziona un torneo.</div>';
     document.getElementById('matches-container').innerHTML =
       '<div class="empty-state">In attesa di selezione torneo.</div>';
+    document.getElementById('upcoming-content').innerHTML =
+      '<div class="empty-state">Seleziona un torneo.</div>';
+    setHidden(document.getElementById('team-profile-card'), true);
     setHidden(athleticsCard, true);
     setHidden(standingsCard, false);
     setHidden(matchesCard, false);
@@ -699,12 +910,15 @@ async function loadTournamentData() {
 
   state.selectedSport = sport;
   updatePublicTournamentUi(sport);
+  await renderUpcoming(matches);
 
   const isAthletics = sport?.sport_type === 'atletica';
   const isKnockout = sport?.format === 'eliminazione';
+  const standings = isAthletics ? [] : computeStandings(teams, matches, config);
   setHidden(athleticsCard, !isAthletics);
   setHidden(standingsCard, isAthletics);
   setHidden(matchesCard, isAthletics);
+  await renderTeamProfile({ teamId: state.teamIdFromQuery, teams, matches, standings, config });
 
   if (isAthletics) {
     await renderAthletics(sportId);
@@ -723,7 +937,6 @@ async function loadTournamentData() {
     }, 0);
 
   } else {
-    const standings = computeStandings(teams, matches, config);
     renderStandingsTable(standings);
     renderPlayedMatches(matches);
   }
@@ -762,7 +975,33 @@ function bindLogin() {
 
     try {
       await signInAdmin(email, password);
-      window.location.href = 'admin.html';
+      window.location.href = 'admin/';
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  });
+}
+
+function bindIssueReport() {
+  document.getElementById('public-issue-btn')?.addEventListener('click', async () => {
+    const message = await showAppPrompt('Descrivi il problema riscontrato:', {
+      title: 'Segnala un problema',
+      inputLabel: 'Problema',
+      multiline: true,
+      placeholder: 'Scrivi cosa non funziona o cosa va corretto...',
+      confirmLabel: 'Invia',
+    });
+    if (message === null) return;
+    const reporter = await showAppPrompt('Nome o classe (facoltativo):', {
+      title: 'Contatto',
+      inputLabel: 'Nome o classe',
+      placeholder: 'Es. 3A, Prof. Rossi',
+      confirmLabel: 'Continua',
+    }) ?? '';
+
+    try {
+      await reportIssue({ reporter, message });
+      showToast('Segnalazione inviata.', 'success');
     } catch (error) {
       showToast(error.message, 'error');
     }
@@ -775,6 +1014,7 @@ async function init() {
   state.audienceFromQuery = getAudienceFromQuery();
   bindLogin();
   bindHonorRollModal();
+  bindIssueReport();
 
   getSportSelect()?.addEventListener('change', () => {
     loadTournamentData().catch((error) => showToast(error.message, 'error'));
@@ -810,6 +1050,49 @@ async function init() {
 
   await renderVenueRoute();
   await loadTournamentData();
+
+  startTourIfNeeded('public', [
+    {
+      selector: '.public-header',
+      title: 'Home tornei',
+      text: 'Questa pagina e pensata per studenti e docenti: mostra calendario, risultati, classifiche e comunicazioni senza entrare nell area admin.',
+    },
+    {
+      selector: '#sport-select',
+      title: 'Seleziona torneo',
+      text: 'Scegli il torneo per vedere calendario, risultati e classifiche.',
+    },
+    {
+      selector: '#upcoming-card',
+      title: 'Prossimamente',
+      text: 'Qui trovi partita in corso, prossime partite, ultimo risultato e comunicazioni.',
+    },
+    {
+      selector: '#standings-card',
+      title: 'Classifica',
+      text: 'La classifica si aggiorna con i risultati confermati.',
+    },
+    {
+      selector: '#matches-card',
+      title: 'Match e dettagli',
+      text: 'Clicca una partita per aprire il dettaglio con squadre, orario, campo, stato e risultato.',
+    },
+    {
+      selector: '#team-profile-card',
+      title: 'Pagina squadra',
+      text: 'Quando apri un link squadra trovi calendario, rosa, risultati e posizione della classe.',
+    },
+    {
+      selector: '#public-archive-btn',
+      title: 'Archivio',
+      text: 'Da qui apri Albo d Oro e storico delle edizioni precedenti.',
+    },
+    {
+      selector: '.public-quick-actions',
+      title: 'Schermo palestra e problemi',
+      text: 'In alto trovi subito la modalita schermo palestra e il pulsante per segnalare un problema organizzativo.',
+    },
+  ]);
 }
 
 init().catch((error) => {

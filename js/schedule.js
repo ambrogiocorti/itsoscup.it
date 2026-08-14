@@ -119,7 +119,16 @@ export function formatScheduleRange(match) {
 }
 
 export function getVenueQrUrl(venue, baseHref = window.location.href) {
-  const url = new URL('index.html', baseHref);
+  const url = new URL(baseHref);
+  const markers = ['/admin/', '/admin.html', '/live.html', '/gym.html', '/index.html'];
+  const marker = markers.find((item) => url.pathname.includes(item));
+  if (marker) {
+    url.pathname = url.pathname.slice(0, url.pathname.indexOf(marker) + 1);
+  } else if (!url.pathname.endsWith('/')) {
+    url.pathname = url.pathname.replace(/[^/]*$/, '');
+  }
+  url.search = '';
+  url.hash = '';
   url.searchParams.set('venue', venue.slug);
   return url.toString();
 }
