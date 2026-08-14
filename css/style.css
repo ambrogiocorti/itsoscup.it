@@ -3708,9 +3708,13 @@ body.dialog-open {
     margin: 14mm 10mm;
   }
 
+  html,
   body {
     background: #fff;
     color: #0f172a;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
   .sidebar,
@@ -3729,6 +3733,15 @@ body.dialog-open {
   .main-pane {
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .admin-shell {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
     overflow: visible !important;
   }
 
@@ -3738,6 +3751,17 @@ body.dialog-open {
   #mvp-winner-box > div {
     box-shadow: none !important;
     border: 1px solid #cbd5e1 !important;
+  }
+
+  #view-reports,
+  #view-reports .card,
+  #view-reports .card-body,
+  #view-reports .table-wrap,
+  #report-team-layout,
+  #report-athletics-layout {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .view-section {
@@ -3781,6 +3805,21 @@ body.dialog-open {
     width: 100% !important;
     border-collapse: collapse !important;
     min-width: 0 !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  #view-reports thead {
+    display: table-header-group !important;
+  }
+
+  #view-reports tfoot {
+    display: table-footer-group !important;
+  }
+
+  #view-reports tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   #view-reports th,
