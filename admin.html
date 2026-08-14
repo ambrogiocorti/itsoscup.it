@@ -8,8 +8,9 @@
     <script>
       (() => {
         const cleanPath = window.location.pathname
-          .replace(/\/admin\.html$/, '/admin/')
-          .replace(/\/admin\/index\.html$/, '/admin/');
+          .replace(/\/admin\.html$/, '/admin')
+          .replace(/\/admin\/index\.html$/, '/admin')
+          .replace(/\/admin\/$/, '/admin');
         if (cleanPath !== window.location.pathname) {
           window.history.replaceState(null, '', `${cleanPath}${window.location.search}${window.location.hash}`);
         }
