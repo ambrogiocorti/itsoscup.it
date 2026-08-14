@@ -3,7 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
     <title>Admin | Tornei Scolastici</title>
+    <script>
+      (() => {
+        const cleanPath = window.location.pathname
+          .replace(/\/admin\.html$/, '/admin/')
+          .replace(/\/admin\/index\.html$/, '/admin/');
+        if (cleanPath !== window.location.pathname) {
+          window.history.replaceState(null, '', `${cleanPath}${window.location.search}${window.location.hash}`);
+        }
+      })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -23,6 +34,10 @@
         <div class="sidebar-user">
           <div class="sidebar-user-name" id="admin-name">Amministratore</div>
           <div class="sidebar-user-role" id="admin-role">Ruolo non assegnato</div>
+          <div class="sidebar-device" id="sidebar-device-card" title="Dispositivo riconosciuto">
+            <i class="fa-solid fa-laptop"></i>
+            <span id="sidebar-device-label">Dispositivo</span>
+          </div>
         </div>
 
         <ul class="sidebar-menu">
@@ -188,17 +203,18 @@
           <div class="top-row">
             <h1 class="page-title">Calendario Match</h1>
             <div class="top-row-actions">
-              <button class="btn btn-primary" id="btn-generate-matches" data-requires-match-write><i class="fa-solid fa-bolt"></i> Genera Automatico</button>
+              <button class="btn btn-primary icon-only-action" id="btn-generate-matches" data-requires-match-write title="Genera automatico" aria-label="Genera automatico"><i class="fa-solid fa-bolt"></i></button>
+              <button class="btn btn-ghost icon-only-action" id="btn-prepare-offline" type="button" data-requires-match-write title="Prepara offline" aria-label="Prepara offline"><i class="fa-solid fa-cloud-arrow-down"></i></button>
               <button class="btn btn-ghost" id="btn-download-finished-match-reports" type="button"><i class="fa-solid fa-file-pdf"></i> Tutti i referti</button>
-              <button class="btn btn-ghost" id="btn-toggle-matches-view" type="button" aria-pressed="false">
-                <i class="fa-solid fa-calendar-days"></i> Vista calendario
+              <button class="btn btn-ghost icon-only-action" id="btn-toggle-matches-view" type="button" aria-pressed="false" title="Vista calendario" aria-label="Vista calendario">
+                <i class="fa-solid fa-calendar-days"></i>
               </button>
               <button class="icon-btn filter-toggle" id="btn-toggle-match-filters" type="button" aria-label="Mostra filtri calendario" aria-expanded="false" aria-controls="match-filters">
                 <i class="fa-solid fa-filter"></i>
               </button>
-              <button class="btn btn-primary" id="btn-new-match-alt" data-open-match-modal data-requires-match-write><i class="fa-solid fa-plus"></i> Nuova Partita</button>
             </div>
           </div>
+          <button class="admin-fab match-new-fab" id="btn-new-match-alt" data-open-match-modal data-requires-match-write title="Nuova partita" aria-label="Nuova partita"><i class="fa-solid fa-plus"></i></button>
 
           <div class="filter-bar is-collapsed" id="match-filters">
             <div class="field"><label for="filter-match-team">Cerca squadra</label><input id="filter-match-team" type="text" placeholder="4A, 5B..." /></div>
@@ -325,7 +341,6 @@
               <button class="icon-btn filter-toggle" id="btn-toggle-athletics-filters" type="button" aria-label="Mostra filtri atletica" aria-expanded="false" aria-controls="athletics-filters">
                 <i class="fa-solid fa-filter"></i>
               </button>
-              <button class="btn btn-primary" id="btn-new-event" data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuovo Evento</button>
             </div>
           </div>
 
@@ -333,8 +348,12 @@
             <div class="field"><label for="athletics-sport-select">Torneo atletica</label><select id="athletics-sport-select"></select></div>
           </div>
 
-          <section class="card">
-            <div class="card-header"><i class="fa-solid fa-list"></i> Eventi</div>
+          <button class="athletics-result-fab" id="btn-toggle-athletics-result" type="button" aria-label="Apri inserimento risultati" data-requires-admin-write>
+            <i class="fa-solid fa-plus"></i>
+          </button>
+
+          <section class="card athletics-collapsible is-collapsed" data-collapsible-card>
+            <button class="card-header card-toggle-header" type="button" data-action="toggle-collapsible-card"><span><i class="fa-solid fa-list"></i> Eventi</span><i class="fa-solid fa-chevron-down card-toggle-chevron"></i></button>
             <div class="card-body table-wrap">
               <table>
                 <thead><tr><th>Evento</th><th>Unità</th><th>Regola</th><th>Azioni</th></tr></thead>
@@ -343,22 +362,8 @@
             </div>
           </section>
 
-          <section class="card" style="margin-top: 14px">
-            <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Inserimento Risultati</div>
-            <div class="card-body">
-              <form id="form-event-result" class="inline-grid cols-3">
-                <div class="field"><label for="event-select-results">Evento</label><select id="event-select-results"></select></div>
-                <div class="field"><label for="event-player-select">Studente</label><select id="event-player-select"></select></div>
-                <div class="field"><label for="input-event-value">Valore</label><input type="number" step="0.01" min="0" id="input-event-value" /></div>
-                <div class="field" style="grid-column: 1 / -1"><label for="input-event-notes">Note (opzionale)</label><input type="text" id="input-event-notes" /></div>
-                <div class="field" style="grid-column: 1 / -1"><div class="muted" id="athletics-attempts-help">Tentativi per evento: 1 · Min eventi atleta: 1 · Max eventi atleta: 99</div></div>
-                <div><button class="btn btn-primary" type="submit">Salva Risultato</button></div>
-              </form>
-            </div>
-          </section>
-
-          <section class="card" style="margin-top: 14px">
-            <div class="card-header"><i class="fa-solid fa-ranking-star"></i> Classifica Evento Selezionato</div>
+          <section class="card athletics-collapsible is-collapsed" style="margin-top: 14px" data-collapsible-card>
+            <button class="card-header card-toggle-header" type="button" data-action="toggle-collapsible-card"><span><i class="fa-solid fa-ranking-star"></i> Classifica Evento Selezionato</span><i class="fa-solid fa-chevron-down card-toggle-chevron"></i></button>
             <div class="card-body table-wrap">
               <table>
                 <thead><tr><th>Pos</th><th>Studente</th><th>Classe</th><th class="text-center">Valore</th><th class="text-center">Tentativi</th><th>Note</th></tr></thead>
@@ -367,8 +372,8 @@
             </div>
           </section>
 
-          <section class="card" style="margin-top: 14px">
-            <div class="card-header"><i class="fa-solid fa-medal"></i> Leaderboard Generale Atletica</div>
+          <section class="card athletics-collapsible is-collapsed" style="margin-top: 14px" data-collapsible-card>
+            <button class="card-header card-toggle-header" type="button" data-action="toggle-collapsible-card"><span><i class="fa-solid fa-medal"></i> Leaderboard Generale Atletica</span><i class="fa-solid fa-chevron-down card-toggle-chevron"></i></button>
             <div class="card-body table-wrap">
               <table>
                 <thead><tr><th>Pos</th><th>Studente</th><th>Classe</th><th class="text-center">Eventi</th><th class="text-center">Medaglie</th><th class="text-center">Punti</th></tr></thead>
@@ -381,7 +386,10 @@
         <section id="view-settings" class="view-section">
           <div class="top-row">
             <h1 class="page-title">Impostazioni Sport</h1>
-            <button class="btn btn-primary" id="btn-save-settings" data-requires-admin-write><i class="fa-solid fa-floppy-disk"></i> Salva</button>
+            <div class="section-actions">
+              <button class="btn btn-ghost" id="btn-open-super-settings" type="button" data-requires-admin-write><i class="fa-solid fa-sliders"></i> Superadmin</button>
+              <button class="btn btn-primary" id="btn-save-settings" data-requires-admin-write><i class="fa-solid fa-floppy-disk"></i> Salva</button>
+            </div>
           </div>
 
           <section class="card">
@@ -473,7 +481,7 @@
           <div class="field"><label for="input-sport-name">Nome torneo</label><input id="input-sport-name" type="text" required /></div>
           <div class="field"><label for="input-sport-year">Anno scolastico</label><input id="input-sport-year" type="number" min="1" max="5" required /></div>
           <div class="field"><label for="input-sport-type">Sport</label><select id="input-sport-type"><option value="calcio">Calcio</option><option value="basket">Basket</option><option value="pallavolo">Pallavolo</option><option value="atletica">Atletica</option></select></div>
-          <div class="field"><label for="input-sport-format">Formato</label><select id="input-sport-format"><option value="gironi">Gironi</option><option value="eliminazione">Eliminazione</option></select></div>
+          <div class="field"><label for="input-sport-format">Formato</label><select id="input-sport-format"><option value="gironi">Gironi</option><option value="eliminazione">Eliminazione</option><option value="gironi_playoff">Gironi + Playoff</option><option value="doppia_eliminazione">Doppia eliminazione</option><option value="terzo_posto">Finale terzo posto</option><option value="italiana">Torneo all'italiana</option><option value="gironi_multipli">Gironi multipli</option><option value="migliori_seconde">Migliori seconde</option><option value="svizzero">Torneo svizzero</option></select></div>
           <div class="field"><label for="input-sport-gender">Categoria</label><select id="input-sport-gender"><option value="Misto">Misto</option><option value="M">Maschile</option><option value="F">Femminile</option></select></div>
           <div class="checkbox-row"><input id="input-sport-return" type="checkbox" /><label for="input-sport-return">Partite di ritorno</label></div>
           <div class="checkbox-row"><input id="input-sport-active" type="checkbox" checked /><label for="input-sport-active">Torneo attivo</label></div>
@@ -497,21 +505,91 @@
     </div>
 
     <div class="modal-overlay" id="modal-match">
-      <div class="modal-box">
+      <div class="modal-box match-modal">
         <div class="modal-header"><h2 id="title-modal-match" style="margin: 0">Nuovo Match</h2><button class="close-btn" data-modal-close="modal-match">&times;</button></div>
-        <form id="form-match" class="inline-grid cols-2">
+        <form id="form-match" class="match-form-grid">
           <input type="hidden" id="edit-match-id" />
-          <div class="field"><label for="select-sport-match">Torneo</label><select id="select-sport-match"></select></div>
-          <div class="field"><label for="select-match-phase">Fase</label><select id="select-match-phase"><option value="Girone (Andata)">Girone (Andata)</option><option value="Girone (Ritorno)">Girone (Ritorno)</option><option value="Semifinale 1">Semifinale 1</option><option value="Semifinale 2">Semifinale 2</option><option value="Finale">Finale</option></select></div>
-          <div class="field"><label for="select-home-team">Squadra Casa</label><select id="select-home-team" disabled></select></div>
-          <div class="field"><label for="select-away-team">Squadra Ospite</label><select id="select-away-team" disabled></select></div>
-          <div class="field"><label for="select-match-venue">Campo</label><select id="select-match-venue"><option value="">-- Da definire --</option></select></div>
-          <div class="field"><label for="input-match-date">Data</label><input id="input-match-date" type="date" placeholder="gg/mm/aaaa" /></div>
-          <div class="field"><label for="input-match-start">Ora inizio</label><input id="input-match-start" type="time" placeholder="--:--" /></div>
-          <div class="field"><label for="input-match-end">Ora fine</label><input id="input-match-end" type="time" placeholder="--:--" /></div>
-          <div class="field" style="grid-column: 1 / -1"><label for="input-match-notes">Note slot</label><input id="input-match-notes" type="text" placeholder="Es. cambio campo, arbitro, note logistiche" /></div>
-          <div><button class="btn btn-primary" type="submit" id="btn-submit-match">Crea Match</button></div>
+          <section class="match-modal-section">
+            <h3>Partita</h3>
+            <div class="field"><label for="select-sport-match">Torneo</label><select id="select-sport-match"></select></div>
+            <div class="field"><label for="select-match-phase">Fase</label><select id="select-match-phase"><option value="Girone (Andata)">Girone (Andata)</option><option value="Girone (Ritorno)">Girone (Ritorno)</option><option value="Semifinale 1">Semifinale 1</option><option value="Semifinale 2">Semifinale 2</option><option value="Finale">Finale</option></select></div>
+          </section>
+
+          <section class="match-modal-section">
+            <h3>Squadre</h3>
+            <div class="field"><label for="select-home-team">Squadra Casa</label><select id="select-home-team" disabled></select></div>
+            <div class="field"><label for="select-away-team">Squadra Ospite</label><select id="select-away-team" disabled></select></div>
+          </section>
+
+          <section class="match-modal-section">
+            <h3>Campo e orario</h3>
+            <div class="field"><label for="select-match-venue">Campo</label><select id="select-match-venue"><option value="">-- Da definire --</option></select></div>
+            <div class="match-time-grid">
+              <div class="field"><label for="input-match-date">Data</label><input id="input-match-date" type="date" placeholder="gg/mm/aaaa" /></div>
+              <div class="field"><label for="input-match-start">Ora inizio</label><input id="input-match-start" type="time" placeholder="--:--" /></div>
+              <div class="field"><label for="input-match-end">Ora fine</label><input id="input-match-end" type="time" placeholder="--:--" /></div>
+            </div>
+          </section>
+
+          <section class="match-modal-section match-modal-section-wide">
+            <h3>Note</h3>
+            <div class="field"><label for="input-match-notes">Note slot</label><input id="input-match-notes" type="text" placeholder="Es. cambio campo, arbitro, note logistiche" /></div>
+          </section>
+
+          <div class="match-modal-actions">
+            <button class="btn btn-primary" type="submit" id="btn-submit-match">Crea Match</button>
+          </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-super-settings">
+      <div class="modal-box super-settings-modal">
+        <div class="modal-header"><h2 style="margin: 0">Impostazioni Superadmin</h2><button class="close-btn" data-modal-close="modal-super-settings">&times;</button></div>
+        <div class="inline-grid">
+          <section class="settings-section">
+            <h3 class="settings-section-title">Classifica e Conflitti</h3>
+            <div class="inline-grid cols-2">
+              <div class="field" style="grid-column: 1 / -1">
+                <label>Ordine criteri classifica</label>
+                <div id="set-ranking-tiebreakers-list" class="ranking-sort-list" aria-label="Ordine criteri classifica"></div>
+                <div class="muted setting-help">Trascina i criteri: il primo ha priorità più alta.</div>
+              </div>
+              <div class="field"><label for="set-min-rest-minutes">Riposo minimo squadra (min)</label><input id="set-min-rest-minutes" type="number" min="0" /></div>
+              <div class="checkbox-row"><input id="set-advanced-live-events" type="checkbox" /><label for="set-advanced-live-events">Cronologia live avanzata opzionale</label></div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3 class="settings-section-title">Privacy Pubblica</h3>
+            <div class="inline-grid cols-2">
+              <div class="field"><label for="set-privacy-player-name">Nome studente</label><select id="set-privacy-player-name"><option value="full">Nome completo</option><option value="abbreviated">Nome abbreviato</option><option value="hidden">Nascosto</option></select></div>
+              <div class="checkbox-row"><input id="set-privacy-show-class" type="checkbox" /><label for="set-privacy-show-class">Mostra classe</label></div>
+              <div class="checkbox-row"><input id="set-privacy-show-stats" type="checkbox" /><label for="set-privacy-show-stats">Mostra statistiche personali</label></div>
+              <div class="checkbox-row"><input id="set-privacy-show-mvp" type="checkbox" /><label for="set-privacy-show-mvp">Mostra MVP</label></div>
+              <div class="checkbox-row"><input id="set-privacy-show-disciplinary" type="checkbox" /><label for="set-privacy-show-disciplinary">Mostra sanzioni</label></div>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3 class="settings-section-title">Backup e Ripristino</h3>
+            <div class="backup-actions-row">
+              <button class="btn btn-ghost" id="btn-create-platform-backup" type="button"><i class="fa-solid fa-database"></i> Crea backup</button>
+            </div>
+            <div class="backup-list-wrap">
+              <table class="backup-table">
+                <thead><tr><th>ID</th><th>Data</th><th>Ambito</th><th>Motivo</th><th>Stato</th><th>Azione</th></tr></thead>
+                <tbody id="table-platform-backups-body">
+                  <tr><td colspan="6" class="empty-state">Apri il popup per caricare i backup.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="modal-footer-actions">
+            <button class="btn btn-primary" id="btn-save-super-settings" type="button"><i class="fa-solid fa-floppy-disk"></i> Salva impostazioni</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -547,7 +625,7 @@
     </div>
 
     <div class="modal-overlay" id="modal-event">
-      <div class="modal-box">
+      <div class="modal-box event-modal">
         <div class="modal-header"><h2 id="title-modal-event" style="margin: 0">Nuovo Evento</h2><button class="close-btn" data-modal-close="modal-event">&times;</button></div>
         <form id="form-event" class="inline-grid cols-2">
           <input type="hidden" id="edit-event-id" />
@@ -557,6 +635,17 @@
           <div class="field"><label for="input-event-order">Ordinamento</label><select id="input-event-order"><option value="asc">Minore è migliore</option><option value="desc">Maggiore è migliore</option></select></div>
           <div><button class="btn btn-primary" type="submit">Salva Evento</button></div>
         </form>
+        <section class="modal-subsection">
+          <h3><i class="fa-solid fa-clipboard-check"></i> Inserimento Risultati</h3>
+          <form id="form-event-result" class="inline-grid cols-2">
+            <div class="field"><label for="event-select-results">Evento</label><select id="event-select-results"></select></div>
+            <div class="field"><label for="event-player-select">Studente</label><select id="event-player-select"></select></div>
+            <div class="field"><label for="input-event-value">Valore</label><input type="number" step="0.01" min="0" id="input-event-value" /></div>
+            <div class="field"><label for="input-event-notes">Note (opzionale)</label><input type="text" id="input-event-notes" /></div>
+            <div class="field" style="grid-column: 1 / -1"><div class="muted" id="athletics-attempts-help">Tentativi per evento: 1 · Min eventi atleta: 1 · Max eventi atleta: 99</div></div>
+            <div><button class="btn btn-primary" type="submit">Salva Risultato</button></div>
+          </form>
+        </section>
       </div>
     </div>
 

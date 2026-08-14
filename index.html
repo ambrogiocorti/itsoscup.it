@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tornei Scolastici</title>
+    <script>
+      (() => {
+        const cleanPath = window.location.pathname.replace(/\/index\.html$/, '/');
+        if (cleanPath !== window.location.pathname) {
+          window.history.replaceState(null, '', `${cleanPath}${window.location.search}${window.location.hash}`);
+        }
+      })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -13,6 +21,15 @@
   <body class="public-page">
     <div class="page-shell">
       <header class="public-header">
+        <div class="public-quick-actions">
+          <a class="header-action-btn" href="gym.html" title="Schermo palestra" aria-label="Apri schermo palestra">
+            <i class="fa-solid fa-tv"></i>
+          </a>
+          <button class="header-action-btn" id="public-issue-btn" type="button" title="Segnala un problema" aria-label="Segnala un problema">
+            <i class="fa-solid fa-circle-exclamation"></i>
+          </button>
+        </div>
+
         <div class="public-header-actions">
           <button id="public-archive-btn" class="header-action-btn" type="button" title="Archivio / Albo d'Oro" aria-label="Apri Archivio / Albo d'Oro">
             <i class="fa-solid fa-landmark"></i>
@@ -43,6 +60,18 @@
 
         <section class="card hidden" id="sport-context-card">
           <div class="card-body" id="sport-context-content"></div>
+        </section>
+
+        <section class="card" id="upcoming-card">
+          <div class="card-header"><i class="fa-solid fa-bell"></i> Prossimamente</div>
+          <div class="card-body" id="upcoming-content">
+            <div class="empty-state">Seleziona un torneo.</div>
+          </div>
+        </section>
+
+        <section class="card hidden" id="team-profile-card">
+          <div class="card-header"><i class="fa-solid fa-users"></i> Pagina squadra</div>
+          <div class="card-body" id="team-profile-content"></div>
         </section>
 
         <section class="card" id="standings-card">
