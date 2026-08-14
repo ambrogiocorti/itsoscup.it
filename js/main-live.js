@@ -1209,7 +1209,7 @@ async function submitFinalizationWithSignatures() {
   showToast('Match finalizzato con firme capitani.', 'success');
   closeFinalizeModal();
   setTimeout(() => {
-    window.location.href = 'admin/';
+    window.location.href = 'admin';
   }, 900);
 }
 
@@ -1228,7 +1228,7 @@ function bindLiveControls() {
   bindSignaturePads();
 
   getEl('btn-back-admin')?.addEventListener('click', () => {
-    window.location.href = 'admin/';
+    window.location.href = 'admin';
   });
   getEl('btn-print-emergency-report')?.addEventListener('click', () => {
     try {

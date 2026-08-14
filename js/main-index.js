@@ -975,7 +975,7 @@ function bindLogin() {
 
     try {
       await signInAdmin(email, password);
-      window.location.href = 'admin/';
+      window.location.href = 'admin';
     } catch (error) {
       showToast(error.message, 'error');
     }
