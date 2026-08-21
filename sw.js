@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tornei-scuola-offline-v36';
+const CACHE_NAME = 'tornei-scuola-offline-v37';
 
 const APP_SHELL = [
   './',
@@ -17,11 +17,8 @@ const APP_SHELL = [
   './css/style.css?v=36',
   './css/admin-modules.css',
   './css/admin-modules.css?v=36',
-  './vendor/supabase/supabase-js.min.js',
-  './vendor/fontawesome/css/all.min.css',
-  './vendor/fontawesome/webfonts/fa-solid-900.woff2',
-  './vendor/fontawesome/webfonts/fa-regular-400.woff2',
-  './vendor/fontawesome/webfonts/fa-brands-400.woff2',
+  './https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  './https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   './js/app-config.js',
   './js/admin-system.js',
   './js/admin-users.js',
