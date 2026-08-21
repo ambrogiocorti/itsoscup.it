@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
     <title>Tornei Scolastici</title>
     <script>
       (() => {
@@ -12,10 +13,10 @@
         }
       })();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="css/style.css"/>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script src="vendor/supabase/supabase-js.min.js"></script>
+    <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css?v=36"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
   <body class="public-page">
@@ -31,6 +32,12 @@
         </div>
 
         <div class="public-header-actions">
+          <div class="public-notification-wrap">
+            <button id="public-notifications-btn" class="header-action-btn" type="button" title="Notifiche" aria-label="Apri notifiche" aria-expanded="false" aria-controls="public-notifications-popover">
+              <i class="fa-solid fa-bell"></i>
+              <span class="notification-dot" aria-hidden="true"></span>
+            </button>
+          </div>
           <button id="public-archive-btn" class="header-action-btn" type="button" title="Archivio / Albo d'Oro" aria-label="Apri Archivio / Albo d'Oro">
             <i class="fa-solid fa-landmark"></i>
           </button>
@@ -44,6 +51,14 @@
           <p class="public-subtitle" id="public-subtitle">Risultati e classifica in tempo reale</p>
         </div>
       </header>
+
+      <div id="public-notifications-popover" class="public-notification-popover" hidden>
+        <div class="public-notification-arrow" aria-hidden="true"></div>
+        <div class="public-notification-title">Notifiche</div>
+        <div id="public-notifications-list" class="public-notification-list">
+          <div class="empty-state compact">Caricamento notifiche...</div>
+        </div>
+      </div>
 
       <main class="container">
         <section class="sport-selector">
@@ -156,6 +171,6 @@
       </div>
     </div>
 
-    <script type="module" src="js/main-index.js"></script>
+    <script type="module" src="js/main-index.js?v=36"></script>
   </body>
 </html>

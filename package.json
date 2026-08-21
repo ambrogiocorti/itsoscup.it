@@ -1,0 +1,14 @@
+{
+  "name": "tornei-scuola",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/static-checks.mjs",
+    "check:js": "node tests/js-syntax-check.mjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2"
+  }
+}
