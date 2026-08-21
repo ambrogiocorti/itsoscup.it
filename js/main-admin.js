@@ -4889,11 +4889,6 @@ function bindCoreActions() {
   getEl('btn-validate-pre-event')?.addEventListener('click', () => {
     handleValidatePreEvent().catch((error) => showToast(error.message, 'error'));
   });
-  getEl('btn-refresh-issue-reports')?.addEventListener('click', () => {
-    refreshOperationalDashboard()
-      .then(() => showToast('Problemi segnalati aggiornati.', 'success'))
-      .catch((error) => showToast(error.message, 'error'));
-  });
   adminUsersPanel.bind();
 
   getEl('btn-generate-semifinals')?.addEventListener('click', () => {
