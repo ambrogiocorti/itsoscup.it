@@ -15,17 +15,21 @@ async function loadSupabaseSdk() {
   for (const url of cdnUrls) {
     try {
       const sdk = await import(url);
-      if (sdk?.createClient) return sdk;
+
+      if (sdk?.createClient) {
+        return sdk;
+      }
     } catch (error) {
       lastError = error;
     }
   }
 
-  const err = new Error(
+  const error = new Error(
     'Supabase SDK non raggiungibile. Verifica la connessione e ricarica la pagina.'
   );
-  err.cause = lastError;
-  throw err;
+
+  error.cause = lastError;
+  throw error;
 }
 
 let dbClientPromise = null;
