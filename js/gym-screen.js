@@ -9,6 +9,7 @@ import { TEAM_SPORTS } from './app-config.js';
 import { subscribeTable } from './db.js';
 import { formatScheduleRange } from './schedule.js';
 import { registerOfflineSupport } from './offline.js';
+import { registerClientErrorLogger } from './error-logger.js';
 import { escapeHtml, showToast } from './utils.js';
 
 const state = {
@@ -18,6 +19,7 @@ const state = {
 };
 
 registerOfflineSupport();
+registerClientErrorLogger('gym');
 
 function getSportFromQuery() {
   return Number(new URLSearchParams(window.location.search).get('sport') || 0) || null;

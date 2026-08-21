@@ -12,8 +12,15 @@ import {
 } from './live.js';
 import { loadMatchStaff, saveMatchStaff } from './matches.js';
 import { registerOfflineSupport } from './offline.js';
-import { loadLiveMatchCache, saveLiveMatchCache } from './offline-store.js';
+import { registerClientErrorLogger } from './error-logger.js';
+import {
+  loadLiveMatchCacheAsync,
+  markQueuedLiveOperationsForMatch,
+  queueLiveSnapshotOperation,
+  saveLiveMatchCacheAsync,
+} from './offline-store.js';
 import { getDeviceInfo, promptDeviceLabel } from './device.js';
+import { createLiveMatchEvent, loadLiveMatchEvents } from './platform-ops.js';
 import { startTourIfNeeded } from './onboarding.js';
 import { debounce, escapeHtml, formatDuration, getEl, showAppConfirm, showToast } from './utils.js';
 
@@ -49,6 +56,7 @@ const state = {
 };
 
 registerOfflineSupport();
+registerClientErrorLogger('live');
 
 const autosaveRemoteSnapshot = debounce(() => {
   saveSnapshot().catch((error) => showToast(error.message, 'error'));
@@ -412,6 +420,40 @@ function formatLiveEventType(type) {
   return labels[type] ?? type;
 }
 
+function getTeamNameById(teamId) {
+  if (Number(teamId) === Number(state.match?.home_team_id)) return state.match?.home?.name ?? 'Casa';
+  if (Number(teamId) === Number(state.match?.away_team_id)) return state.match?.away?.name ?? 'Ospite';
+  return null;
+}
+
+function normalizePersistedLiveEvent(event) {
+  const player = getPlayerById(event.player_id);
+  return {
+    event_type: event.event_type,
+    team_id: event.team_id,
+    team_name: getTeamNameById(event.team_id),
+    player_id: event.player_id,
+    player_name: player?.full_name ?? null,
+    minute: event.minute,
+    home_score: event.home_score,
+    away_score: event.away_score,
+    notes: event.notes,
+    created_at: event.created_at,
+  };
+}
+
+async function hydratePersistedLiveEvents() {
+  if (!isAdvancedLiveEventsEnabled() || state.offlineMode) return;
+  try {
+    const rows = await loadLiveMatchEvents(state.matchId);
+    if (rows.length) {
+      state.eventLog = rows.map(normalizePersistedLiveEvent);
+    }
+  } catch (_error) {
+    // The payload event log remains available if the optional table is unreachable.
+  }
+}
+
 function renderLiveEvents() {
   renderLiveEventControls();
   const tbody = document.querySelector('#table-live-events tbody');
@@ -438,7 +480,7 @@ function renderLiveEvents() {
     : '<tr><td colspan="6" class="empty-state">Nessun evento registrato.</td></tr>';
 }
 
-function addLiveEventFromForm() {
+async function addLiveEventFromForm() {
   if (!state.editable || !isAdvancedLiveEventsEnabled()) return;
   const teamId = Number(getEl('live-event-team')?.value || 0) || null;
   const playerId = Number(getEl('live-event-player')?.value || 0) || null;
@@ -451,7 +493,7 @@ function addLiveEventFromForm() {
   const player = getPlayerById(playerId);
   const minuteValue = Number(getEl('live-event-minute')?.value || 0);
 
-  state.eventLog.push({
+  const eventPayload = {
     event_type: getEl('live-event-type')?.value ?? 'note',
     team_id: teamId,
     team_name: teamName,
@@ -462,7 +504,21 @@ function addLiveEventFromForm() {
     away_score: state.awayScore,
     notes: getEl('live-event-notes')?.value ?? '',
     created_at: new Date().toISOString(),
-  });
+  };
+
+  state.eventLog.push(eventPayload);
+  if (!state.offlineMode && navigator.onLine) {
+    createLiveMatchEvent({
+      matchId: state.matchId,
+      eventType: eventPayload.event_type,
+      teamId,
+      playerId,
+      minute: eventPayload.minute,
+      homeScore: state.homeScore,
+      awayScore: state.awayScore,
+      notes: eventPayload.notes,
+    }).catch(() => undefined);
+  }
 
   getEl('live-event-notes').value = '';
   renderLiveEvents();
@@ -668,12 +724,14 @@ async function syncEmergencyDraft() {
   });
 
   if (result?.success === false) {
+    await markQueuedLiveOperationsForMatch(state.matchId, 'conflict', result?.message || 'Conflitto versione online');
     await openOfflineConflict(draft, result?.message || 'La versione online e cambiata.');
     return;
   }
 
   state.lockVersion = Number(result?.new_version ?? state.lockVersion + 1);
   clearEmergencyDraft();
+  await markQueuedLiveOperationsForMatch(state.matchId, 'synced');
   setSyncStatus('online', 'Tutto salvato online');
   showToast('Bozza locale sincronizzata.', 'success');
 }
@@ -718,6 +776,7 @@ async function resolveOfflineConflict(choice) {
 
   if (choice === 'online') {
     clearEmergencyDraft();
+    await markQueuedLiveOperationsForMatch(state.matchId, 'conflict', 'Mantenuta versione online');
     applyRemoteMatchUpdate(conflict.remote.match);
     closeModal('modal-offline-conflict');
     setSyncStatus('online', 'Versione online mantenuta');
@@ -739,6 +798,7 @@ async function resolveOfflineConflict(choice) {
   }
   state.lockVersion = Number(result?.new_version ?? state.lockVersion + 1);
   clearEmergencyDraft();
+  await markQueuedLiveOperationsForMatch(state.matchId, 'synced');
   closeModal('modal-offline-conflict');
   setSyncStatus('online', 'Bozza locale salvata online');
   showToast('Bozza locale applicata online.', 'success');
@@ -789,6 +849,9 @@ async function saveSnapshot() {
         showToast('Connessione instabile: referto salvato localmente e sincronizzato appena possibile.', 'error');
         state.emergencyNoticeShown = true;
       }
+      await queueLiveSnapshotOperation(state.matchId, payload, {
+        reason: 'Snapshot live salvato offline',
+      });
       setSyncStatus('local', 'Bozza salvata solo su questo dispositivo');
       return;
     }
@@ -1253,7 +1316,9 @@ function bindLiveControls() {
     saveSnapshot().catch((error) => showToast(error.message, 'error'));
   });
   getEl('live-event-team')?.addEventListener('change', renderLiveEventControls);
-  getEl('btn-add-live-event')?.addEventListener('click', addLiveEventFromForm);
+  getEl('btn-add-live-event')?.addEventListener('click', () => {
+    addLiveEventFromForm().catch((error) => showToast(error.message, 'error'));
+  });
   getEl('btn-finalize-match')?.addEventListener('click', () => {
     finalizeMatch().catch((error) => showToast(error.message, 'error'));
   });
@@ -1360,7 +1425,7 @@ async function hydrateFromDatabase() {
       showToast('Database non raggiungibile: aperta la bozza locale di emergenza.', 'error');
       return;
     }
-    const cachedLive = loadLiveMatchCache(state.matchId);
+    const cachedLive = await loadLiveMatchCacheAsync(state.matchId);
     if (isNetworkLikeError(error) && cachedLive?.match) {
       state.offlineMode = true;
       hydrateFromLiveCache(cachedLive);
@@ -1458,10 +1523,11 @@ async function hydrateFromDatabase() {
     }
   }
 
+  await hydratePersistedLiveEvents();
   renderHeader();
   renderRosters();
   applySportSpecificControls();
-  saveLiveMatchCache(state.matchId, { match, config, homePlayers, awayPlayers }, { stats, source: 'live-hydrate' });
+  await saveLiveMatchCacheAsync(state.matchId, { match, config, homePlayers, awayPlayers }, { stats, source: 'live-hydrate' });
   saveEmergencyDraft();
   setSyncStatus(navigator.onLine ? 'online' : 'offline', navigator.onLine ? 'Tutto salvato online' : 'Offline: bozza locale attiva');
 }

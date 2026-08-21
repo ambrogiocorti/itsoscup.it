@@ -25,6 +25,13 @@ function isRecoverableRpcError(error) {
   );
 }
 
+function requireDirectTableFallback(context) {
+  if (APP_CONFIG.allowDirectTableFallbacks === true) return;
+  throw new Error(
+    `${context}: RPC non disponibile. Applica le migrazioni SQL richieste invece di usare fallback diretti sulle tabelle.`
+  );
+}
+
 export async function loadLiveMatch(matchId) {
   const { data } = await run(
     db
@@ -126,6 +133,7 @@ export async function startLiveSession(matchId, ttlSeconds = APP_CONFIG.lockTtlS
     if (!isRecoverableRpcError(error)) {
       throw error;
     }
+    requireDirectTableFallback('Acquisizione lock live');
     return fallbackAcquireLock(matchId);
   }
 }
@@ -142,6 +150,7 @@ export async function refreshLiveLock(matchId) {
     if (!isRecoverableRpcError(error)) {
       throw error;
     }
+    requireDirectTableFallback('Refresh lock live');
 
     const {
       data: { user },
@@ -188,6 +197,7 @@ export async function releaseLiveSession(matchId) {
     if (!isMissingRpcError(error)) {
       throw error;
     }
+    requireDirectTableFallback('Rilascio lock live');
 
     await run(
       db
@@ -220,6 +230,7 @@ export async function commitLiveUpdate({
     if (!isMissingRpcError(error)) {
       throw error;
     }
+    requireDirectTableFallback('Salvataggio snapshot live');
 
     const {
       data: { user },
@@ -228,6 +239,7 @@ export async function commitLiveUpdate({
       throw new Error('Sessione non valida');
     }
 
+    const device = getDeviceInfo();
     const updatePayload = {
       home_score: Number(payload.home_score ?? 0),
       away_score: Number(payload.away_score ?? 0),
@@ -337,6 +349,7 @@ export async function finalizeLiveMatch({
     if (!isRecoverableRpcError(error)) {
       throw error;
     }
+    requireDirectTableFallback('Finalizzazione match live');
 
     const {
       data: { user },

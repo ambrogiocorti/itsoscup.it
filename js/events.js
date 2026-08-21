@@ -19,6 +19,11 @@ function isMissingSchemaColumn(error, columnName) {
   );
 }
 
+function isMissingSchema(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return /does not exist|schema cache|could not find|relation/.test(message);
+}
+
 function normalizeAttemptValues(rawValues, fallbackValue) {
   const parsed = Array.isArray(rawValues)
     ? rawValues.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0)
@@ -476,5 +481,181 @@ export async function loadAthleticsLeaderboard(sportId) {
   );
 
   return rankingAll.filter((row) => row.events >= minEvents && row.events <= maxEvents);
+}
+
+export async function loadAthleticsAdvancedData(sportId) {
+  const events = await loadAthleticsEvents(sportId);
+  const eventIds = uniqueNumericIds(events.map((event) => event.id));
+  if (!eventIds.length) {
+    return {
+      heats: [],
+      lanes: [],
+      records: [],
+      relays: [],
+      relayMembers: [],
+    };
+  }
+
+  try {
+    const [heatsResult, lanesResult, recordsResult, relaysResult, membersResult] = await Promise.all([
+      run(
+        db
+          .from('athletics_heats')
+          .select('*, event:events(id, name, unit, sort_order)')
+          .in('event_id', eventIds)
+          .order('phase', { ascending: true })
+          .order('heat_number', { ascending: true }),
+        'Caricamento batterie atletica'
+      ),
+      run(
+        db
+          .from('athletics_lane_assignments')
+          .select('*, heat:athletics_heats(id, event_id, phase, heat_number), player:players(id, full_name), team:teams(id, name)')
+          .order('lane_number', { ascending: true }),
+        'Caricamento corsie atletica'
+      ),
+      run(
+        db
+          .from('athletics_school_records')
+          .select('*')
+          .or(`sport_id.eq.${Number(sportId)},event_id.in.(${eventIds.join(',')})`)
+          .order('event_name', { ascending: true })
+          .order('value', { ascending: true }),
+        'Caricamento record istituto'
+      ),
+      run(
+        db
+          .from('athletics_relay_teams')
+          .select('*, event:events(id, name), team:teams(id, name)')
+          .in('event_id', eventIds)
+          .order('relay_name', { ascending: true }),
+        'Caricamento staffette'
+      ),
+      run(
+        db
+          .from('athletics_relay_members')
+          .select('*, relay:athletics_relay_teams(id, event_id, relay_name), player:players(id, full_name)')
+          .order('leg_order', { ascending: true }),
+        'Caricamento componenti staffette'
+      ),
+    ]);
+
+    return {
+      heats: heatsResult.data ?? [],
+      lanes: (lanesResult.data ?? []).filter((row) => eventIds.includes(Number(row.heat?.event_id))),
+      records: recordsResult.data ?? [],
+      relays: relaysResult.data ?? [],
+      relayMembers: (membersResult.data ?? []).filter((row) => eventIds.includes(Number(row.relay?.event_id))),
+    };
+  } catch (error) {
+    if (isMissingSchema(error)) {
+      return {
+        heats: [],
+        lanes: [],
+        records: [],
+        relays: [],
+        relayMembers: [],
+        __migrationMissing: true,
+      };
+    }
+    throw error;
+  }
+}
+
+export async function saveAthleticsHeat(payload) {
+  const row = {
+    event_id: Number(payload.event_id),
+    phase: payload.phase || 'qualification',
+    heat_number: Math.max(1, Number(payload.heat_number || 1)),
+    scheduled_start: payload.scheduled_start || null,
+    notes: String(payload.notes ?? '').trim() || null,
+  };
+  const { data } = await run(
+    db
+      .from('athletics_heats')
+      .upsert(row, { onConflict: 'event_id,phase,heat_number' })
+      .select()
+      .single(),
+    'Salvataggio batteria atletica'
+  );
+  return data;
+}
+
+export async function saveAthleticsLaneAssignment(payload) {
+  const row = {
+    heat_id: Number(payload.heat_id),
+    player_id: payload.player_id ? Number(payload.player_id) : null,
+    team_id: payload.team_id ? Number(payload.team_id) : null,
+    lane_number: payload.lane_number ? Number(payload.lane_number) : null,
+    status: payload.status || 'scheduled',
+    notes: String(payload.notes ?? '').trim() || null,
+  };
+  const { data } = await run(
+    db
+      .from('athletics_lane_assignments')
+      .upsert(row, { onConflict: 'heat_id,lane_number' })
+      .select()
+      .single(),
+    'Salvataggio corsia atletica'
+  );
+  return data;
+}
+
+export async function saveAthleticsSchoolRecord(payload) {
+  const row = {
+    sport_id: payload.sport_id ? Number(payload.sport_id) : null,
+    event_id: payload.event_id ? Number(payload.event_id) : null,
+    event_name: String(payload.event_name ?? '').trim(),
+    player_name: String(payload.player_name ?? '').trim() || null,
+    team_name: String(payload.team_name ?? '').trim() || null,
+    value: Number(payload.value),
+    unit: payload.unit || 'points',
+    record_date: payload.record_date || null,
+    notes: String(payload.notes ?? '').trim() || null,
+  };
+  if (!row.event_name || !Number.isFinite(row.value) || row.value <= 0) {
+    throw new Error('Record non valido: inserisci evento e valore.');
+  }
+  const { data } = await run(
+    db.from('athletics_school_records').insert(row).select().single(),
+    'Salvataggio record istituto'
+  );
+  return data;
+}
+
+export async function saveAthleticsRelayTeam(payload) {
+  const row = {
+    event_id: Number(payload.event_id),
+    team_id: payload.team_id ? Number(payload.team_id) : null,
+    relay_name: String(payload.relay_name ?? '').trim(),
+  };
+  if (!row.event_id || !row.relay_name) throw new Error('Compila evento e nome staffetta.');
+  const { data } = await run(
+    db
+      .from('athletics_relay_teams')
+      .upsert(row, { onConflict: 'event_id,relay_name' })
+      .select()
+      .single(),
+    'Salvataggio staffetta'
+  );
+  return data;
+}
+
+export async function saveAthleticsRelayMember(payload) {
+  const row = {
+    relay_team_id: Number(payload.relay_team_id),
+    player_id: Number(payload.player_id),
+    leg_order: Math.max(1, Number(payload.leg_order || 1)),
+  };
+  if (!row.relay_team_id || !row.player_id) throw new Error('Seleziona staffetta e studente.');
+  const { data } = await run(
+    db
+      .from('athletics_relay_members')
+      .upsert(row, { onConflict: 'relay_team_id,leg_order' })
+      .select()
+      .single(),
+    'Salvataggio frazionista'
+  );
+  return data;
 }
 

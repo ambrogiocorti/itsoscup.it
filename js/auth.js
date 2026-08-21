@@ -2,6 +2,7 @@
 import { ROLES } from './app-config.js';
 
 const ADMIN_OFFLINE_CACHE_KEY = 'tornei_admin_offline_profile';
+const ADMIN_OFFLINE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function isNetworkLikeError(error) {
   const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
@@ -26,9 +27,23 @@ function cacheAdminSession(user, admin) {
 function loadCachedAdminSession() {
   try {
     const raw = window.localStorage.getItem(ADMIN_OFFLINE_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const cached = raw ? JSON.parse(raw) : null;
+    const cachedAt = cached?.cached_at ? new Date(cached.cached_at).getTime() : 0;
+    if (!cachedAt || Date.now() - cachedAt > ADMIN_OFFLINE_CACHE_TTL_MS) {
+      window.localStorage.removeItem(ADMIN_OFFLINE_CACHE_KEY);
+      return null;
+    }
+    return cached;
   } catch (_error) {
     return null;
+  }
+}
+
+function clearCachedAdminSession() {
+  try {
+    window.localStorage.removeItem(ADMIN_OFFLINE_CACHE_KEY);
+  } catch (_error) {
+    // Best-effort cleanup.
   }
 }
 
@@ -56,15 +71,20 @@ export async function getCurrentUser() {
 
 export async function getAdminProfile(userId) {
   if (!userId) return null;
-  const { data } = await run(
-    db
-      .from('admins')
-      .select('id, nome, email, ruolo')
-      .eq('id', userId)
-      .maybeSingle(),
-    'Caricamento profilo admin'
-  );
-  return data;
+  try {
+    const { data } = await run(
+      db
+        .from('admins')
+        .select('id, nome, email, ruolo')
+        .eq('id', userId)
+        .maybeSingle(),
+      'Caricamento profilo admin'
+    );
+    if (data) return data;
+  } catch (error) {
+    if (!isNetworkLikeError(error)) throw error;
+  }
+  return null;
 }
 
 export async function requireAdmin({
@@ -82,6 +102,14 @@ export async function requireAdmin({
     const allowed = Boolean(admin && allowedRoles.includes(admin.ruolo));
 
     if (!allowed) {
+      const message = admin
+        ? `Ruolo admin non autorizzato: ${admin.ruolo ?? 'non assegnato'}.`
+        : `Profilo admin non trovato per ${user.email ?? user.id}.`;
+      try {
+        window.sessionStorage.setItem('tornei_admin_login_error', message);
+      } catch (_error) {
+        // Session diagnostics are best-effort.
+      }
       await db.auth.signOut();
       window.location.href = redirectTo;
       return { user, admin, allowed: false };
@@ -107,15 +135,29 @@ export async function requireAdmin({
 }
 
 export async function signInAdmin(email, password) {
-  const { error } = await db.auth.signInWithPassword({ email, password });
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) {
     throw new Error(error.message);
   }
-  return true;
+  const user = data?.user ?? (await getCurrentUser());
+  const admin = await getAdminProfile(user?.id);
+  const allowed = Boolean(
+    admin &&
+      [ROLES.SUPER_ADMIN, ROLES.MATCH_MANAGER, ROLES.REPORT_VIEWER].includes(admin.ruolo)
+  );
+
+  if (!allowed) {
+    await db.auth.signOut();
+    throw new Error('Accesso negato: il tuo UUID Auth non e assegnato a un ruolo admin.');
+  }
+
+  cacheAdminSession(user, admin);
+  return { user, admin };
 }
 
 export async function signOutAdmin() {
   const { error } = await db.auth.signOut();
+  clearCachedAdminSession();
   if (error) {
     throw new Error(error.message);
   }

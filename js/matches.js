@@ -1,5 +1,5 @@
 import { db, run, runRpc } from './db.js';
-import { TEAM_SPORTS } from './app-config.js';
+import { APP_CONFIG, TEAM_SPORTS } from './app-config.js';
 import { buildDeviceAuditFields } from './device.js';
 
 const DEFAULT_CONFIG = {
@@ -278,6 +278,174 @@ export function generateRoundRobinMatches(teams, hasReturnMatch = false) {
   return matches;
 }
 
+function sortTeamsForSeeding(teams = []) {
+  return [...teams].sort((a, b) =>
+    String(a.name ?? '').localeCompare(String(b.name ?? ''), 'it', {
+      numeric: true,
+      sensitivity: 'base',
+    })
+  );
+}
+
+function splitTeamsIntoGroups(teams = [], groupCount = 2) {
+  const groups = Array.from({ length: Math.max(1, groupCount) }, () => []);
+  sortTeamsForSeeding(teams).forEach((team, index) => {
+    groups[index % groups.length].push(team);
+  });
+  return groups.filter((group) => group.length);
+}
+
+function groupLabel(index) {
+  return String.fromCharCode(65 + index);
+}
+
+function generateGroupedRoundRobinMatches(teams, { groupCount = 2, hasReturnMatch = false, prefix = 'Girone' } = {}) {
+  return splitTeamsIntoGroups(teams, groupCount).flatMap((group, index) => {
+    const label = groupLabel(index);
+    return generateRoundRobinMatches(group, hasReturnMatch).map((match) => ({
+      ...match,
+      round_name: `${prefix} ${label} - ${match.round_name}`,
+    }));
+  });
+}
+
+function getFirstEliminationRoundLabel(teamCount) {
+  if (teamCount > 8) return 'Ottavi di finale';
+  if (teamCount > 4) return 'Quarti di finale';
+  if (teamCount > 2) return 'Semifinale';
+  return 'Finale';
+}
+
+function getNextEliminationLabels(firstLabel) {
+  if (firstLabel === 'Ottavi di finale') return ['Quarti di finale', 'Semifinale', 'Finale'];
+  if (firstLabel === 'Quarti di finale') return ['Semifinale', 'Finale'];
+  if (firstLabel === 'Semifinale') return ['Finale'];
+  return [];
+}
+
+function createSeededPairs(teams = []) {
+  const seeded = sortTeamsForSeeding(teams);
+  const pairs = [];
+  for (let left = 0, right = seeded.length - 1; left < right; left += 1, right -= 1) {
+    pairs.push([seeded[left], seeded[right]]);
+  }
+  return pairs;
+}
+
+function createPlaceholderMatches(roundName, count) {
+  return Array.from({ length: Math.max(0, count) }, (_item, index) => ({
+    home_team_id: null,
+    away_team_id: null,
+    round_name: count > 1 ? `${roundName} ${index + 1}` : roundName,
+    _seed_key: `${count > 1 ? `${roundName} ${index + 1}` : roundName}:home-null:away-null`,
+  }));
+}
+
+function generateEliminationMatches(teams, { includeThirdPlace = false } = {}) {
+  const pairs = createSeededPairs(teams);
+  const firstLabel = getFirstEliminationRoundLabel(teams.length);
+  const firstRound = pairs.map(([home, away], index) => ({
+    home_team_id: home.id,
+    away_team_id: away.id,
+    round_name: pairs.length > 1 ? `${firstLabel} ${index + 1}` : firstLabel,
+  }));
+
+  let nextCount = Math.ceil(pairs.length / 2);
+  const placeholders = [];
+  for (const label of getNextEliminationLabels(firstLabel)) {
+    placeholders.push(...createPlaceholderMatches(label, nextCount));
+    nextCount = Math.ceil(nextCount / 2);
+  }
+
+  if (includeThirdPlace && teams.length >= 4) {
+    placeholders.push({
+      home_team_id: null,
+      away_team_id: null,
+      round_name: 'Finale 3o posto',
+      _seed_key: 'Finale 3o posto:home-null:away-null',
+    });
+  }
+
+  return [...firstRound, ...placeholders];
+}
+
+function generateDoubleEliminationMatches(teams) {
+  const pairs = createSeededPairs(teams);
+  const winnerRound = pairs.map(([home, away], index) => ({
+    home_team_id: home.id,
+    away_team_id: away.id,
+    round_name: `Winner Bracket - Turno 1.${index + 1}`,
+  }));
+  const loserCount = Math.max(1, Math.floor(pairs.length / 2));
+  return [
+    ...winnerRound,
+    ...createPlaceholderMatches('Loser Bracket - Turno 1', loserCount),
+    ...createPlaceholderMatches('Finale Winner Bracket', 1),
+    ...createPlaceholderMatches('Finale Loser Bracket', 1),
+    ...createPlaceholderMatches('Grand Final', 1),
+    ...createPlaceholderMatches('Grand Final Reset', 1),
+  ];
+}
+
+function getGeneratedEntryKey(entry) {
+  if (entry._seed_key) return entry._seed_key;
+  if (entry.home_team_id && entry.away_team_id) {
+    return buildUniquePairKey(Number(entry.home_team_id), Number(entry.away_team_id), String(entry.round_name));
+  }
+  const home = entry.home_team_id ? String(entry.home_team_id) : 'home-null';
+  const away = entry.away_team_id ? String(entry.away_team_id) : 'away-null';
+  return `${entry.round_name}:${home}:${away}`;
+}
+
+function generateSwissRoundMatches(teams, existingMatches, config) {
+  const previousRounds = (existingMatches ?? [])
+    .map((match) => String(match.round_name ?? ''))
+    .filter((name) => name.startsWith('Svizzero - Turno '))
+    .map((name) => Number(name.replace(/\D+/g, '')))
+    .filter((value) => Number.isFinite(value));
+  const nextRound = (previousRounds.length ? Math.max(...previousRounds) : 0) + 1;
+  const standings = computeStandings(teams, existingMatches, config);
+  const ordered = standings.length ? standings : sortTeamsForSeeding(teams);
+  const previousPairs = new Set(
+    (existingMatches ?? [])
+      .filter((match) => match.home_team_id && match.away_team_id)
+      .map((match) => buildUniquePairKey(Number(match.home_team_id), Number(match.away_team_id), 'pair'))
+  );
+  const remaining = [...ordered];
+  const matches = [];
+
+  while (remaining.length > 1) {
+    const home = remaining.shift();
+    let opponentIndex = remaining.findIndex(
+      (team) => !previousPairs.has(buildUniquePairKey(Number(home.id), Number(team.id), 'pair'))
+    );
+    if (opponentIndex < 0) opponentIndex = 0;
+    const [away] = remaining.splice(opponentIndex, 1);
+    matches.push({
+      home_team_id: Number(home.id),
+      away_team_id: Number(away.id),
+      round_name: `Svizzero - Turno ${nextRound}`,
+    });
+  }
+
+  return matches;
+}
+
+function generateMatchesByFormat(sport, teams, existingMatches, config, hasReturnMatch = false) {
+  const format = String(sport?.format ?? 'gironi');
+  if (format === 'eliminazione') {
+    return {
+      entries: generateEliminationMatches(teams),
+      message: 'Tabellone a eliminazione diretta generato.',
+    };
+  }
+
+  return {
+    entries: generateRoundRobinMatches(teams, hasReturnMatch),
+    message: 'Calendario gironi generato.',
+  };
+}
+
 export function getRankingTiebreakers(config = DEFAULT_CONFIG) {
   const allowed = new Set(['points', 'head_to_head', 'goal_diff', 'goals_for', 'fair_play', 'draw']);
   const raw = config?.ranking_tiebreakers;
@@ -464,12 +632,19 @@ export function getPrivacySettings(config = DEFAULT_CONFIG) {
       })()
     : raw ?? {};
 
+  const playerName = ['full', 'abbreviated', 'hidden'].includes(settings?.player_name)
+    ? settings.player_name
+    : DEFAULT_CONFIG.privacy_settings.player_name;
+  const hideSensitiveIdentity = playerName === 'hidden';
+
   return {
     ...DEFAULT_CONFIG.privacy_settings,
     ...(settings ?? {}),
-    player_name: ['full', 'abbreviated', 'hidden'].includes(settings?.player_name)
-      ? settings.player_name
-      : DEFAULT_CONFIG.privacy_settings.player_name,
+    player_name: playerName,
+    show_class: hideSensitiveIdentity ? false : settings?.show_class !== false,
+    show_personal_stats: hideSensitiveIdentity ? false : settings?.show_personal_stats !== false,
+    show_mvp: hideSensitiveIdentity ? false : settings?.show_mvp !== false,
+    show_disciplinary: hideSensitiveIdentity ? false : settings?.show_disciplinary !== false,
   };
 }
 
@@ -494,6 +669,13 @@ function buildUniquePairKey(homeTeamId, awayTeamId, roundName) {
 function isMissingRpcError(error) {
   return /function .* does not exist|Could not find the function|schema cache/i.test(
     String(error?.message ?? '')
+  );
+}
+
+function requireDirectTableFallback(context) {
+  if (APP_CONFIG.allowDirectTableFallbacks === true) return;
+  throw new Error(
+    `${context}: schema Supabase non aggiornato. Applica le migrazioni SQL richieste invece di usare fallback diretti sulle tabelle.`
   );
 }
 
@@ -651,6 +833,7 @@ export async function createManualMatch({
     'Creazione partita'
   ).catch(async (error) => {
     if (isScheduleSchemaMissing(error) || isDeviceSchemaMissing(error)) {
+      requireDirectTableFallback('Creazione partita');
       let fallbackPayload = { ...payload };
       if (isScheduleSchemaMissing(error)) fallbackPayload = stripScheduleFields(fallbackPayload);
       if (isDeviceSchemaMissing(error)) fallbackPayload = stripDeviceFields(fallbackPayload);
@@ -722,6 +905,7 @@ export async function updateManualMatch({
     'Aggiornamento partita'
   ).catch(async (error) => {
     if (isScheduleSchemaMissing(error) || isDeviceSchemaMissing(error)) {
+      requireDirectTableFallback('Aggiornamento partita');
       let fallbackPayload = { ...payload };
       if (isScheduleSchemaMissing(error)) fallbackPayload = stripScheduleFields(fallbackPayload);
       if (isDeviceSchemaMissing(error)) fallbackPayload = stripDeviceFields(fallbackPayload);
@@ -855,13 +1039,15 @@ export async function deletePlatformBackup(backupId) {
 }
 
 export async function loadActiveAnnouncements() {
+  const nowIso = new Date().toISOString();
   const { data } = await run(
     db
       .from('urgent_announcements')
       .select('*')
       .eq('is_active', true)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .order('created_at', { ascending: false })
-      .limit(3),
+      .limit(20),
     'Caricamento comunicazioni'
   );
   return data ?? [];
@@ -873,7 +1059,30 @@ export async function reportIssue({ reporter = '', message = '', pageUrl = windo
     throw new Error('Descrivi il problema con almeno 8 caratteri.');
   }
 
-  const { data } = await run(
+  try {
+    const result = await runRpc(
+      'create_issue_report',
+      {
+        p_reporter: String(reporter ?? '').trim() || null,
+        p_message: cleanMessage,
+        p_page_url: pageUrl,
+        p_user_agent: navigator.userAgent,
+      },
+      'Segnalazione problema'
+    );
+    const row = Array.isArray(result) ? result[0] : result;
+    if (row && row.success === false) {
+      throw new Error(row.message || 'Segnalazione non salvata.');
+    }
+    return true;
+  } catch (error) {
+    const messageText = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+    if (!/function .*create_issue_report|could not find|schema cache|does not exist/.test(messageText)) {
+      throw error;
+    }
+  }
+
+  await run(
     db
       .from('issue_reports')
       .insert({
@@ -881,12 +1090,10 @@ export async function reportIssue({ reporter = '', message = '', pageUrl = windo
         message: cleanMessage,
         page_url: pageUrl,
         user_agent: navigator.userAgent,
-      })
-      .select()
-      .single(),
+      }),
     'Segnalazione problema'
   );
-  return data;
+  return true;
 }
 
 export async function reopenMatchForCorrection(matchId, reason) {
@@ -928,38 +1135,40 @@ export async function generateMatchesForSport(sportId, hasReturnMatch = false) {
     throw new Error('Servono almeno 2 squadre per generare il calendario');
   }
 
-  const generated = generateRoundRobinMatches(teams, hasReturnMatch);
   const existingMatches = await loadMatchesBySport(sportId, { includeUnfinished: true });
+  const config = await loadSportConfig(sportId);
+  const { entries: generated, message } = generateMatchesByFormat(
+    sport,
+    teams,
+    existingMatches,
+    config,
+    hasReturnMatch
+  );
   const existingKeys = new Set(
-    existingMatches.map((item) =>
-      buildUniquePairKey(
-        Number(item.home_team_id),
-        Number(item.away_team_id),
-        String(item.round_name)
-      )
-    )
+    existingMatches.map((item) => getGeneratedEntryKey({
+      home_team_id: item.home_team_id,
+      away_team_id: item.away_team_id,
+      round_name: item.round_name,
+    }))
   );
 
   const payload = generated
-    .filter(
-      (entry) =>
-        !existingKeys.has(
-          buildUniquePairKey(entry.home_team_id, entry.away_team_id, entry.round_name)
-        )
-    )
+    .filter((entry) => !existingKeys.has(getGeneratedEntryKey(entry)))
     .map((entry) => ({
-      ...entry,
+      home_team_id: entry.home_team_id ? Number(entry.home_team_id) : null,
+      away_team_id: entry.away_team_id ? Number(entry.away_team_id) : null,
+      round_name: entry.round_name,
       sport_id: Number(sportId),
       status: 'scheduled',
       is_finished: false,
     }));
 
   if (!payload.length) {
-    return { inserted: 0 };
+    return { inserted: 0, message };
   }
 
   await run(db.from('matches').insert(payload), 'Generazione calendario');
-  return { inserted: payload.length };
+  return { inserted: payload.length, message };
 }
 
 export async function generateSemifinals(sportId) {
@@ -1040,6 +1249,8 @@ export async function saveSport(payload) {
       throw error;
     }
   }
+
+  requireDirectTableFallback('Salvataggio torneo');
 
   if (payload.id) {
     const { data } = await run(
@@ -1179,6 +1390,8 @@ export async function saveTeam({ id, name, sport_id, players, captainName = '' }
       throw normalizeTeamSaveError(error);
     }
   }
+
+  requireDirectTableFallback('Salvataggio squadra');
 
   let teamId = Number(id);
   if (teamId) {

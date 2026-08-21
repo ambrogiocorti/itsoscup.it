@@ -32,10 +32,16 @@ import {
   computeAthleticsRanking,
   deleteAthleticsEvent,
   loadAthleticsConfigBySport,
+  loadAthleticsAdvancedData,
   loadAthleticsEvents,
   loadAthleticsLeaderboard,
   loadEventResults,
+  saveAthleticsHeat,
+  saveAthleticsLaneAssignment,
   saveAthleticsEvent,
+  saveAthleticsRelayMember,
+  saveAthleticsRelayTeam,
+  saveAthleticsSchoolRecord,
   upsertEventResult,
 } from './events.js';
 import {
@@ -56,14 +62,43 @@ import {
 } from './schedule.js';
 import { archiveTournament, loadHonorRoll, unarchiveTournament } from './archive.js';
 import { sendTelegramMatchReminder, sendTelegramTeamReminder } from './telegram.js';
+import { registerClientErrorLogger } from './error-logger.js';
 import { registerOfflineSupport } from './offline.js';
-import { saveLiveMatchCache, countCachedMatches, getOfflineManifest } from './offline-store.js';
+import {
+  countCachedMatchesAsync,
+  getOfflineManifestAsync,
+  getOfflineStorageSummary,
+  saveLiveMatchCacheAsync,
+} from './offline-store.js';
 import { getDeviceInfo, promptDeviceLabel } from './device.js';
+import {
+  loadPlatformSettingsMap,
+  registerCurrentDevice,
+  savePlatformSetting,
+  validatePreEvent,
+  verifyPlatformMigrations,
+} from './admin-system.js';
+import { createAdminUsersPanel } from './admin-users-panel.js';
+import {
+  loadCommunicationTemplates,
+  loadEventStatistics,
+  loadIssueReports,
+  loadMatchCheckins,
+  loadMatchStatusHistory,
+  loadPublicNotifications,
+  loadSystemHealthChecks,
+  deletePublicNotification,
+  saveCommunicationTemplate,
+  savePublicNotification,
+  saveSystemHealthCheck,
+  setMatchOperationalStatus,
+  upsertMatchCheckin,
+} from './platform-ops.js';
 import { startTourIfNeeded } from './onboarding.js';
 import { loadLiveMatch } from './live.js';
 import { db, run } from './db.js';
 import { APP_CONFIG } from './app-config.js';
-import { escapeHtml, formatDuration, getEl, medalByRank, showAppConfirm, showAppPrompt, showToast } from './utils.js';
+import { escapeHtml, formatDateTime, formatDuration, getEl, medalByRank, showAppAlert, showAppConfirm, showAppPrompt, showToast } from './utils.js';
 
 const state = {
   admin: null,
@@ -77,10 +112,57 @@ const state = {
   honorRoll: [],
   adminMatches: [],
   matchesViewMode: 'table',
+  todayOverview: {},
+  internalNotifications: [],
+  systemHealth: [],
+  communicationTemplates: [],
+  publicNotifications: [],
+  issueReports: [],
+  issueReportsError: null,
+  migrationVerification: null,
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
 
+const adminUsersPanel = createAdminUsersPanel({
+  canManageAll: () => canManageAll(state.admin?.ruolo),
+});
+
 registerOfflineSupport();
+registerClientErrorLogger('admin');
+
+window.__adminBootStarted = true;
+
+function setAdminAuthStatus(message, showActions = false) {
+  if (window.__setAdminGuardStatus) {
+    window.__setAdminGuardStatus(message, showActions);
+    return;
+  }
+  const status = getEl('admin-auth-status');
+  if (status) status.textContent = message;
+  const actions = getEl('admin-auth-actions');
+  if (actions) actions.hidden = !showActions;
+}
+
+function redirectHomeWithAdminError(message) {
+  try {
+    window.sessionStorage.setItem('tornei_admin_login_error', message);
+  } catch (_sessionError) {
+    // Session diagnostics are best-effort.
+  }
+  window.location.href = '../';
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 const CSV_MODE_META = {
   teams_players: {
@@ -107,13 +189,6 @@ const SPORT_TYPE_LABELS = {
 const FORMAT_LABELS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione diretta',
-  gironi_playoff: 'Gironi + Playoff',
-  doppia_eliminazione: 'Doppia eliminazione',
-  terzo_posto: 'Finale terzo posto',
-  italiana: "Torneo all'italiana",
-  gironi_multipli: 'Gironi multipli',
-  migliori_seconde: 'Migliori seconde',
-  svizzero: 'Torneo svizzero',
 };
 
 const RANKING_RULE_LABELS = {
@@ -126,6 +201,71 @@ const RANKING_RULE_LABELS = {
 };
 
 const DEFAULT_RANKING_RULES = ['points', 'head_to_head', 'goal_diff', 'goals_for', 'fair_play', 'draw'];
+
+const COMMUNICATION_TEMPLATE_META = {
+  match_30_min: {
+    label: 'Promemoria partita',
+    purpose: "Messaggio inviato quando ricordi una partita dal calendario o prima dell'inizio.",
+    usedBy: 'Icona Telegram nella riga del match',
+    variables: ['home', 'away', 'time', 'venue', 'sport'],
+  },
+  field_change: {
+    label: 'Cambio campo / orario',
+    purpose: 'Messaggio usato quando cambi campo, orario o dettagli logistici.',
+    usedBy: 'Comunicazione preparata dopo una variazione',
+    variables: ['home', 'away', 'time', 'venue', 'reason', 'sport'],
+  },
+  match_postponed: {
+    label: 'Partita rinviata',
+    purpose: 'Messaggio per comunicare un rinvio con motivazione.',
+    usedBy: 'Comunicazione di rinvio partita',
+    variables: ['home', 'away', 'reason', 'sport'],
+  },
+  final_score: {
+    label: 'Risultato finale',
+    purpose: 'Messaggio per comunicare il risultato dopo la chiusura del match.',
+    usedBy: 'Comunicazione risultato finale',
+    variables: ['home', 'away', 'home_score', 'away_score', 'sport'],
+  },
+  qualification: {
+    label: 'Qualificazione',
+    purpose: 'Messaggio per comunicare il passaggio di una squadra alla fase successiva.',
+    usedBy: 'Comunicazione passaggio turno',
+    variables: ['team', 'sport'],
+  },
+  general_notice: {
+    label: 'Comunicazione generale',
+    purpose: 'Messaggio libero, usato anche per la notifica Telegram di una squadra.',
+    usedBy: 'Icona Telegram nella riga della squadra',
+    variables: ['message', 'team', 'sport'],
+  },
+};
+
+const TEMPLATE_VARIABLE_LABELS = {
+  home: 'Squadra di casa',
+  away: 'Squadra ospite',
+  time: 'Orario partita',
+  venue: 'Campo / palestra',
+  reason: 'Motivo variazione',
+  team: 'Squadra / classe',
+  sport: 'Torneo',
+  message: 'Testo libero',
+  home_score: 'Punteggio casa',
+  away_score: 'Punteggio ospite',
+};
+
+const TEMPLATE_SAMPLE_VALUES = {
+  home: '3A',
+  away: '3B',
+  time: '12/09/26, 10:30',
+  venue: 'Palestra Grande',
+  reason: 'Cambio campo per sovrapposizione',
+  team: '3A',
+  sport: 'Calcio M',
+  message: 'Presentarsi al tavolo arbitraggio 10 minuti prima.',
+  home_score: '2',
+  away_score: '1',
+};
 
 const REPORT_COLUMNS_STORAGE_PREFIX = 'report_columns_v1_';
 const REPORT_COLUMN_GROUPS = {
@@ -220,34 +360,81 @@ function closeMatchActionMenus(exceptMenu = null) {
 }
 
 function getMatchCalendarStatus(match) {
-  if (match?.is_finished) {
+  const operational = String(match?.operational_status ?? '').trim();
+  const forcedOperationalMap = {
+    cancelled: { key: 'cancelled', label: 'Annullato', badge: 'badge-warning' },
+    postponed: { key: 'scheduled', label: 'Rinviato', badge: 'badge-warning' },
+  };
+  if (forcedOperationalMap[operational]) return forcedOperationalMap[operational];
+
+  if (
+    match?.is_finished ||
+    ['finished', 'final'].includes(String(match?.status ?? '').trim()) ||
+    ['ended', 'awaiting_signatures', 'official'].includes(operational)
+  ) {
+    if (operational === 'awaiting_signatures') return { key: 'finished', label: 'Firme mancanti', badge: 'badge-warning' };
+    if (operational === 'ended') return { key: 'finished', label: 'Terminato', badge: 'badge-info' };
+    if (operational === 'official') return { key: 'finished', label: 'Ufficiale', badge: 'badge-success' };
     return { key: 'finished', label: 'Concluso', badge: 'badge-success' };
   }
 
-  if (match?.status === 'live') {
+  if (match?.status === 'live' || ['live', 'paused'].includes(operational)) {
+    if (operational === 'paused') return { key: 'in_progress', label: 'Pausa', badge: 'badge-warning' };
     return { key: 'in_progress', label: 'In corso', badge: 'badge-danger' };
   }
 
   const start = match?.scheduled_start ? new Date(match.scheduled_start) : null;
   const end = match?.scheduled_end ? new Date(match.scheduled_end) : null;
-  if (!start || Number.isNaN(start.getTime())) {
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return { key: 'unscheduled', label: 'Da programmare', badge: 'badge-warning' };
   }
 
   const now = new Date();
-  if (start <= now && end && !Number.isNaN(end.getTime()) && end >= now) {
+  if (start <= now && end >= now) {
     return { key: 'in_progress', label: 'In corso', badge: 'badge-danger' };
   }
+
+  if (operational === 'check_in') return { key: 'scheduled', label: 'Check-in', badge: 'badge-info' };
+  if (operational === 'ready') return { key: 'scheduled', label: 'Pronto', badge: 'badge-success' };
+  if (operational === 'unscheduled') return { key: 'unscheduled', label: 'Da programmare', badge: 'badge-warning' };
 
   return { key: 'scheduled', label: 'Programmato', badge: 'badge-info' };
 }
 
 function getMatchTeamsLabel(match) {
-  return `${match?.home?.name ?? 'TBD'} vs ${match?.away?.name ?? 'TBD'}`;
+  return `${match?.home?.name ?? 'Da definire'} vs ${match?.away?.name ?? 'Da definire'}`;
 }
 
 function getMatchById(matchId) {
   return state.adminMatches.find((item) => Number(item.id) === Number(matchId)) ?? null;
+}
+
+const OPERATIONAL_STATUS_LABELS = {
+  unscheduled: 'Da programmare',
+  scheduled: 'Programmato',
+  check_in: 'Check-in',
+  ready: 'Pronto',
+  live: 'In corso',
+  paused: 'In pausa',
+  ended: 'Terminato',
+  awaiting_signatures: 'In attesa firme',
+  official: 'Ufficiale',
+  cancelled: 'Annullato',
+  postponed: 'Rinviato',
+};
+
+function formatOperationalStatusLabel(status) {
+  return OPERATIONAL_STATUS_LABELS[String(status ?? '').trim()] ?? 'Programmato';
+}
+
+function renderOperationalStatusOptions(currentStatus) {
+  const current = String(currentStatus ?? 'scheduled');
+  return Object.entries(OPERATIONAL_STATUS_LABELS)
+    .map(
+      ([value, label]) =>
+        `<option value="${value}" ${value === current ? 'selected' : ''}>${escapeHtml(label)}</option>`
+    )
+    .join('');
 }
 
 function getMatchTeamIds(match) {
@@ -710,6 +897,159 @@ async function downloadAllFinishedMatchReports(printWindow) {
   await downloadMatchReports(rows, printWindow);
 }
 
+function renderAthleticsSheetRows(lanes = []) {
+  const rows = lanes.length
+    ? lanes
+    : Array.from({ length: 8 }, (_item, index) => ({
+        lane_number: index + 1,
+        player: null,
+        team: null,
+        status: 'scheduled',
+      }));
+
+  return rows
+    .map(
+      (lane) => `
+        <tr>
+          <td>${escapeHtml(lane.lane_number ?? '-')}</td>
+          <td>${escapeHtml(lane.player?.full_name ?? '')}</td>
+          <td>${escapeHtml(lane.team?.name ?? '')}</td>
+          <td>${escapeHtml(formatAthleticsLaneStatus(lane.status))}</td>
+          <td></td>
+          <td></td>
+        </tr>
+      `
+    )
+    .join('');
+}
+
+function openPrintableAthleticsSheets({ sport, events, advanced }, printWindow) {
+  const lanesByHeat = new Map();
+  (advanced.lanes ?? []).forEach((lane) => {
+    const heatId = Number(lane.heat_id);
+    lanesByHeat.set(heatId, [...(lanesByHeat.get(heatId) ?? []), lane]);
+  });
+
+  const heatRows = advanced.heats?.length
+    ? advanced.heats
+    : events.map((event, index) => ({
+        id: `event-${event.id}`,
+        event,
+        phase: 'qualification',
+        heat_number: index + 1,
+        scheduled_start: null,
+        notes: 'Foglio senza batteria programmata',
+      }));
+
+  const sheets = heatRows
+    .map((heat) => {
+      const event = heat.event ?? events.find((item) => Number(item.id) === Number(heat.event_id)) ?? {};
+      const lanes = lanesByHeat.get(Number(heat.id)) ?? [];
+      return `
+        <article class="athletics-sheet">
+          <header>
+            <div>
+              <p>Foglio gara atletica</p>
+              <h1>${escapeHtml(event.name ?? 'Evento')}</h1>
+              <div class="meta">
+                <span><strong>Torneo</strong> ${escapeHtml(sport?.name ?? '-')}</span>
+                <span><strong>Fase</strong> ${escapeHtml(formatAthleticsPhase(heat.phase))}</span>
+                <span><strong>Batteria</strong> ${escapeHtml(heat.heat_number ?? '-')}</span>
+                <span><strong>Orario</strong> ${escapeHtml(formatReportDateTime(heat.scheduled_start))}</span>
+                <span><strong>Unita</strong> ${escapeHtml(event.unit ?? '-')}</span>
+              </div>
+            </div>
+            <div class="sheet-box">Risultati</div>
+          </header>
+          ${heat.notes ? `<section class="notes">${escapeHtml(heat.notes)}</section>` : ''}
+          <table>
+            <thead>
+              <tr>
+                <th>Corsia</th>
+                <th>Studente</th>
+                <th>Classe</th>
+                <th>Stato</th>
+                <th>Risultato</th>
+                <th>Note/firma</th>
+              </tr>
+            </thead>
+            <tbody>${renderAthleticsSheetRows(lanes)}</tbody>
+          </table>
+        </article>
+      `;
+    })
+    .join('');
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="it">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Fogli gara atletica</title>
+        <style>
+          @page { size: A4 portrait; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; font-size: 11px; }
+          .athletics-sheet { break-after: page; page-break-after: always; display: flex; flex-direction: column; gap: 12px; }
+          .athletics-sheet:last-child { break-after: auto; page-break-after: auto; }
+          header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }
+          p { margin: 0 0 4px; color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+          h1 { margin: 0; font-size: 24px; line-height: 1.08; }
+          .meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 8px; color: #334155; font-size: 10px; line-height: 1.25; }
+          .meta span { white-space: nowrap; }
+          .meta strong { color: #64748b; font-size: 8.5px; text-transform: uppercase; margin-right: 3px; }
+          .sheet-box { min-width: 104px; padding: 8px 12px; border: 2px solid #0f172a; text-align: center; font-size: 18px; font-weight: 800; align-self: flex-start; }
+          .notes { border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px; color: #334155; }
+          table { width: 100%; border-collapse: collapse; font-size: 10px; }
+          th, td { border: 1px solid #cbd5e1; padding: 7px 6px; text-align: left; height: 28px; }
+          th { background: #f1f5f9; color: #334155; font-size: 8.5px; text-transform: uppercase; }
+          th:first-child, td:first-child, th:nth-child(4), td:nth-child(4) { text-align: center; }
+          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+        </style>
+      </head>
+      <body>${sheets}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => printWindow.print(), 250);
+}
+
+async function printAthleticsRaceSheets() {
+  const sportId = Number(getEl('athletics-sport-select')?.value || 0);
+  if (!sportId) {
+    showToast('Seleziona un torneo atletica.', 'error');
+    return;
+  }
+
+  const printWindow = openMatchReportPrintWindow();
+  try {
+    const [events, advanced] = await Promise.all([
+      loadAthleticsEvents(sportId),
+      loadAthleticsAdvancedData(sportId),
+    ]);
+    if (advanced.__migrationMissing) {
+      printWindow.close();
+      showToast('Applica la migrazione 022/026 per stampare i fogli gara avanzati.', 'error');
+      return;
+    }
+    if (!events.length) {
+      printWindow.close();
+      showToast('Nessun evento atletica da stampare.', 'error');
+      return;
+    }
+    openPrintableAthleticsSheets({
+      sport: getSportById(sportId),
+      events,
+      advanced,
+    }, printWindow);
+  } catch (error) {
+    printWindow.close();
+    throw error;
+  }
+}
+
 async function prepareMatchesForOffline() {
   const rows = state.adminMatches.length ? state.adminMatches : await listMatchesForAdmin({});
   const targets = rows.filter((match) => !match.is_finished && match.status !== 'cancelled');
@@ -733,22 +1073,23 @@ async function prepareMatchesForOffline() {
       } catch (_error) {
         stats = [];
       }
-      if (saveLiveMatchCache(match.id, liveData, { stats, source: 'admin-prepare' })) cached += 1;
+      if (await saveLiveMatchCacheAsync(match.id, liveData, { stats, source: 'admin-prepare' })) cached += 1;
     } catch (error) {
       failed.push(`${getMatchTeamsLabel(match)}: ${error.message}`);
     }
   }
 
-  const totalCached = countCachedMatches();
+  const totalCached = await countCachedMatchesAsync();
   if (failed.length) {
     showToast(`Preparati offline ${cached}/${targets.length} match. Cache totale: ${totalCached}. Alcuni match non sono stati salvati.`, 'error');
     return;
   }
+  await registerCurrentDevice({ offlineMatchCount: totalCached, isOfflineReady: totalCached > 0 }).catch(() => null);
   showToast(`Modalita offline pronta: ${cached} match salvati su questo dispositivo. Cache totale: ${totalCached}.`, 'success');
 }
 
-function renderOfflineAdminDashboard() {
-  const manifest = getOfflineManifest();
+async function renderOfflineAdminDashboard() {
+  const manifest = await getOfflineManifestAsync();
   const rows = Object.values(manifest.matches ?? {}).sort((a, b) =>
     String(a.scheduled_start ?? '').localeCompare(String(b.scheduled_start ?? ''))
   );
@@ -1127,7 +1468,6 @@ function getDefaultCsvSportId(mode, sports) {
   }
   return (
     getEl('athletics-sport-select')?.value ||
-    getEl('event-sport-select')?.value ||
     String(sports[0].id)
   );
 }
@@ -1222,10 +1562,6 @@ async function handleCsvConfirmImport() {
 }
 
 async function switchView(viewId) {
-  if (viewId === 'settings' && !(await verifySettingsPassword('settings'))) {
-    showToast('Accesso impostazioni annullato.', 'error');
-    return;
-  }
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
@@ -1237,36 +1573,10 @@ async function switchView(viewId) {
   if (viewId === 'matches') loadMatchesTable();
   if (viewId === 'venues') loadVenuesTable();
   if (viewId === 'archive') loadArchiveTable();
-  if (viewId === 'telegram') renderTelegramView();
+  if (viewId === 'telegram') await renderTelegramView();
   if (viewId === 'reports') loadReportData();
   if (viewId === 'events') loadEventsSection();
   if (viewId === 'settings') loadSettingsForSelectedSport();
-}
-
-async function verifySettingsPassword(scope = 'settings') {
-  const expected = scope === 'super'
-    ? String(APP_CONFIG.superAdminSettingsPassword || APP_CONFIG.settingsAccessPassword || '')
-    : String(APP_CONFIG.settingsAccessPassword || '');
-  if (!expected) {
-    return true;
-  }
-  const inserted = await showAppPrompt(
-    scope === 'super' ? 'Inserisci la password per le impostazioni Superadmin.' : 'Inserisci la password per le impostazioni.',
-    {
-      title: scope === 'super' ? 'Accesso Superadmin' : 'Accesso impostazioni',
-      inputLabel: 'Password',
-      inputType: 'password',
-      confirmLabel: 'Accedi',
-    }
-  );
-  if (inserted === null) return false;
-  if (inserted === expected) return true;
-  showToast('Password non corretta.', 'error');
-  return false;
-}
-
-function getSportById(sportId) {
-  return state.sports.find((item) => Number(item.id) === Number(sportId));
 }
 
 function formatRoleLabel(role) {
@@ -1371,6 +1681,35 @@ function getTeamSports() {
   );
 }
 
+function getSportById(sportId) {
+  return state.sports.find((sport) => Number(sport.id) === Number(sportId)) ?? null;
+}
+
+function getMatchPhaseOptionsForSport(sport) {
+  const format = String(sport?.format ?? 'gironi').trim();
+  const hasReturn = Boolean(sport?.has_return_match);
+
+  if (format === 'eliminazione') {
+    return ['Ottavi di finale', 'Quarti di finale', 'Semifinale 1', 'Semifinale 2', 'Finale'];
+  }
+
+  return ['Girone (Andata)', ...(hasReturn ? ['Girone (Ritorno)'] : [])];
+}
+
+function renderMatchPhaseOptions(sportId, selectedValue = '') {
+  const select = getEl('select-match-phase');
+  if (!select) return;
+  const options = getMatchPhaseOptionsForSport(getSportById(sportId));
+  const normalizedSelected = String(selectedValue || options[0] || '').trim();
+  const fullOptions = options.includes(normalizedSelected)
+    ? options
+    : [normalizedSelected, ...options].filter(Boolean);
+
+  select.innerHTML = fullOptions
+    .map((value) => `<option value="${escapeHtml(value)}" ${value === normalizedSelected ? 'selected' : ''}>${escapeHtml(value)}</option>`)
+    .join('');
+}
+
 function renderSportsOptions() {
   const targets = [
     ['report-sport-select', false, false, false],
@@ -1379,7 +1718,6 @@ function renderSportsOptions() {
     ['playoff-sport-select', false, false, true],
     ['archive-sport-select', false, false, false],
     ['settings-sport-select', false, false, false],
-    ['event-sport-select', false, false, false],
     ['athletics-sport-select', false, true, false],
     ['filter-match-sport', true, false, true],
   ];
@@ -1430,6 +1768,228 @@ async function refreshVenuesState() {
   renderVenueOptions();
 }
 
+function formatDashboardNumber(value) {
+  return Number(value ?? 0).toLocaleString('it-IT');
+}
+
+function renderDashboardToday() {
+  const target = getEl('dashboard-today-panel');
+  if (!target) return;
+  const overview = state.todayOverview ?? {};
+  const next = overview.next_match ?? null;
+  target.innerHTML = `
+    <div class="dashboard-metric-list">
+      <div><span>Match oggi</span><strong>${formatDashboardNumber(overview.matches_today)}</strong></div>
+      <div><span>In corso</span><strong>${formatDashboardNumber(overview.live)}</strong></div>
+      <div><span>Conclusi oggi</span><strong>${formatDashboardNumber(overview.finished_today)}</strong></div>
+      <div><span>Da programmare</span><strong>${formatDashboardNumber(Number(overview.missing_venue ?? 0) + Number(overview.missing_time ?? 0))}</strong></div>
+    </div>
+    ${
+      next
+        ? `<div class="dashboard-next-match">
+            <span>Prossimo match</span>
+            <strong>${escapeHtml(next.home ?? 'Da definire')} vs ${escapeHtml(next.away ?? 'Da definire')}</strong>
+            <small>${escapeHtml(next.sport ?? '-')} · ${escapeHtml(formatReportDateTime(next.scheduled_start))} · ${escapeHtml(next.venue ?? 'Campo da definire')}</small>
+          </div>`
+        : '<div class="empty-state compact">Nessun prossimo match programmato.</div>'
+    }
+  `;
+}
+
+function renderInternalNotifications() {
+  const target = getEl('dashboard-notifications-panel');
+  if (!target) return;
+  const rows = state.internalNotifications ?? [];
+  target.innerHTML = rows.length
+    ? `<div class="internal-notification-list">
+        ${rows
+          .map(
+            (row) => `
+              <article class="internal-notification ${escapeHtml(row.severity)}">
+                <div>
+                  <strong>${escapeHtml(row.title)}</strong>
+                  <p>${escapeHtml(row.message)}</p>
+                  <small>${escapeHtml(formatReportDateTime(row.created_at))}</small>
+                </div>
+                <button class="icon-btn small-icon" data-action="read-internal-notification" data-id="${row.id}" type="button" title="Segna letta" aria-label="Segna letta">
+                  <i class="fa-solid fa-check"></i>
+                </button>
+              </article>
+            `
+          )
+          .join('')}
+      </div>`
+    : '<div class="empty-state compact">Nessuna notifica interna aperta.</div>';
+}
+
+function renderSystemHealthPanel() {
+  const target = getEl('dashboard-health-panel');
+  if (!target) return;
+  const rows = state.systemHealth ?? [];
+  target.innerHTML = rows.length
+    ? `<div class="health-check-list">
+        ${rows
+          .map(
+            (row) => `
+              <div class="health-check-row ${escapeHtml(row.status)}">
+                <span>${escapeHtml(row.check_key)}</span>
+                <strong>${escapeHtml(row.status)}</strong>
+                <small>${escapeHtml(row.message ?? '')}</small>
+              </div>
+            `
+          )
+          .join('')}
+      </div>`
+    : '<div class="empty-state compact">Nessun controllo disponibile. Applica la migrazione 024.</div>';
+}
+
+function renderIssueReportsPanel() {
+  const target = getEl('dashboard-issues-panel');
+  if (!target) return;
+  if (state.issueReportsError) {
+    target.innerHTML = `
+      <div class="empty-state compact">
+        Non riesco a leggere le segnalazioni. ${escapeHtml(state.issueReportsError)}
+      </div>
+    `;
+    return;
+  }
+  const rows = (state.issueReports ?? []).filter((issue) => issue.status !== 'resolved');
+  target.innerHTML = rows.length
+    ? `<div class="issue-report-list">
+        ${rows
+          .slice(0, 5)
+          .map(
+            (issue) => `
+              <article class="issue-report-row">
+                <strong>${escapeHtml(issue.reporter ?? 'Segnalazione')}</strong>
+                <p>${escapeHtml(issue.message ?? '').slice(0, 160)}</p>
+                <small>${escapeHtml(formatReportDateTime(issue.created_at))} · ${escapeHtml(issue.status)}</small>
+              </article>
+            `
+          )
+          .join('')}
+      </div>`
+    : '<div class="empty-state compact">Nessun problema aperto.</div>';
+}
+
+function renderPreEventResults(rows) {
+  const target = getEl('dashboard-pre-event-panel');
+  if (!target) return;
+
+  const items = Array.isArray(rows) ? rows : [];
+  if (!items.length) {
+    target.innerHTML = `
+      <div class="pre-event-result info">
+        <strong>Nessun problema rilevato</strong>
+        <small>Il controllo non ha trovato conflitti o dati mancanti.</small>
+      </div>
+    `;
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="pre-event-result-list">
+      ${items
+        .map(
+          (row) => `
+            <article class="pre-event-result ${escapeHtml(row.severity ?? 'warning')}">
+              <strong>${escapeHtml(row.message ?? 'Controllo senza descrizione')}</strong>
+              <small>${escapeHtml(row.code ?? 'controllo')} · ${escapeHtml(row.entity_type ?? 'sistema')}${row.entity_id ? ` #${escapeHtml(row.entity_id)}` : ''}</small>
+            </article>
+          `
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+async function handleValidatePreEvent() {
+  const sportValue = getEl('filter-match-sport')?.value;
+  const sportId = sportValue && sportValue !== 'all' ? Number(sportValue) : null;
+  const rows = await validatePreEvent(sportId);
+  renderPreEventResults(rows);
+  showToast('Controllo giornata completato.', 'success');
+}
+
+async function refreshSystemHealth() {
+  const offlineSummary = await getOfflineStorageSummary().catch(() => ({
+    indexedDbAvailable: false,
+    cachedMatches: 0,
+    queuedOperations: 0,
+    conflictOperations: 0,
+  }));
+  const checks = [
+    {
+      checkKey: 'supabase',
+      status: 'ok',
+      message: 'Connessione e query admin disponibili.',
+    },
+    {
+      checkKey: 'telegram',
+      status: APP_CONFIG.telegramChannelUrl ? 'ok' : 'warning',
+      message: APP_CONFIG.telegramChannelUrl
+        ? `Canale configurato: ${APP_CONFIG.telegramChannelLabel ?? APP_CONFIG.telegramChannelUrl}`
+        : 'Canale Telegram non configurato in app-config.js.',
+    },
+    {
+      checkKey: 'pwa_cache',
+      status: navigator.serviceWorker ? 'ok' : 'warning',
+      message: navigator.serviceWorker ? 'Service Worker disponibile.' : 'Service Worker non disponibile nel browser.',
+    },
+    {
+      checkKey: 'offline_storage',
+      status: offlineSummary.indexedDbAvailable ? 'ok' : 'warning',
+      message: `${formatDashboardNumber(offlineSummary.cachedMatches ?? offlineSummary.liveCacheCount)} match preparati, ${formatDashboardNumber(offlineSummary.queuedOperations ?? offlineSummary.queuedOperationsCount)} operazioni in coda, ${formatDashboardNumber(offlineSummary.conflictOperations)} conflitti.`,
+    },
+  ];
+
+  await Promise.all(checks.map((check) => saveSystemHealthCheck(check).catch(() => null)));
+  state.systemHealth = await loadSystemHealthChecks();
+}
+
+async function refreshOperationalDashboard() {
+  const [statistics, issueResult, migrations] = await Promise.all([
+    loadEventStatistics(),
+    loadIssueReports({ limit: 8 })
+      .then((rows) => ({ rows, error: null }))
+      .catch((error) => ({ rows: [], error: error.message })),
+    verifyPlatformMigrations().catch((error) => ({
+      ok: false,
+      applied: [],
+      missing: ['026'],
+      rows: [],
+      error: error.message,
+    })),
+  ]);
+  state.eventStatistics = statistics ?? {};
+  state.issueReports = issueResult.rows ?? [];
+  state.issueReportsError = issueResult.error ?? null;
+  state.migrationVerification = migrations;
+  await refreshSystemHealth();
+  renderSystemHealthPanel();
+  renderMigrationVerification();
+  renderIssueReportsPanel();
+}
+
+function renderMigrationVerification() {
+  const target = getEl('dashboard-health-panel');
+  const verification = state.migrationVerification;
+  if (!target || !verification) return;
+
+  const pills = [
+    ...verification.applied
+      .filter((version) => Number(version) >= 21)
+      .map((version) => `<span class="migration-pill ok"><i class="fa-solid fa-check"></i> ${escapeHtml(version)}</span>`),
+    ...verification.missing.map((version) => `<span class="migration-pill missing"><i class="fa-solid fa-xmark"></i> ${escapeHtml(version)}</span>`),
+  ].join('');
+
+  target.insertAdjacentHTML(
+    'beforeend',
+    `<div class="migration-status-list" aria-label="Migrazioni Supabase">${pills || '<span class="migration-pill missing">Migrazioni non lette</span>'}</div>`
+  );
+}
+
 async function loadDashboardStats() {
   const [sportsCount, teamsCount, matchesCount, eventsCount] = await Promise.all([
     run(db.from('sports').select('*', { count: 'exact', head: true }), 'Conteggio tornei'),
@@ -1442,6 +2002,7 @@ async function loadDashboardStats() {
   getEl('count-teams').textContent = String(teamsCount.count ?? 0);
   getEl('count-matches').textContent = String(matchesCount.count ?? 0);
   getEl('count-events').textContent = String(eventsCount.count ?? 0);
+  await refreshOperationalDashboard();
 }
 function renderSportsTableRows() {
   const body = getEl('table-sports-body');
@@ -1559,7 +2120,7 @@ function renderMatchesCalendar(rows) {
         .map((key) => {
           const dayMatches = groups.get(key) ?? [];
           return `
-            <section class="calendar-day-column">
+            <section class="calendar-day-column" data-calendar-day="${escapeHtml(key)}">
               <div class="calendar-day-title">${escapeHtml(formatCalendarDayLabel(key))}</div>
               <div class="calendar-day-list">
                 ${dayMatches
@@ -1569,7 +2130,13 @@ function renderMatchesCalendar(rows) {
                     const end = formatCalendarTime(match.scheduled_end);
                     const timeLabel = match.scheduled_start ? `${start}${match.scheduled_end ? ` - ${end}` : ''}` : 'Da programmare';
                     return `
-                      <button class="calendar-match-card status-${status.key}" data-action="open-match-detail" data-id="${match.id}" type="button">
+                      <button
+                        class="calendar-match-card status-${status.key}"
+                        data-action="open-match-detail"
+                        data-id="${match.id}"
+                        type="button"
+                        ${canEditMatches(state.admin?.ruolo) && match.scheduled_start && match.scheduled_end ? 'draggable="true"' : ''}
+                      >
                         <span class="calendar-match-time">${escapeHtml(timeLabel)}</span>
                         <strong>${escapeHtml(getMatchTeamsLabel(match))}</strong>
                         <span>${escapeHtml(match.sport?.name ?? '-')} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</span>
@@ -1657,6 +2224,9 @@ function openMatchDetail(matchId) {
   if (!match) return;
 
   const status = getMatchCalendarStatus(match);
+  const currentOperationalStatus =
+    match.operational_status ??
+    (status.key === 'finished' ? 'official' : status.key === 'in_progress' ? 'live' : status.key);
   const teams = getMatchTeamsLabel(match);
   const schedule = formatScheduleRange(match);
   const score = match.is_finished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -';
@@ -1700,6 +2270,23 @@ function openMatchDetail(matchId) {
         <h3>Staff partita</h3>
         <div id="match-detail-staff-list" class="staff-chip-grid"><div class="empty-state">Caricamento staff...</div></div>
       </section>
+      <section class="match-detail-operations">
+        <div class="match-detail-section-head">
+          <h3>Stato e check-in</h3>
+          <span class="badge ${status.badge}">${escapeHtml(status.label)}</span>
+        </div>
+        <div class="match-status-control" ${canEditMatches(state.admin?.ruolo) ? '' : 'hidden'}>
+          <select id="match-operational-status-select">
+            ${renderOperationalStatusOptions(currentOperationalStatus)}
+          </select>
+          <input id="match-operational-status-reason" type="text" placeholder="Motivo o nota operativa" />
+          <button class="btn btn-ghost btn-compact" data-action="set-match-operational-status" data-id="${match.id}" type="button">
+            <i class="fa-solid fa-rotate"></i> Aggiorna stato
+          </button>
+        </div>
+        <div id="match-detail-checkins" class="match-checkin-grid"><div class="empty-state">Caricamento check-in...</div></div>
+        <div id="match-detail-status-history" class="status-history-list"></div>
+      </section>
       <div class="match-detail-actions">${actions.join('')}</div>
       <section class="match-detail-audit">
         <button class="match-detail-toggle" data-action="toggle-audit-log" data-id="${match.id}" type="button" aria-expanded="false">
@@ -1712,6 +2299,10 @@ function openMatchDetail(matchId) {
   `;
   openModal('modal-match-detail');
   renderMatchDetailStaff(match.id).catch(() => undefined);
+  renderMatchDetailOperations(match).catch((error) => {
+    const target = getEl('match-detail-checkins');
+    if (target) target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+  });
 }
 
 function renderVenuesTableRows(rows) {
@@ -1894,11 +2485,124 @@ function printTelegramQr() {
   printWithBodyClass('print-telegram-qr');
 }
 
+function getPublicNotificationIcon(severity) {
+  if (severity === 'danger') return 'fa-triangle-exclamation';
+  if (severity === 'warning') return 'fa-circle-exclamation';
+  if (severity === 'success') return 'fa-circle-check';
+  return 'fa-bullhorn';
+}
+
+function resetPublicNotificationForm() {
+  getEl('form-public-notification')?.reset();
+  getEl('public-notification-id').value = '';
+  const active = getEl('public-notification-active');
+  if (active) active.checked = true;
+  const severity = getEl('public-notification-severity');
+  if (severity) severity.value = 'info';
+}
+
+function fillPublicNotificationForm(notification) {
+  if (!notification) {
+    resetPublicNotificationForm();
+    return;
+  }
+  getEl('public-notification-id').value = notification.id ?? '';
+  getEl('public-notification-title').value = notification.title ?? '';
+  getEl('public-notification-body').value = notification.body ?? '';
+  getEl('public-notification-severity').value = notification.severity ?? 'info';
+  getEl('public-notification-active').checked = notification.is_active !== false;
+  getEl('public-notification-title')?.focus();
+}
+
+async function renderPublicNotificationsAdmin() {
+  const target = getEl('public-notifications-admin-list');
+  if (!target) return;
+
+  try {
+    state.publicNotifications = await loadPublicNotifications({ includeInactive: true, limit: 50 });
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state">Notifiche non caricate: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  const rows = state.publicNotifications ?? [];
+  if (!rows.length) {
+    target.innerHTML = '<div class="empty-state">Nessuna notifica pubblica creata.</div>';
+    return;
+  }
+
+  const canEditPublicNotifications = canManageAll(state.admin?.ruolo);
+  target.innerHTML = `
+    <div class="public-admin-notification-list">
+      ${rows
+        .map(
+          (item) => `
+            <article class="public-admin-notification severity-${escapeHtml(item.severity ?? 'info')}">
+              <span class="public-admin-notification-icon"><i class="fa-solid ${escapeHtml(getPublicNotificationIcon(item.severity))}"></i></span>
+              <div class="public-admin-notification-copy">
+                <strong>${escapeHtml(item.title)}</strong>
+                ${item.body ? `<p>${escapeHtml(item.body)}</p>` : ''}
+                <small>${item.is_active === false ? 'Non visibile' : 'Visibile'} · Aggiornata ${escapeHtml(formatDateTime(item.updated_at ?? item.created_at))}</small>
+              </div>
+              ${
+                canEditPublicNotifications
+                  ? `<div class="public-admin-notification-actions">
+                      <button class="icon-btn edit" data-action="edit-public-notification" data-id="${item.id}" type="button" title="Modifica notifica" aria-label="Modifica notifica"><i class="fa-solid fa-pen"></i></button>
+                      <button class="icon-btn delete" data-action="delete-public-notification" data-id="${item.id}" type="button" title="Elimina notifica" aria-label="Elimina notifica"><i class="fa-solid fa-trash"></i></button>
+                    </div>`
+                  : ''
+              }
+            </article>
+          `
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+async function handleSavePublicNotification(event) {
+  event.preventDefault();
+  if (!canManageAll(state.admin?.ruolo)) {
+    throw new Error('Solo il Superadmin puo pubblicare notifiche nella home.');
+  }
+
+  const saved = await savePublicNotification({
+    id: getEl('public-notification-id')?.value || null,
+    title: getEl('public-notification-title')?.value,
+    body: getEl('public-notification-body')?.value,
+    severity: getEl('public-notification-severity')?.value,
+    expiresAt: null,
+    isActive: Boolean(getEl('public-notification-active')?.checked),
+  });
+
+  if (!saved) {
+    throw new Error('Notifiche pubbliche non disponibili: applica la migrazione 028 e ricarica lo schema.');
+  }
+
+  resetPublicNotificationForm();
+  await renderPublicNotificationsAdmin();
+  showToast('Notifica pubblicata nella home.', 'success');
+}
+
+async function handleDeletePublicNotification(notificationId) {
+  if (!canManageAll(state.admin?.ruolo)) {
+    throw new Error('Solo il Superadmin puo eliminare notifiche pubbliche.');
+  }
+  if (!(await showAppConfirm('Eliminare questa notifica dalla home pubblica?', {
+    title: 'Elimina notifica',
+    tone: 'danger',
+    confirmLabel: 'Elimina',
+  }))) return;
+
+  await deletePublicNotification(notificationId);
+  await renderPublicNotificationsAdmin();
+  showToast('Notifica eliminata.', 'success');
+}
+
 function printVenueQr() {
   printWithBodyClass('print-venue-qr');
 }
 
-function renderTelegramView() {
+async function renderTelegramView() {
   const panel = getEl('telegram-channel-panel');
   if (!panel) return;
 
@@ -1914,6 +2618,7 @@ function renderTelegramView() {
         </div>
       </div>
     `;
+    await Promise.all([renderPublicNotificationsAdmin(), renderTelegramTemplates()]);
     return;
   }
 
@@ -1941,6 +2646,123 @@ function renderTelegramView() {
   `;
 
   getEl('btn-print-telegram-qr')?.addEventListener('click', printTelegramQr);
+  await Promise.all([renderPublicNotificationsAdmin(), renderTelegramTemplates()]);
+}
+
+function formatTemplatePreview(value) {
+  return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key) => {
+    if (Object.prototype.hasOwnProperty.call(TEMPLATE_SAMPLE_VALUES, key)) {
+      return TEMPLATE_SAMPLE_VALUES[key];
+    }
+    return `[${key}]`;
+  });
+}
+
+function showTemplatePreviewFromCard(card) {
+  const title = card?.querySelector('[data-template-field="title"]')?.value ?? 'Template comunicazione';
+  const body = card?.querySelector('[data-template-field="body"]')?.value ?? '';
+  const preview = [
+    `Titolo: ${formatTemplatePreview(title)}`,
+    '',
+    formatTemplatePreview(body || 'Nessun testo impostato.'),
+  ].join('\n');
+
+  return showAppAlert(preview, {
+    title: 'Anteprima messaggio',
+    confirmLabel: 'Chiudi',
+  });
+}
+
+async function renderTelegramTemplates() {
+  const target = getEl('telegram-template-panel');
+  if (!target) return;
+
+  try {
+    state.communicationTemplates = await loadCommunicationTemplates();
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state">Template non caricati: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  const rows = state.communicationTemplates ?? [];
+  if (!rows.length) {
+    target.innerHTML = '<div class="empty-state">Applica la migrazione 024 per gestire i template comunicazione.</div>';
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="communication-template-list">
+      ${rows
+        .map((template) => {
+          const meta = COMMUNICATION_TEMPLATE_META[template.template_key] ?? {
+            label: template.title || 'Template comunicazione',
+            purpose: 'Modello riutilizzabile per messaggi automatici o manuali.',
+            usedBy: 'Invio Telegram manuale o automatico',
+            variables: ['home', 'away', 'time', 'venue', 'reason', 'team', 'sport', 'message'],
+          };
+          const variables = meta.variables ?? [];
+          return `
+            <article class="communication-template-card">
+              <div class="communication-template-head">
+                <div>
+                  <strong>${escapeHtml(meta.label)}</strong>
+                  <p>${escapeHtml(meta.purpose)}</p>
+                </div>
+                <span>${template.is_active !== false ? 'Attivo' : 'Disattivato'}</span>
+              </div>
+              <div class="template-info-grid">
+                <div>
+                  <span>Quando viene usato</span>
+                  <strong>${escapeHtml(meta.usedBy)}</strong>
+                </div>
+                <div>
+                  <span>Canale</span>
+                  <strong>Telegram</strong>
+                </div>
+              </div>
+              <div class="communication-template-fields">
+                <div class="field">
+                  <label for="template-title-${template.id}">Titolo visibile</label>
+                  <input id="template-title-${template.id}" data-template-field="title" data-key="${escapeHtml(template.template_key)}" value="${escapeHtml(template.title)}" />
+                </div>
+                <div class="field">
+                  <label for="template-body-${template.id}">Testo del messaggio</label>
+                  <textarea id="template-body-${template.id}" data-template-field="body" data-key="${escapeHtml(template.template_key)}" rows="4">${escapeHtml(template.body)}</textarea>
+                </div>
+              </div>
+              <details class="template-variable-details">
+                <summary>Variabili automatiche disponibili</summary>
+                <div class="template-variable-list" aria-label="Variabili disponibili">
+                  ${variables
+                    .map(
+                      (variable) => `
+                        <span title="${escapeHtml(TEMPLATE_VARIABLE_LABELS[variable] ?? variable)}">
+                          <code>{{${escapeHtml(variable)}}}</code>
+                          ${escapeHtml(TEMPLATE_VARIABLE_LABELS[variable] ?? variable)}
+                        </span>
+                      `
+                    )
+                    .join('')}
+                </div>
+              </details>
+              <div class="template-card-actions">
+                <label class="checkbox-row compact">
+                  <input type="checkbox" data-template-field="is_active" data-key="${escapeHtml(template.template_key)}" ${template.is_active !== false ? 'checked' : ''} />
+                  <span>Attivo</span>
+                </label>
+                <button class="btn btn-ghost btn-compact" data-action="preview-communication-template" data-key="${escapeHtml(template.template_key)}" type="button">
+                  <i class="fa-solid fa-eye"></i> Anteprima
+                </button>
+                <button class="btn btn-ghost btn-compact" data-action="save-communication-template" data-key="${escapeHtml(template.template_key)}" type="button">
+                  <i class="fa-solid fa-floppy-disk"></i> Salva
+                </button>
+              </div>
+            </article>
+          `;
+        })
+        .join('')}
+    </div>
+    <p class="muted template-help">Le parole tra doppie graffe vengono sostituite automaticamente prima dell'invio. Esempio: <code>{{home}}</code> diventa il nome della squadra di casa.</p>
+  `;
 }
 
 function renderPlayerRankingTable(rows) {
@@ -2737,6 +3559,77 @@ async function renderMatchDetailStaff(matchId) {
   }
 }
 
+function getCheckinDefinitions(match) {
+  return [
+    { role: 'home_team', label: `Capitano ${match?.home?.name ?? 'casa'}`, teamId: match?.home_team_id },
+    { role: 'away_team', label: `Capitano ${match?.away?.name ?? 'ospite'}`, teamId: match?.away_team_id },
+    { role: 'referee', label: 'Arbitro', teamId: null },
+    { role: 'scorekeeper', label: 'Segnapunti', teamId: null },
+    { role: 'field_manager', label: 'Responsabile campo', teamId: null },
+    { role: 'supervisor', label: 'Docente supervisore', teamId: null },
+  ];
+}
+
+function renderStatusHistoryRows(rows) {
+  if (!rows?.length) return '<div class="empty-state compact">Nessun cambio stato registrato.</div>';
+  return rows
+    .slice(0, 6)
+    .map(
+      (row) => `
+        <article class="status-history-row">
+          <strong>${escapeHtml(formatOperationalStatusLabel(row.previous_status))} → ${escapeHtml(formatOperationalStatusLabel(row.new_status))}</strong>
+          <span>${escapeHtml(formatReportDateTime(row.changed_at))}</span>
+          ${row.reason ? `<small>${escapeHtml(row.reason)}</small>` : ''}
+        </article>
+      `
+    )
+    .join('');
+}
+
+async function renderMatchDetailOperations(match) {
+  const checkinsTarget = getEl('match-detail-checkins');
+  const historyTarget = getEl('match-detail-status-history');
+  if (!checkinsTarget && !historyTarget) return;
+
+  const [checkins, history] = await Promise.all([
+    loadMatchCheckins(match.id),
+    loadMatchStatusHistory(match.id),
+  ]);
+  const rowsByRole = new Map((checkins ?? []).map((row) => [`${row.role}:${Number(row.team_id ?? 0)}`, row]));
+  const defs = getCheckinDefinitions(match);
+
+  if (checkinsTarget) {
+    checkinsTarget.innerHTML = defs
+      .map((def) => {
+        const row = rowsByRole.get(`${def.role}:${Number(def.teamId ?? 0)}`);
+        const checked = Boolean(row?.checked_in);
+        return `
+          <label class="match-checkin-item ${checked ? 'checked' : ''}">
+            <input
+              type="checkbox"
+              data-action="toggle-match-checkin"
+              data-match-id="${match.id}"
+              data-role="${escapeHtml(def.role)}"
+              data-team-id="${def.teamId ? Number(def.teamId) : ''}"
+              ${checked ? 'checked' : ''}
+              ${canEditMatches(state.admin?.ruolo) ? '' : 'disabled'}
+            />
+            <span>${escapeHtml(def.label)}</span>
+            <small>${checked ? `OK · ${escapeHtml(formatReportDateTime(row.checked_at))}` : 'Da confermare'}</small>
+          </label>
+        `;
+      })
+      .join('');
+  }
+
+  if (historyTarget) {
+    historyTarget.innerHTML = `
+      <h4>Storico stati</h4>
+      ${renderStatusHistoryRows(history)}
+    `;
+  }
+}
+
 async function buildMatchConflictWarnings(payload) {
   const warnings = [];
   const newRange = getTimeRange(payload.scheduledStart, payload.scheduledEnd);
@@ -2830,15 +3723,19 @@ async function openMatchModal(match = null) {
   if (match?.sport_id) {
     getEl('select-sport-match').value = String(match.sport_id);
     await populateMatchTeams(match.sport_id);
+    renderMatchPhaseOptions(match.sport_id, match.round_name ?? '');
   } else {
     const defaultSportId = getEl('select-sport-match')?.value || getTeamSports()[0]?.id || '';
     if (defaultSportId) {
       getEl('select-sport-match').value = String(defaultSportId);
       await populateMatchTeams(defaultSportId);
+      renderMatchPhaseOptions(defaultSportId);
     }
   }
 
-  getEl('select-match-phase').value = match?.round_name ?? 'Girone (Andata)';
+  if (match?.round_name) {
+    getEl('select-match-phase').value = match.round_name;
+  }
   getEl('select-home-team').value = match?.home_team_id ? String(match.home_team_id) : '';
   getEl('select-away-team').value = match?.away_team_id ? String(match.away_team_id) : '';
   getEl('select-match-venue').value = match?.venue_id ? String(match.venue_id) : '';
@@ -2932,7 +3829,7 @@ async function handleGenerateMatches() {
   if (!sportId) return showToast('Seleziona un torneo per la generazione.', 'error');
   const sport = getSportById(sportId);
   const inserted = await generateMatchesForSport(sportId, Boolean(sport?.has_return_match));
-  showToast(`Partite generate: ${inserted.inserted}.`, 'success');
+  showToast(`${inserted.message ?? 'Calendario generato.'} Partite create: ${inserted.inserted}.`, 'success');
   await loadMatchesTable();
 }
 
@@ -2942,6 +3839,75 @@ async function handleGenerateSemifinals() {
   const count = await generateSemifinals(sportId);
   showToast(`Semifinali create: ${count}.`, 'success');
   await loadMatchesTable();
+}
+
+function moveIsoToCalendarDayKeepingTime(value, targetDayKey) {
+  const original = value ? new Date(value) : null;
+  if (!original || Number.isNaN(original.getTime()) || targetDayKey === 'unscheduled') return null;
+  const [year, month, day] = String(targetDayKey).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(
+    year,
+    month - 1,
+    day,
+    original.getHours(),
+    original.getMinutes(),
+    original.getSeconds(),
+    original.getMilliseconds()
+  ).toISOString();
+}
+
+async function handleCalendarDropReschedule(matchId, targetDayKey) {
+  const match = getMatchById(matchId);
+  if (!match || !canEditMatches(state.admin?.ruolo)) return;
+  if (targetDayKey === 'unscheduled') {
+    showToast('Trascina su un giorno programmato, non nella colonna da programmare.', 'error');
+    return;
+  }
+  if (!match.scheduled_start || !match.scheduled_end) {
+    showToast('Questo match non ha ancora uno slot completo: apri Modifica e imposta orario/campo.', 'error');
+    return;
+  }
+
+  const scheduledStart = moveIsoToCalendarDayKeepingTime(match.scheduled_start, targetDayKey);
+  const scheduledEnd = moveIsoToCalendarDayKeepingTime(match.scheduled_end, targetDayKey);
+  if (!scheduledStart || !scheduledEnd) return;
+  if (formatCalendarDayKey(scheduledStart) === formatCalendarDayKey(match.scheduled_start)) return;
+
+  const reason = await showAppPrompt(`Motivo dello spostamento di ${getMatchTeamsLabel(match)}:`, {
+    title: 'Sposta match',
+    inputLabel: 'Motivo',
+    multiline: true,
+    placeholder: 'Es. campo non disponibile, rinvio per ritardo, cambio programma',
+    confirmLabel: 'Sposta',
+  });
+  if (reason === null) return;
+  const cleanReason = reason.trim();
+  if (cleanReason.length < 5) {
+    showToast('Inserisci una motivazione di almeno 5 caratteri.', 'error');
+    return;
+  }
+
+  const payload = {
+    matchId: match.id,
+    sportId: match.sport_id,
+    homeTeamId: match.home_team_id,
+    awayTeamId: match.away_team_id,
+    roundName: match.round_name ?? 'Girone (Andata)',
+    venueId: match.venue_id,
+    scheduledStart,
+    scheduledEnd,
+    scheduleNotes: [match.schedule_notes, `Spostamento calendario: ${cleanReason}`]
+      .filter((item) => String(item ?? '').trim())
+      .join(' | '),
+  };
+
+  if (!(await confirmMatchConflictWarnings(payload))) return;
+  await updateManualMatch(payload);
+  await loadMatchesTable();
+  sendTelegramMatchReminder(match.id)
+    .then(() => showToast('Match spostato e comunicato su Telegram.', 'success'))
+    .catch((error) => showToast(`Match spostato, ma Telegram non inviato: ${error.message}`, 'error'));
 }
 
 async function handleDeleteMatch(matchId) {
@@ -2990,7 +3956,7 @@ function getSettingsVisibility(sportType, format) {
     };
   }
   const isAthletics = sportType === 'atletica';
-  const usesStandings = ['gironi', 'gironi_playoff', 'italiana', 'gironi_multipli', 'migliori_seconde', 'svizzero'].includes(format);
+  const usesStandings = format === 'gironi';
   return {
     comuni_team: !isAthletics,
     classifica_gironi: !isAthletics && usesStandings,
@@ -3099,35 +4065,98 @@ function normalizePrivacySettings(config = {}) {
         }
       })()
     : raw ?? {};
+  const playerName = ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'full';
+  const hidden = playerName === 'hidden';
   return {
-    player_name: ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'full',
-    show_class: parsed.show_class !== false,
-    show_personal_stats: parsed.show_personal_stats !== false,
-    show_mvp: parsed.show_mvp !== false,
-    show_disciplinary: parsed.show_disciplinary !== false,
+    player_name: playerName,
+    show_class: hidden ? false : parsed.show_class !== false,
+    show_personal_stats: hidden ? false : parsed.show_personal_stats !== false,
+    show_mvp: hidden ? false : parsed.show_mvp !== false,
+    show_disciplinary: hidden ? false : parsed.show_disciplinary !== false,
   };
 }
 
+function applyPrivacyPublicLock() {
+  const hidden = getEl('set-privacy-player-name')?.value === 'hidden';
+  [
+    'set-privacy-show-class',
+    'set-privacy-show-stats',
+    'set-privacy-show-mvp',
+    'set-privacy-show-disciplinary',
+  ].forEach((id) => {
+    const input = getEl(id);
+    if (!input) return;
+    if (hidden) input.checked = false;
+    input.disabled = hidden;
+    input.closest('.checkbox-row')?.classList.toggle('is-disabled', hidden);
+  });
+}
+
 function buildSuperSettingsPayload() {
+  const playerName = getEl('set-privacy-player-name')?.value || 'full';
+  const hidden = playerName === 'hidden';
   return {
     ranking_tiebreakers: getRankingRulesFromDom(),
     min_rest_minutes: Math.max(0, Number(getEl('set-min-rest-minutes')?.value || 0)),
     advanced_live_events_enabled: Boolean(getEl('set-advanced-live-events')?.checked),
     privacy_settings: {
-      player_name: getEl('set-privacy-player-name')?.value || 'full',
-      show_class: Boolean(getEl('set-privacy-show-class')?.checked),
-      show_personal_stats: Boolean(getEl('set-privacy-show-stats')?.checked),
-      show_mvp: Boolean(getEl('set-privacy-show-mvp')?.checked),
-      show_disciplinary: Boolean(getEl('set-privacy-show-disciplinary')?.checked),
+      player_name: playerName,
+      show_class: hidden ? false : Boolean(getEl('set-privacy-show-class')?.checked),
+      show_personal_stats: hidden ? false : Boolean(getEl('set-privacy-show-stats')?.checked),
+      show_mvp: hidden ? false : Boolean(getEl('set-privacy-show-mvp')?.checked),
+      show_disciplinary: hidden ? false : Boolean(getEl('set-privacy-show-disciplinary')?.checked),
     },
   };
+}
+
+function fillSuperSettingsForm(settings = {}) {
+  const rankingValue = settings.global_ranking_tiebreakers?.rules ?? DEFAULT_RANKING_RULES;
+  renderRankingRulesList(rankingValue);
+
+  const conflicts = settings.global_conflict_rules ?? {};
+  getEl('set-min-rest-minutes').value = Math.max(0, Number(conflicts.min_rest_minutes ?? 0));
+
+  const live = settings.global_live_settings ?? {};
+  getEl('set-advanced-live-events').checked = Boolean(live.advanced_live_events_enabled);
+
+  const privacy = normalizePrivacySettings({
+    privacy_settings: settings.global_privacy_settings ?? {},
+  });
+  getEl('set-privacy-player-name').value = privacy.player_name;
+  getEl('set-privacy-show-class').checked = Boolean(privacy.show_class);
+  getEl('set-privacy-show-stats').checked = Boolean(privacy.show_personal_stats);
+  getEl('set-privacy-show-mvp').checked = Boolean(privacy.show_mvp);
+  getEl('set-privacy-show-disciplinary').checked = Boolean(privacy.show_disciplinary);
+  applyPrivacyPublicLock();
+}
+
+async function saveSuperSettingsGeneral() {
+  const payload = buildSuperSettingsPayload();
+  await Promise.all([
+    savePlatformSetting('global_ranking_tiebreakers', { rules: payload.ranking_tiebreakers }),
+    savePlatformSetting('global_conflict_rules', { min_rest_minutes: payload.min_rest_minutes }),
+    savePlatformSetting('global_live_settings', {
+      advanced_live_events_enabled: payload.advanced_live_events_enabled,
+    }),
+    savePlatformSetting('global_privacy_settings', payload.privacy_settings),
+  ]);
+
+  const updates = state.sports.map((sport) =>
+    upsertSportConfig(sport.id, {
+      ranking_tiebreakers: payload.ranking_tiebreakers,
+      min_rest_minutes: payload.min_rest_minutes,
+      advanced_live_events_enabled: payload.advanced_live_events_enabled,
+      privacy_settings: payload.privacy_settings,
+    }).catch(() => null)
+  );
+  await Promise.all(updates);
 }
 
 function buildSettingsPayloadForSport(sport) {
   const sportType = sport?.sport_type ?? '';
   const format = sport?.format ?? '';
   const visibility = getSettingsVisibility(sportType, format);
-  const payload = buildSuperSettingsPayload();
+  const payload = {};
 
   if (visibility.comuni_team) {
     payload.max_fouls = Number(getEl('set-max-fouls').value || 3);
@@ -3189,18 +4218,6 @@ function fillSettingsForm(config) {
   getEl('set-max-yellow-cards').value = config.max_yellow_cards ?? 2;
   getEl('set-max-red-cards').value = config.max_red_cards ?? 1;
   getEl('set-allow-mvp').checked = Boolean(config.allow_mvp ?? true);
-  const tiebreakers = Array.isArray(config.ranking_tiebreakers)
-    ? config.ranking_tiebreakers
-    : parseRankingTiebreakersInput(config.ranking_tiebreakers);
-  renderRankingRulesList(tiebreakers);
-  getEl('set-min-rest-minutes').value = config.min_rest_minutes ?? 0;
-  getEl('set-advanced-live-events').checked = Boolean(config.advanced_live_events_enabled);
-  const privacy = normalizePrivacySettings(config);
-  getEl('set-privacy-player-name').value = privacy.player_name;
-  getEl('set-privacy-show-class').checked = Boolean(privacy.show_class);
-  getEl('set-privacy-show-stats').checked = Boolean(privacy.show_personal_stats);
-  getEl('set-privacy-show-mvp').checked = Boolean(privacy.show_mvp);
-  getEl('set-privacy-show-disciplinary').checked = Boolean(privacy.show_disciplinary);
 }
 
 async function loadSettingsForSelectedSport() {
@@ -3241,26 +4258,30 @@ async function saveSettingsForSport() {
 }
 
 async function openSuperSettingsModal() {
-  if (!(await verifySettingsPassword('super'))) return;
-  const sportId = Number(getEl('settings-sport-select')?.value || 0);
-  if (!sportId) {
-    showToast('Seleziona un torneo prima di aprire le impostazioni superadmin.', 'error');
+  if (!canManageAll(state.admin?.ruolo)) {
+    showToast('Solo un Super Admin può aprire queste impostazioni.', 'error');
     return;
   }
+  const platformSettings = await loadPlatformSettingsMap().catch(() => ({}));
+  fillSuperSettingsForm(platformSettings);
   openModal('modal-super-settings');
-  renderPlatformBackupsList();
+  await Promise.all([
+    renderPlatformBackupsList().catch((error) => showToast(error.message, 'error')),
+    adminUsersPanel.load().catch(() => {
+      adminUsersPanel.renderUnavailable();
+    }),
+  ]);
 }
 
 async function handleCreatePlatformBackup() {
-  const sportId = Number(getEl('settings-sport-select')?.value || 0) || null;
   const reason = await showAppPrompt('Motivo del backup:', {
     title: 'Crea backup',
     inputLabel: 'Motivo',
-    placeholder: 'Es. prima della finale',
+    placeholder: 'Es. prima della giornata torneo',
     confirmLabel: 'Crea backup',
   });
   if (reason === null) return;
-  const result = await createPlatformBackup({ sportId, reason });
+  const result = await createPlatformBackup({ sportId: null, reason });
   await renderPlatformBackupsList();
   showToast(`Backup creato: #${result.backup_id}.`, 'success');
 }
@@ -3329,20 +4350,40 @@ async function handleDeletePlatformBackup(backupId) {
   showToast('Backup eliminato.', 'success');
 }
 
-async function openEventModal(eventItem = null) {
+function getSelectedAthleticsSportId() {
+  return Number(getEl('athletics-sport-select')?.value || 0);
+}
+
+function setAthleticsModalPanel(panelId) {
+  document.querySelectorAll('[data-athletics-modal-panel]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.athleticsModalPanel === panelId);
+  });
+  document.querySelectorAll('[data-athletics-panel]').forEach((panel) => {
+    panel.classList.toggle('active', panel.dataset.athleticsPanel === panelId);
+  });
+  const titles = {
+    'new-event': 'Inserisci',
+    'result-entry': 'Inserisci',
+    records: 'Inserisci',
+    relays: 'Inserisci',
+    heats: 'Inserisci',
+  };
+  getEl('title-modal-event').textContent = titles[panelId] ?? 'Atletica';
+}
+
+async function openEventModal(eventItem = null, panelId = 'new-event') {
   resetFormValues(getEl('form-event'));
   resetFormValues(getEl('form-event-result'));
-  const selectedAthleticsSportId = getEl('athletics-sport-select')?.value;
   if (eventItem) {
-    getEl('title-modal-event').textContent = 'Modifica Evento';
+    setAthleticsModalPanel('new-event');
+    getEl('title-modal-event').textContent = 'Inserisci';
     getEl('edit-event-id').value = eventItem.id;
-    getEl('event-sport-select').value = String(eventItem.sport_id);
     getEl('input-event-name').value = eventItem.name;
     getEl('input-event-unit').value = eventItem.unit;
     getEl('input-event-order').value = eventItem.sort_order;
   } else {
-    getEl('title-modal-event').textContent = 'Nuovo Evento';
-    if (selectedAthleticsSportId) getEl('event-sport-select').value = String(selectedAthleticsSportId);
+    getEl('edit-event-id').value = '';
+    setAthleticsModalPanel(panelId);
   }
   openModal('modal-event');
 }
@@ -3351,7 +4392,7 @@ async function saveEventFromForm(event) {
   event.preventDefault();
   const payload = {
     id: getEl('edit-event-id').value || null,
-    sport_id: Number(getEl('event-sport-select').value || 0),
+    sport_id: getSelectedAthleticsSportId(),
     name: getEl('input-event-name').value,
     unit: getEl('input-event-unit').value,
     sort_order: getEl('input-event-order').value,
@@ -3362,8 +4403,8 @@ async function saveEventFromForm(event) {
     return;
   }
 
-  await saveAthleticsEvent(payload);
-  closeModal('modal-event');
+  const savedEvent = await saveAthleticsEvent(payload);
+  if (savedEvent?.id) state.selectedEventId = Number(savedEvent.id);
   await loadEventsSection();
   showToast('Evento atletica salvato.', 'success');
 }
@@ -3435,19 +4476,236 @@ function renderEventsTable(events) {
     )
     .join('');
 
-  const eventSelect = getEl('event-select-results');
-  eventSelect.innerHTML =
+  const eventOptions =
     '<option value="">-- Seleziona evento --</option>' +
     (events ?? [])
       .map(
         (event) =>
-          `<option value="${event.id}" data-order="${event.sort_order}">${escapeHtml(event.name)}</option>`
+          `<option value="${event.id}" data-order="${event.sort_order}" data-unit="${escapeHtml(event.unit)}">${escapeHtml(event.name)}</option>`
       )
       .join('');
 
-  if (state.selectedEventId) {
-    eventSelect.value = String(state.selectedEventId);
+  ['event-select-results', 'event-ranking-select', 'ath-heat-event', 'ath-record-event', 'ath-relay-event'].forEach((id) => {
+    const select = getEl(id);
+    if (!select) return;
+    const previousValue = select.value || (state.selectedEventId ? String(state.selectedEventId) : '');
+    select.innerHTML = eventOptions;
+    if (previousValue && [...select.options].some((option) => option.value === String(previousValue))) {
+      select.value = String(previousValue);
+    }
+  });
+}
+
+function formatAthleticsPhase(phase) {
+  if (phase === 'final') return 'Finale';
+  return 'Qualificazione';
+}
+
+function formatAthleticsLaneStatus(status) {
+  const labels = {
+    scheduled: 'Programmato',
+    false_start: 'Falsa partenza',
+    dns: 'Non partito',
+    dnf: 'Ritirato',
+    dq: 'Squalificato',
+    qualified: 'Qualificato',
+    finalist: 'Finalista',
+  };
+  return labels[status] ?? 'Programmato';
+}
+
+async function loadAthleticsRoster(sportId) {
+  const teams = await loadTeamsBySport(sportId);
+  const teamIds = teams.map((item) => Number(item.id)).filter(Boolean);
+  if (!teamIds.length) return { teams, players: [] };
+
+  const { data: players } = await run(
+    db
+      .from('players')
+      .select('id, full_name, team_id, teams(name)')
+      .in('team_id', teamIds)
+      .order('full_name', { ascending: true }),
+    'Caricamento roster atletica avanzata'
+  );
+
+  return { teams, players: players ?? [] };
+}
+
+function renderAthleticsRosterOptions({ teams = [], players = [] } = {}) {
+  const playerOptions = '<option value="">-- Seleziona studente --</option>' +
+    players
+      .map((player) => `<option value="${player.id}" data-team-id="${player.team_id}">${escapeHtml(player.full_name)} · ${escapeHtml(player.teams?.name ?? '-')}</option>`)
+      .join('');
+  ['ath-lane-player', 'ath-relay-player'].forEach((id) => {
+    const select = getEl(id);
+    if (select) select.innerHTML = playerOptions;
+  });
+
+  const teamOptions = '<option value="">-- Classe --</option>' +
+    teams.map((team) => `<option value="${team.id}">${escapeHtml(team.name)}</option>`).join('');
+  const relayTeam = getEl('ath-relay-team');
+  if (relayTeam) relayTeam.innerHTML = teamOptions;
+}
+
+function renderAthleticsAdvancedPanel(_events, advancedData, roster) {
+  renderAthleticsRosterOptions(roster);
+
+  const heats = advancedData?.heats ?? [];
+  const lanes = advancedData?.lanes ?? [];
+  const records = advancedData?.records ?? [];
+  const relays = advancedData?.relays ?? [];
+  const relayMembers = advancedData?.relayMembers ?? [];
+
+  const heatOptions = '<option value="">-- Seleziona batteria --</option>' +
+    heats
+      .map((heat) => `<option value="${heat.id}">${escapeHtml(heat.event?.name ?? 'Evento')} · ${escapeHtml(formatAthleticsPhase(heat.phase))} ${heat.heat_number}</option>`)
+      .join('');
+  const heatSelect = getEl('ath-lane-heat');
+  if (heatSelect) heatSelect.innerHTML = heatOptions;
+
+  const relayOptions = '<option value="">-- Seleziona staffetta --</option>' +
+    relays
+      .map((relay) => `<option value="${relay.id}">${escapeHtml(relay.relay_name)} · ${escapeHtml(relay.event?.name ?? '-')}</option>`)
+      .join('');
+  const relaySelect = getEl('ath-relay-select');
+  if (relaySelect) relaySelect.innerHTML = relayOptions;
+
+  const heatList = getEl('athletics-heats-list');
+  if (heatList) {
+    heatList.innerHTML = heats.length
+      ? heats
+          .map((heat) => {
+            const heatLanes = lanes.filter((lane) => Number(lane.heat_id) === Number(heat.id));
+            return `
+              <article class="athletics-compact-row">
+                <strong>${escapeHtml(heat.event?.name ?? 'Evento')} · ${escapeHtml(formatAthleticsPhase(heat.phase))} ${heat.heat_number}</strong>
+                <span>${heat.scheduled_start ? escapeHtml(formatReportDateTime(heat.scheduled_start)) : 'Senza orario'}${heat.notes ? ` · ${escapeHtml(heat.notes)}` : ''}</span>
+                <small>${heatLanes.length ? heatLanes.map((lane) => `Corsia ${lane.lane_number}: ${escapeHtml(lane.player?.full_name ?? lane.team?.name ?? '-')}`).join(' · ') : 'Nessuna corsia assegnata'}</small>
+              </article>
+            `;
+          })
+          .join('')
+      : '<div class="empty-state compact">Nessuna batteria configurata.</div>';
   }
+
+  const recordList = getEl('athletics-records-list');
+  if (recordList) {
+    recordList.innerHTML = records.length
+      ? records
+          .map((record) => `
+            <article class="athletics-compact-row">
+              <strong>${escapeHtml(record.event_name)} · ${Number(record.value).toFixed(3)} ${escapeHtml(record.unit ?? '')}</strong>
+              <span>${escapeHtml([record.player_name, record.team_name].filter(Boolean).join(' · ') || 'Record storico')}</span>
+              <small>${record.record_date ? escapeHtml(new Date(record.record_date).toLocaleDateString('it-IT')) : 'Data non indicata'}${record.notes ? ` · ${escapeHtml(record.notes)}` : ''}</small>
+            </article>
+          `)
+          .join('')
+      : '<div class="empty-state compact">Nessun record salvato.</div>';
+  }
+
+  const relaysList = getEl('athletics-relays-list');
+  if (relaysList) {
+    relaysList.innerHTML = relays.length
+      ? relays
+          .map((relay) => {
+            const members = relayMembers
+              .filter((member) => Number(member.relay_team_id) === Number(relay.id))
+              .sort((a, b) => Number(a.leg_order) - Number(b.leg_order));
+            return `
+              <article class="athletics-compact-row">
+                <strong>${escapeHtml(relay.relay_name)}</strong>
+                <span>${escapeHtml(relay.event?.name ?? '-')} · ${escapeHtml(relay.team?.name ?? 'Classe libera')}</span>
+                <small>${members.length ? members.map((member) => `${member.leg_order}. ${escapeHtml(member.player?.full_name ?? '-')}`).join(' · ') : 'Nessun frazionista'}</small>
+              </article>
+            `;
+          })
+          .join('')
+      : '<div class="empty-state compact">Nessuna staffetta configurata.</div>';
+  }
+}
+
+async function handleSaveAthleticsHeat(event) {
+  event.preventDefault();
+  const eventId = Number(getEl('ath-heat-event')?.value || 0);
+  if (!eventId) {
+    showToast('Seleziona un evento nella barra Atletica.', 'error');
+    return;
+  }
+  const scheduledValue = getEl('ath-heat-start')?.value;
+  await saveAthleticsHeat({
+    event_id: eventId,
+    phase: getEl('ath-heat-phase').value,
+    heat_number: getEl('ath-heat-number').value,
+    scheduled_start: scheduledValue ? new Date(scheduledValue).toISOString() : null,
+    notes: getEl('ath-heat-notes').value,
+  });
+  await loadEventsSection();
+  showToast('Batteria salvata.', 'success');
+}
+
+async function handleSaveAthleticsLane(event) {
+  event.preventDefault();
+  const playerOption = getEl('ath-lane-player')?.selectedOptions?.[0];
+  await saveAthleticsLaneAssignment({
+    heat_id: getEl('ath-lane-heat').value,
+    player_id: getEl('ath-lane-player').value,
+    team_id: playerOption?.dataset?.teamId ?? null,
+    lane_number: getEl('ath-lane-number').value,
+    status: getEl('ath-lane-status').value,
+  });
+  await loadEventsSection();
+  showToast('Corsia assegnata.', 'success');
+}
+
+async function handleSaveAthleticsRecord(event) {
+  event.preventDefault();
+  const selectedEvent = getEl('ath-record-event')?.selectedOptions?.[0];
+  const eventId = Number(getEl('ath-record-event')?.value || 0);
+  if (!eventId) {
+    showToast('Seleziona un evento nella barra Atletica.', 'error');
+    return;
+  }
+  await saveAthleticsSchoolRecord({
+    sport_id: getSelectedAthleticsSportId(),
+    event_id: eventId,
+    event_name: selectedEvent?.textContent ?? '',
+    unit: selectedEvent?.dataset?.unit ?? 'points',
+    player_name: getEl('ath-record-player').value,
+    team_name: getEl('ath-record-team').value,
+    value: getEl('ath-record-value').value,
+    record_date: getEl('ath-record-date').value || null,
+    notes: getEl('ath-record-notes').value,
+  });
+  getEl('form-athletics-record')?.reset();
+  await loadEventsSection();
+  showToast('Record salvato.', 'success');
+}
+
+async function handleSaveAthleticsRelay(event) {
+  event.preventDefault();
+  const eventId = Number(getEl('ath-relay-event')?.value || 0);
+  if (!eventId) {
+    showToast('Seleziona un evento nella barra Atletica.', 'error');
+    return;
+  }
+  await saveAthleticsRelayTeam({
+    event_id: eventId,
+    team_id: getEl('ath-relay-team').value || null,
+    relay_name: getEl('ath-relay-name').value,
+  });
+  await loadEventsSection();
+  showToast('Staffetta salvata.', 'success');
+}
+
+async function handleSaveAthleticsRelayMember(event) {
+  event.preventDefault();
+  await saveAthleticsRelayMember({
+    relay_team_id: getEl('ath-relay-select').value,
+    player_id: getEl('ath-relay-player').value,
+    leg_order: getEl('ath-relay-leg').value,
+  });
+  await loadEventsSection();
+  showToast('Frazionista salvato.', 'success');
 }
 
 async function renderEventResults(eventId) {
@@ -3459,7 +4717,9 @@ async function renderEventResults(eventId) {
     return;
   }
 
-  const selectedOption = getEl('event-select-results').selectedOptions[0];
+  const selectedOption =
+    getEl('event-ranking-select')?.selectedOptions?.[0] ??
+    getEl('event-select-results')?.selectedOptions?.[0];
   const orderRule = selectedOption?.dataset?.order ?? 'desc';
 
   const results = await loadEventResults(eventId);
@@ -3488,23 +4748,34 @@ async function renderEventResults(eventId) {
 }
 
 async function loadEventsSection() {
-  const sportId = Number(getEl('athletics-sport-select')?.value || 0);
+  const sportId = getSelectedAthleticsSportId();
   if (!sportId) {
     getEl('table-events-body').innerHTML = '';
     getEl('table-event-results-body').innerHTML = '';
     getEl('table-athletics-ranking-body').innerHTML = '';
     getEl('athletics-attempts-help').textContent = 'Tentativi per evento: 1 · Min eventi atleta: 1 · Max eventi atleta: 99';
+    ['event-select-results', 'event-ranking-select', 'ath-heat-event', 'ath-record-event', 'ath-relay-event', 'ath-lane-heat', 'ath-lane-player', 'ath-relay-team', 'ath-relay-select', 'ath-relay-player'].forEach((id) => {
+      const el = getEl(id);
+      if (el) el.innerHTML = '<option value="">-- Seleziona --</option>';
+    });
+    ['athletics-heats-list', 'athletics-records-list', 'athletics-relays-list'].forEach((id) => {
+      const el = getEl(id);
+      if (el) el.innerHTML = '<div class="empty-state compact">Seleziona un torneo atletica.</div>';
+    });
     return;
   }
 
-  const [events, leaderboard, config] = await Promise.all([
+  const [events, leaderboard, config, advancedData, roster] = await Promise.all([
     loadAthleticsEvents(sportId),
     loadAthleticsLeaderboard(sportId),
     loadAthleticsConfigBySport(sportId),
+    loadAthleticsAdvancedData(sportId),
+    loadAthleticsRoster(sportId),
   ]);
 
   renderEventsTable(events);
   await populatePlayersForAthleticsSport(sportId);
+  renderAthleticsAdvancedPanel(events, advancedData, roster);
   getEl('athletics-attempts-help').textContent = `Tentativi per evento: ${Math.max(1, Number(config.athletics_attempts_per_event ?? 1))} · Min eventi atleta: ${Math.max(0, Number(config.athletics_min_events_per_player ?? 1))} · Max eventi atleta: ${Math.max(1, Number(config.athletics_max_events_per_player ?? 99))}`;
 
   getEl('table-athletics-ranking-body').innerHTML = leaderboard
@@ -3522,9 +4793,13 @@ async function loadEventsSection() {
     )
     .join('');
 
+  const rankingSelect = getEl('event-ranking-select');
   const eventSelect = getEl('event-select-results');
-  if (eventSelect.value) {
-    state.selectedEventId = Number(eventSelect.value);
+  const selectedValue = rankingSelect?.value || eventSelect?.value || '';
+  if (selectedValue) {
+    state.selectedEventId = Number(selectedValue);
+    if (eventSelect) eventSelect.value = String(state.selectedEventId);
+    if (rankingSelect) rankingSelect.value = String(state.selectedEventId);
     await renderEventResults(state.selectedEventId);
   } else {
     state.selectedEventId = null;
@@ -3535,7 +4810,7 @@ async function loadEventsSection() {
 async function saveEventResultForm(event) {
   event.preventDefault();
 
-  const eventId = Number(getEl('event-select-results').value || 0);
+  const eventId = Number(getEl('event-select-results')?.value || 0);
   const playerId = Number(getEl('event-player-select').value || 0);
   const valueRaw = String(getEl('input-event-value').value || '').trim().replace(',', '.');
   const value = Number(valueRaw);
@@ -3583,6 +4858,14 @@ function bindCoreActions() {
   getEl('btn-csv-teams-players')?.addEventListener('click', () => openCsvImportModal('teams_players'));
   getEl('btn-csv-athletics-events')?.addEventListener('click', () => openCsvImportModal('athletics_events'));
   getEl('btn-csv-athletics-results')?.addEventListener('click', () => openCsvImportModal('athletics_results'));
+  getEl('btn-print-athletics-sheets')?.addEventListener('click', () => {
+    printAthleticsRaceSheets().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('modal-event')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-athletics-modal-panel]');
+    if (!button) return;
+    setAthleticsModalPanel(button.dataset.athleticsModalPanel);
+  });
 
   getEl('btn-generate-matches')?.addEventListener('click', () => {
     handleGenerateMatches().catch((error) => showToast(error.message, 'error'));
@@ -3603,6 +4886,16 @@ function bindCoreActions() {
     }
   });
 
+  getEl('btn-validate-pre-event')?.addEventListener('click', () => {
+    handleValidatePreEvent().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('btn-refresh-issue-reports')?.addEventListener('click', () => {
+    refreshOperationalDashboard()
+      .then(() => showToast('Problemi segnalati aggiornati.', 'success'))
+      .catch((error) => showToast(error.message, 'error'));
+  });
+  adminUsersPanel.bind();
+
   getEl('btn-generate-semifinals')?.addEventListener('click', () => {
     handleGenerateSemifinals().catch((error) => showToast(error.message, 'error'));
   });
@@ -3613,9 +4906,13 @@ function bindCoreActions() {
   getEl('btn-open-super-settings')?.addEventListener('click', () => {
     openSuperSettingsModal().catch((error) => showToast(error.message, 'error'));
   });
+  getEl('set-privacy-player-name')?.addEventListener('change', applyPrivacyPublicLock);
   getEl('btn-save-super-settings')?.addEventListener('click', () => {
-    saveSettingsForSport()
-      .then(() => closeModal('modal-super-settings'))
+    saveSuperSettingsGeneral()
+      .then(() => {
+        showToast('Impostazioni Superadmin salvate per tutta la piattaforma.', 'success');
+        closeModal('modal-super-settings');
+      })
       .catch((error) => showToast(error.message, 'error'));
   });
   getEl('btn-create-platform-backup')?.addEventListener('click', () => {
@@ -3638,6 +4935,41 @@ function bindCoreActions() {
   });
 
   getEl('btn-print-venue-qr')?.addEventListener('click', printVenueQr);
+  getEl('telegram-template-panel')?.addEventListener('click', (event) => {
+    const previewButton = event.target.closest('[data-action="preview-communication-template"]');
+    if (previewButton) {
+      showTemplatePreviewFromCard(previewButton.closest('.communication-template-card')).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
+
+    const button = event.target.closest('[data-action="save-communication-template"]');
+    if (!button) return;
+    const key = String(button.dataset.key ?? '').trim();
+    const card = button.closest('.communication-template-card');
+    const title = card?.querySelector('[data-template-field="title"]')?.value ?? '';
+    const body = card?.querySelector('[data-template-field="body"]')?.value ?? '';
+    const isActive = Boolean(card?.querySelector('[data-template-field="is_active"]')?.checked);
+    saveCommunicationTemplate({ template_key: key, title, body, is_active: isActive, channel: 'telegram' })
+      .then(() => renderTelegramTemplates())
+      .then(() => showToast('Template comunicazione salvato.', 'success'))
+      .catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('form-public-notification')?.addEventListener('submit', (event) => {
+    handleSavePublicNotification(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('btn-reset-public-notification')?.addEventListener('click', resetPublicNotificationForm);
+  getEl('public-notifications-admin-list')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const id = Number(actionEl.dataset.id || 0);
+    if (actionEl.dataset.action === 'edit-public-notification') {
+      const item = state.publicNotifications.find((row) => Number(row.id) === id);
+      fillPublicNotificationForm(item);
+    }
+    if (actionEl.dataset.action === 'delete-public-notification') {
+      handleDeletePublicNotification(id).catch((error) => showToast(error.message, 'error'));
+    }
+  });
 
   document.querySelectorAll('[data-modal-close]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -3712,6 +5044,21 @@ function bindCoreActions() {
   getEl('form-event-result')?.addEventListener('submit', (event) => {
     saveEventResultForm(event).catch((error) => showToast(error.message, 'error'));
   });
+  getEl('form-athletics-heat')?.addEventListener('submit', (event) => {
+    handleSaveAthleticsHeat(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('form-athletics-lane')?.addEventListener('submit', (event) => {
+    handleSaveAthleticsLane(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('form-athletics-record')?.addEventListener('submit', (event) => {
+    handleSaveAthleticsRecord(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('form-athletics-relay')?.addEventListener('submit', (event) => {
+    handleSaveAthleticsRelay(event).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('form-athletics-relay-member')?.addEventListener('submit', (event) => {
+    handleSaveAthleticsRelayMember(event).catch((error) => showToast(error.message, 'error'));
+  });
   getEl('view-events')?.addEventListener('click', (event) => {
     const toggle = event.target.closest('[data-action="toggle-collapsible-card"]');
     if (!toggle) return;
@@ -3736,6 +5083,7 @@ function bindCoreActions() {
 
   getEl('select-sport-match')?.addEventListener('change', (event) => {
     populateMatchTeams(event.target.value).catch((error) => showToast(error.message, 'error'));
+    renderMatchPhaseOptions(event.target.value);
   });
 
   getEl('report-sport-select')?.addEventListener('change', () => {
@@ -3813,10 +5161,18 @@ function bindCoreActions() {
     state.selectedEventId = null;
     loadEventsSection().catch((error) => showToast(error.message, 'error'));
   });
-  bindFilterToggle('btn-toggle-athletics-filters', ['athletics-filters']);
 
   getEl('event-select-results')?.addEventListener('change', (event) => {
     state.selectedEventId = Number(event.target.value || 0) || null;
+    const rankingSelect = getEl('event-ranking-select');
+    if (rankingSelect) rankingSelect.value = event.target.value || '';
+    renderEventResults(state.selectedEventId).catch((error) => showToast(error.message, 'error'));
+  });
+
+  getEl('event-ranking-select')?.addEventListener('change', (event) => {
+    state.selectedEventId = Number(event.target.value || 0) || null;
+    const resultSelect = getEl('event-select-results');
+    if (resultSelect) resultSelect.value = event.target.value || '';
     renderEventResults(state.selectedEventId).catch((error) => showToast(error.message, 'error'));
   });
 
@@ -3956,12 +5312,77 @@ function bindCoreActions() {
       openMatchDetail(Number(actionEl.dataset.id));
     }
   });
+  getEl('matches-calendar-board')?.addEventListener('dragstart', (event) => {
+    const card = event.target.closest('.calendar-match-card[draggable="true"]');
+    if (!card) return;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(card.dataset.id ?? ''));
+    card.classList.add('dragging');
+  });
+  getEl('matches-calendar-board')?.addEventListener('dragend', () => {
+    document.querySelectorAll('.calendar-match-card.dragging').forEach((card) => card.classList.remove('dragging'));
+    document.querySelectorAll('.calendar-day-column.drag-over').forEach((column) => column.classList.remove('drag-over'));
+  });
+  getEl('matches-calendar-board')?.addEventListener('dragover', (event) => {
+    const column = event.target.closest('.calendar-day-column[data-calendar-day]');
+    if (!column) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.calendar-day-column.drag-over').forEach((item) => {
+      if (item !== column) item.classList.remove('drag-over');
+    });
+    column.classList.add('drag-over');
+  });
+  getEl('matches-calendar-board')?.addEventListener('dragleave', (event) => {
+    const column = event.target.closest('.calendar-day-column[data-calendar-day]');
+    if (!column || column.contains(event.relatedTarget)) return;
+    column.classList.remove('drag-over');
+  });
+  getEl('matches-calendar-board')?.addEventListener('drop', (event) => {
+    const column = event.target.closest('.calendar-day-column[data-calendar-day]');
+    if (!column) return;
+    event.preventDefault();
+    column.classList.remove('drag-over');
+    const matchId = Number(event.dataTransfer.getData('text/plain') || 0);
+    if (matchId) {
+      handleCalendarDropReschedule(matchId, column.dataset.calendarDay).catch((error) => showToast(error.message, 'error'));
+    }
+  });
 
   getEl('match-detail-content')?.addEventListener('click', (event) => {
     const actionEl = event.target.closest('[data-action]');
     if (!actionEl) return;
     const action = actionEl.dataset.action;
     const id = Number(actionEl.dataset.id);
+    if (action === 'set-match-operational-status') {
+      const status = getEl('match-operational-status-select')?.value || 'scheduled';
+      const reason = getEl('match-operational-status-reason')?.value || '';
+      setMatchOperationalStatus(id, status, reason)
+        .then(() => loadMatchesTable())
+        .then(() => {
+          const updated = getMatchById(id);
+          if (updated) openMatchDetail(id);
+          showToast('Stato operativo aggiornato.', 'success');
+        })
+        .catch((error) => showToast(error.message, 'error'));
+      return;
+    }
+    if (action === 'toggle-match-checkin') {
+      const match = getMatchById(Number(actionEl.dataset.matchId));
+      upsertMatchCheckin({
+        matchId: Number(actionEl.dataset.matchId),
+        role: actionEl.dataset.role,
+        teamId: actionEl.dataset.teamId ? Number(actionEl.dataset.teamId) : null,
+        checkedIn: Boolean(actionEl.checked),
+      })
+        .then(() => (match ? renderMatchDetailOperations(match) : null))
+        .then(() => showToast('Check-in aggiornato.', 'success'))
+        .catch((error) => {
+          actionEl.checked = !actionEl.checked;
+          showToast(error.message, 'error');
+        });
+      return;
+    }
     if (action === 'start-live') return goToLive(id);
     if (action === 'edit-match') {
       closeModal('modal-match-detail');
@@ -4053,14 +5474,28 @@ function bindCoreActions() {
 }
 
 async function init() {
-  const session = await requireAdmin({ redirectTo: '../' });
+  setAdminAuthStatus('Controllo sessione Supabase...');
+  getEl('btn-admin-auth-retry')?.addEventListener('click', () => window.location.reload());
+
+  const session = await withTimeout(
+    requireAdmin({ redirectTo: '../' }),
+    10000,
+    'Verifica accesso scaduta: controlla connessione Supabase e ricarica senza cache.'
+  );
   if (!session.allowed) return;
 
   state.admin = session.admin;
+  if (!state.admin?.ruolo) {
+    redirectHomeWithAdminError('Accesso negato: UUID Auth senza ruolo admin valido.');
+    return;
+  }
+  setAdminAuthStatus(`Accesso autorizzato: ${formatRoleLabel(state.admin.ruolo)}.`);
+  document.body.classList.remove('auth-pending');
   getEl('admin-name').textContent = formatAdminDisplayName(state.admin);
   getEl('admin-role').textContent = formatRoleLabel(state.admin?.ruolo);
   await promptDeviceLabel();
   updateSidebarDeviceLabel();
+  registerCurrentDevice().catch(() => null);
 
   bindSidebar();
   bindMobileSidebar();
@@ -4068,7 +5503,7 @@ async function init() {
   applyRolePermissions();
 
   if (session.offline) {
-    renderOfflineAdminDashboard();
+    await renderOfflineAdminDashboard();
     showToast('Modalita offline: disponibili solo i match gia preparati su questo dispositivo.', 'error');
     startAdminTour();
     return;
@@ -4095,7 +5530,6 @@ async function init() {
     const firstAthletics = state.sports.find((sport) => sport.sport_type === 'atletica');
     if (firstAthletics) {
       getEl('athletics-sport-select').value = String(firstAthletics.id);
-      getEl('event-sport-select').value = String(firstAthletics.id);
     }
 
     await populateMatchTeams(getEl('select-sport-match').value);
@@ -4110,5 +5544,10 @@ async function init() {
 }
 
 init().catch((error) => {
-  showToast(error.message, 'error');
+  const role = getEl('admin-role');
+  if (role) role.textContent = 'Errore connessione DB';
+  const name = getEl('admin-name');
+  if (name) name.textContent = 'Accesso non verificato';
+  setAdminAuthStatus(error.message, true);
+  window.setTimeout(() => redirectHomeWithAdminError(error.message), 1800);
 });

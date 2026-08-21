@@ -5,10 +5,9 @@
   lockTtlSeconds: 90,
   lockRefreshSeconds: 30,
   liveAutosaveDebounceMs: 800,
+  allowDirectTableFallbacks: false,
   telegramChannelUrl: 'https://t.me/itsoscup',
   telegramChannelLabel: 'Canale Ufficiale ITSOSCup.it',
-  settingsAccessPassword: 'impostazioni',
-  superAdminSettingsPassword: 'superadmin',
 };
 
 export const ROLES = {
@@ -29,11 +28,4 @@ export const SPORT_LABELS = {
 export const TOURNAMENT_FORMATS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione Diretta',
-  gironi_playoff: 'Gironi + Playoff',
-  doppia_eliminazione: 'Doppia eliminazione',
-  terzo_posto: 'Finale terzo posto',
-  italiana: "Torneo all'italiana",
-  gironi_multipli: 'Gironi multipli',
-  migliori_seconde: 'Migliori seconde',
-  svizzero: 'Torneo svizzero',
 };
