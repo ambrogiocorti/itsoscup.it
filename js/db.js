@@ -5,9 +5,27 @@ async function loadSupabaseSdk() {
     return window.supabase;
   }
 
-  throw new Error(
-    'Supabase SDK locale non caricato. Verifica vendor/supabase/supabase-js.min.js e ricarica la pagina senza cache.'
+  const cdnUrls = [
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',
+    'https://esm.sh/@supabase/supabase-js@2',
+  ];
+
+  let lastError = null;
+
+  for (const url of cdnUrls) {
+    try {
+      const sdk = await import(url);
+      if (sdk?.createClient) return sdk;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  const err = new Error(
+    'Supabase SDK non raggiungibile. Verifica la connessione e ricarica la pagina.'
   );
+  err.cause = lastError;
+  throw err;
 }
 
 let dbClientPromise = null;
