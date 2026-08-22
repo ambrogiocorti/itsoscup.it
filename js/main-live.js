@@ -998,7 +998,7 @@ function addFoul(playerId) {
 
   entry.fouls += 1;
   if (entry.fouls >= maxFouls) {
-    entry.played = false;
+    entry.played = true;
     entry.is_mvp_vote = false;
   }
   renderRosters();
@@ -1018,7 +1018,7 @@ function addYellowCard(playerId) {
   const maxYellowCards = getMaxYellowCards();
   entry.yellow_cards = Math.min(maxYellowCards, Number(entry.yellow_cards ?? 0) + 1);
   if (entry.yellow_cards >= maxYellowCards) {
-    entry.played = false;
+    entry.played = true;
     entry.is_mvp_vote = false;
     showToast('Giocatore espulso per limite cartellini gialli.', 'error');
   }
@@ -1033,7 +1033,7 @@ function addRedCard(playerId) {
   if (isPlayerExpelled(entry)) return;
   const maxRedCards = getMaxRedCards();
   entry.red_cards = Math.min(maxRedCards, Number(entry.red_cards ?? 0) + 1);
-  entry.played = false;
+  entry.played = true;
   entry.is_mvp_vote = false;
   renderRosters();
   showToast('Giocatore espulso per cartellino rosso.', 'error');
