@@ -40,8 +40,8 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ITSOS Cup" />
-    <link rel="stylesheet" href="css/style.css?v=36"/>
-    <link rel="stylesheet" href="css/admin-modules.css?v=36"/>
+    <link rel="stylesheet" href="css/style.css?v=50"/>
+    <link rel="stylesheet" href="css/admin-modules.css?v=50"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
   <body class="admin-page auth-pending">
@@ -76,6 +76,7 @@
 
         <ul class="sidebar-menu">
           <li><button class="sidebar-link active" data-view="dashboard" id="link-dashboard"><i class="fa-solid fa-house"></i> Dashboard</button></li>
+          <li><button class="sidebar-link" data-view="operations" id="link-operations" data-requires-control-center><i class="fa-solid fa-tower-broadcast"></i> Centro di controllo</button></li>
           <li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
           <li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
           <li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
@@ -119,22 +120,100 @@
               <div class="field">
                 <label>Azioni Rapide</label>
                 <div class="top-row-actions">
-                  <button class="btn btn-ghost" id="btn-validate-pre-event" type="button"><i class="fa-solid fa-clipboard-check"></i> Controllo giornata</button>
                   <button class="btn btn-primary" id="btn-new-match" data-open-match-modal data-requires-match-write><i class="fa-solid fa-plus"></i> Nuovo Match</button>
                   <button class="btn btn-ghost" id="btn-new-team" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-users"></i> Nuova Squadra</button>
                 </div>
               </div>
             </div>
           </section>
+        </section>
 
-          <section class="dashboard-operational-grid" aria-label="Stato operativo piattaforma">
-            <article class="card dashboard-wide-card">
-              <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Controllo pre-evento</div>
-              <div class="card-body" id="dashboard-pre-event-panel">
-                <div class="empty-state compact">Esegui "Controllo giornata" prima di usare la piattaforma ufficialmente.</div>
+        <section id="view-operations" class="view-section">
+          <div class="top-row">
+            <h1 class="page-title">Centro di controllo</h1>
+            <div class="top-row-actions">
+              <button class="btn btn-ghost icon-only-action" id="btn-refresh-regia-ops" type="button" title="Aggiorna Centro di controllo" aria-label="Aggiorna Centro di controllo">
+                <i class="fa-solid fa-rotate"></i>
+              </button>
+            </div>
+          </div>
+
+          <section class="regia-hero">
+            <div>
+              <span class="regia-kicker">Supervisione evento</span>
+              <h2>Controllo completo della giornata</h2>
+              <div class="regia-hero-meta">
+                <span class="regia-status-chip" id="regia-mode-badge"><i class="fa-solid fa-circle-check"></i> Operativo</span>
+                <span id="regia-last-refresh">Aggiornamento non ancora eseguito</span>
               </div>
-            </article>
+            </div>
+            <div class="regia-readiness">
+              <span id="regia-readiness-value">0%</span>
+              <small>preparazione giornata</small>
+            </div>
           </section>
+
+          <div class="stats-grid regia-stats-grid">
+            <article class="stat-card"><div class="stat-label">Conclusi</div><div class="stat-value" id="regia-count-finished">0</div></article>
+            <article class="stat-card"><div class="stat-label">In corso</div><div class="stat-value" id="regia-count-live">0</div></article>
+            <article class="stat-card"><div class="stat-label">Da iniziare</div><div class="stat-value" id="regia-count-scheduled">0</div></article>
+            <article class="stat-card"><div class="stat-label">In ritardo</div><div class="stat-value" id="regia-count-delayed">0</div></article>
+            <article class="stat-card"><div class="stat-label">Da programmare</div><div class="stat-value" id="regia-count-unscheduled">0</div></article>
+            <article class="stat-card"><div class="stat-label">Sospesi</div><div class="stat-value" id="regia-count-paused">0</div></article>
+            <article class="stat-card"><div class="stat-label">Postazioni critiche</div><div class="stat-value" id="regia-count-device-alerts">0</div></article>
+            <article class="stat-card"><div class="stat-label">Problemi aperti</div><div class="stat-value" id="regia-count-issues">0</div></article>
+          </div>
+
+          <div class="regia-grid">
+            <section class="card regia-wide-card">
+              <div class="card-header"><i class="fa-solid fa-list-check"></i> Coda interventi</div>
+              <div class="card-body" id="regia-action-queue-panel">
+                <div class="empty-state">Caricamento priorita...</div>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Checklist pre-giornata</div>
+              <div class="card-body" id="regia-checklist-panel">
+                <div class="empty-state">Caricamento checklist...</div>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-header"><i class="fa-solid fa-location-dot"></i> Stato campi</div>
+              <div class="card-body" id="regia-venues-panel">
+                <div class="empty-state">Caricamento campi...</div>
+              </div>
+            </section>
+
+            <section class="card regia-wide-card">
+              <div class="card-header"><i class="fa-solid fa-laptop"></i> Postazioni e dispositivi</div>
+              <div class="card-body table-wrap" id="regia-devices-panel">
+                <div class="empty-state">Caricamento dispositivi...</div>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card-header"><i class="fa-solid fa-stopwatch"></i> Ritardi e slittamenti automatici</div>
+              <div class="card-body" id="regia-delays-panel">
+                <div class="empty-state">Caricamento ritardi...</div>
+              </div>
+            </section>
+
+            <section class="card regia-wide-card">
+              <div class="card-header"><i class="fa-solid fa-chart-pie"></i> Analytics post-evento</div>
+              <div class="card-body" id="regia-analytics-panel">
+                <div class="empty-state">Caricamento analytics...</div>
+              </div>
+            </section>
+
+            <section class="card regia-wide-card">
+              <div class="card-header"><i class="fa-solid fa-circle-exclamation"></i> Problemi operativi</div>
+              <div class="card-body" id="regia-issues-panel">
+                <div class="empty-state">Caricamento problemi...</div>
+              </div>
+            </section>
+          </div>
         </section>
 
         <section id="view-reports" class="view-section">
@@ -367,6 +446,10 @@
                     <input id="public-notification-active" type="checkbox" checked />
                     <span>Visibile nella home</span>
                   </label>
+                  <div class="field">
+                    <label for="public-notification-expires">Scadenza</label>
+                    <input id="public-notification-expires" type="datetime-local" />
+                  </div>
                 </div>
                 <div class="public-notification-admin-actions">
                   <button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Pubblica notifica</button>
@@ -624,6 +707,7 @@
           <section class="match-modal-section">
             <h3>Campo e orario</h3>
             <div class="field"><label for="select-match-venue">Campo</label><select id="select-match-venue"><option value="">-- Da definire --</option></select></div>
+            <div class="field" data-requires-control-center><label for="select-match-device">Postazione</label><select id="select-match-device"><option value="">-- Non assegnata --</option></select></div>
             <div class="match-time-grid">
               <div class="field"><label for="input-match-date">Data</label><input id="input-match-date" type="date" placeholder="gg/mm/aaaa" /></div>
               <div class="field"><label for="input-match-start">Ora inizio</label><input id="input-match-start" type="time" placeholder="--:--" /></div>
@@ -926,7 +1010,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=36').catch((error) => {
+      import('./js/main-admin.js?v=50').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(
