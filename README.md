@@ -7,14 +7,14 @@ Il frontend e HTML/CSS/JavaScript vanilla. Supabase gestisce Auth, PostgreSQL, R
 ## Funzionalita principali
 
 - Portale pubblico con tornei, classifiche, partite, albo d'oro, pagina squadra e vista campo via QR.
-- Dashboard admin multi-ruolo con calendario, campi, squadre, report, atletica, Telegram e impostazioni.
-- Dashboard operativa con "Oggi", notifiche interne, salute sistema, problemi segnalati, validatore pre-evento, export dati e simulatore.
+- Dashboard admin multi-ruolo con calendario, campi, squadre, report, atletica, Telegram, impostazioni e Centro di controllo.
+- Centro di controllo riservato al Super Admin con checklist pre-giornata, stato campi, postazioni, ritardi, problemi e analytics.
 - Gestione admin dentro Impostazioni Superadmin: creazione Auth, ruoli, nome visualizzato, ultimo accesso e postazione associata.
 - Calendario tabellare e vista calendario con drag-and-drop per spostare match mantenendo ora/durata.
-- Formati torneo avanzati: gironi+playoff, doppia eliminazione, terzo posto, italiana, gironi multipli, migliori seconde e svizzero.
+- Formati torneo disponibili nell'interfaccia: gironi ed eliminazione diretta.
 - Live match con lock, snapshot, timer, punteggio, roster, presenze, falli, MVP, cartellini e cronologia opzionale.
 - Chiusura match con referto finale, staff gara e doppia firma elettronica dei capitani.
-- Offline professionale: Service Worker, asset locali, IndexedDB, cache match, bozze locali, coda operazioni e gestione conflitti.
+- Offline professionale: Service Worker, IndexedDB, cache match, bozze locali, coda operazioni e gestione conflitti.
 - Registro modifiche con utente/postazione, valori precedenti, nuovi valori, data/ora e motivazione.
 - Backup/ripristino, privacy pubblica configurabile, squalifiche da confermare, rinvii e controlli conflitti.
 - Atletica con eventi, risultati, tentativi, ranking, batterie/corsie, qualificazioni/finali, record d'istituto, staffette e stati atleta.
@@ -31,7 +31,7 @@ Il frontend e HTML/CSS/JavaScript vanilla. Supabase gestisce Auth, PostgreSQL, R
 
 ## Ruoli
 
-- `super_admin`: accesso completo.
+- `super_admin`: accesso completo, Centro di controllo, gestione globale campi/postazioni e risultati ufficiali.
 - `match_manager`: gestione match/live e report consentiti.
 - `report_viewer`: consultazione report.
 
@@ -77,6 +77,17 @@ Per dati demo puoi eseguire `sql/002_seed_demo_tornei.sql` dopo lo schema base.
 - `025_official_ops_devices_validation_logs.sql`: registro dispositivi, log errori, log accessi sensibili, impostazioni piattaforma, validatore pre-evento.
 - `026_admin_users_formats_migration_check.sql`: formati torneo avanzati, vincolo corsie atletica e registro migrazioni verificabile dalla dashboard.
 - `027_fix_platform_backup_restore_players.sql`: ripristino backup completo anche su squadre, giocatori e capitani.
+- `028_public_notifications_superadmin.sql`: notifiche pubbliche visibili dal campanello della home.
+- `029_admin_profile_resolution.sql`: risoluzione profilo admin.
+- `030_admin_uuid_only.sql`: controllo admin basato su UUID Auth.
+- `031_limit_tournament_formats.sql`: limita i formati esposti a gironi ed eliminazione diretta.
+- `032_issue_reports_rpc.sql`: RPC per segnalazioni problemi pubbliche e lettura admin.
+- `033_regia_operational_control.sql`: ruolo Regia, Centro Operativo, postazioni match, stati campo, ritardi, approvazione ufficiale e scadenza notifiche.
+- `034_regia_permissions_patch.sql`: allinea RPC e policy precedenti al ruolo Regia.
+- `035_auto_shift_after_late_finish.sql`: slitta automaticamente i match successivi dello stesso campo quando una live viene chiusa in ritardo.
+- `037_regia_live_permissions.sql`: abilita correttamente Regia sulle RPC live storiche che usano `can_manage_matches`.
+- `038_disable_regia_emergency_controls.sql`: rimuove dalla superficie applicativa i controlli globali Emergenza/Riprendi evento.
+- `039_remove_regia_role.sql`: converte eventuali utenti Regia in Super Admin e rimuove il ruolo Regia dalla piattaforma.
 
 ## Telegram
 
@@ -94,7 +105,7 @@ Nel pannello admin puoi inviare un promemoria dal menu a tre puntini del match o
 
 ## Gestione admin
 
-La sezione `/admin/` -> `Admin` e visibile solo ai Super Admin.
+La gestione utenti in `/admin/` e visibile ai profili autorizzati. Solo i Super Admin possono creare, modificare o cancellare altri account amministrativi.
 
 ```powershell
 supabase functions deploy manage-admin-user --project-ref nalxfsbjeinptjflvndp
@@ -115,9 +126,8 @@ supabase secrets set SUPABASE_URL="https://nalxfsbjeinptjflvndp.supabase.co" SUP
 1. Entra in `/admin/` da ogni dispositivo.
 2. Verifica nome postazione e login.
 3. Crea tornei, squadre, campi e calendario.
-4. Esegui `Controllo giornata` dalla dashboard.
-5. Nel calendario clicca `Prepara offline`.
-6. Verifica che i match live necessari si aprano almeno una volta sul dispositivo.
+4. Nel calendario clicca `Prepara offline`.
+5. Verifica che i match live necessari si aprano almeno una volta sul dispositivo.
 
 ### Evento offline
 
@@ -152,7 +162,7 @@ CI GitHub: `.github/workflows/ci.yml` esegue static checks, sintassi JavaScript 
 - `APP_CONFIG.allowDirectTableFallbacks` e disabilitato di default.
 - RLS e RPC sono obbligatorie per operazioni critiche.
 - Il log errori e il log accessi sensibili sono gestiti da migrazione `025`.
-- La dashboard mostra le migrazioni applicate lette da `platform_migrations`; se manca `027`, applica l'ultimo file SQL e ricarica la pagina.
+- La dashboard mostra le migrazioni applicate lette da `platform_migrations`; se manca `039`, applica l'ultimo file SQL e ricarica la pagina.
 
 ## Struttura
 
