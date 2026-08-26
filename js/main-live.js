@@ -20,7 +20,7 @@ import {
   saveLiveMatchCacheAsync,
 } from './offline-store.js';
 import { getDeviceInfo, promptDeviceLabel } from './device.js';
-import { createLiveMatchEvent, loadLiveMatchEvents } from './platform-ops.js';
+import { createLiveMatchEvent, loadLiveMatchEvents } from './platform-ops.js?v=51';
 import { startTourIfNeeded } from './onboarding.js';
 import { debounce, escapeHtml, formatDuration, getEl, showAppConfirm, showToast } from './utils.js';
 
@@ -1634,7 +1634,6 @@ async function init() {
 init().catch((error) => {
   showToast(error.message, 'error');
 });
-
 
 
 

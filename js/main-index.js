@@ -24,7 +24,7 @@ import { registerOfflineSupport } from './offline.js';
 import { registerClientErrorLogger } from './error-logger.js';
 import { startTourIfNeeded } from './onboarding.js';
 import { getDeviceInfo } from './device.js';
-import { loadTeamFavorite, setTeamFavorite } from './platform-ops.js';
+import { loadTeamFavorite, setTeamFavorite } from './platform-ops.js?v=51';
 import {
   escapeHtml,
   formatDateTime,

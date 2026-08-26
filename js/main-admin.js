@@ -99,7 +99,7 @@ import {
   updateRegisteredDeviceAdmin,
   setMatchOperationalStatus,
   upsertMatchCheckin,
-} from './platform-ops.js';
+} from './platform-ops.js?v=51';
 import { startTourIfNeeded } from './onboarding.js';
 import { loadLiveMatch } from './live.js';
 import { db, run } from './db.js';
