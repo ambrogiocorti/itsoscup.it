@@ -41,6 +41,12 @@ export const REQUIRED_PLATFORM_MIGRATIONS = [
   '030',
   '031',
   '032',
+  '033',
+  '034',
+  '035',
+  '037',
+  '038',
+  '039',
 ];
 
 const EXPORT_TABLES = [

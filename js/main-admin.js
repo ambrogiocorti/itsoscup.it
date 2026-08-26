@@ -1,4 +1,4 @@
-﻿import { requireAdmin, signOutAdmin, canEditMatches, canManageAll } from './auth.js';
+﻿import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import {
   createManualMatch,
   createPlatformBackup,
@@ -73,6 +73,7 @@ import {
 import { getDeviceInfo, promptDeviceLabel } from './device.js';
 import {
   loadPlatformSettingsMap,
+  loadRegisteredDevices,
   registerCurrentDevice,
   savePlatformSetting,
   validatePreEvent,
@@ -85,12 +86,17 @@ import {
   loadIssueReports,
   loadMatchCheckins,
   loadMatchStatusHistory,
+  loadRegiaOperationalSnapshot,
   loadPublicNotifications,
   loadSystemHealthChecks,
+  approveMatchOfficial,
+  assignMatchDevice,
   deletePublicNotification,
   saveCommunicationTemplate,
   savePublicNotification,
   saveSystemHealthCheck,
+  setVenueOperationalStatus,
+  updateRegisteredDeviceAdmin,
   setMatchOperationalStatus,
   upsertMatchCheckin,
 } from './platform-ops.js';
@@ -120,6 +126,8 @@ const state = {
   issueReports: [],
   issueReportsError: null,
   migrationVerification: null,
+  registeredDevices: [],
+  regiaSnapshot: null,
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
 
@@ -510,9 +518,7 @@ function buildMatchActionItems(match) {
       actions.push(`<button class="match-action-item" data-action="reopen-match" data-id="${match.id}" type="button"><i class="fa-solid fa-unlock-keyhole"></i><span>Riapri correzione</span></button>`);
     }
   }
-  if (match?.venue?.slug) {
-    actions.push(`<button class="match-action-item" data-action="qr-match" data-venue-id="${match.venue.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR campo</span></button>`);
-  }
+  actions.push(`<button class="match-action-item" data-action="qr-match" data-id="${match.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR match</span></button>`);
   if (canEditMatches(state.admin?.ruolo)) {
     actions.push(`<button class="match-action-item" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i><span>Promemoria Telegram</span></button>`);
     actions.push(`<button class="match-action-item danger" data-action="delete-match" data-id="${match.id}" type="button"><i class="fa-solid fa-trash"></i><span>Elimina</span></button>`);
@@ -1562,12 +1568,17 @@ async function handleCsvConfirmImport() {
 }
 
 async function switchView(viewId) {
+  if (viewId === 'operations' && !canAccessControlCenter(state.admin?.ruolo)) {
+    showToast('Il Centro di controllo e riservato al Super Admin.', 'error');
+    viewId = 'dashboard';
+  }
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
 
   if (viewId === 'dashboard') loadDashboardStats();
+  if (viewId === 'operations') await loadRegiaOperations();
   if (viewId === 'sports') loadSportsTable();
   if (viewId === 'teams') loadTeamsTable();
   if (viewId === 'matches') loadMatchesTable();
@@ -1646,6 +1657,7 @@ function applyRolePermissions() {
   const role = state.admin?.ruolo;
   const matchWrite = canEditMatches(role);
   const fullWrite = canManageAll(role);
+  const controlCenterAccess = canAccessControlCenter(role);
 
   document.querySelectorAll('[data-requires-match-write]').forEach((el) => {
     el.classList.toggle('hidden', !matchWrite);
@@ -1653,6 +1665,10 @@ function applyRolePermissions() {
 
   document.querySelectorAll('[data-requires-admin-write]').forEach((el) => {
     el.classList.toggle('hidden', !fullWrite);
+  });
+
+  document.querySelectorAll('[data-requires-control-center]').forEach((el) => {
+    el.classList.toggle('hidden', !controlCenterAccess);
   });
 
   if (!fullWrite) {
@@ -1766,6 +1782,28 @@ async function refreshSportsState() {
 async function refreshVenuesState() {
   state.venues = await loadVenues({ includeInactive: true });
   renderVenueOptions();
+  renderDeviceOptions();
+}
+
+async function refreshDevicesState() {
+  state.registeredDevices = await loadRegisteredDevices();
+  renderDeviceOptions();
+}
+
+function renderDeviceOptions() {
+  const select = getEl('select-match-device');
+  if (!select) return;
+  const options = (state.registeredDevices ?? [])
+    .filter((device) => !device.is_revoked && !device.is_blocked)
+    .map((device) => {
+      const label = device.label || device.device_id;
+      const suffix = device.assigned_venue_id
+        ? ` · ${state.venues.find((venue) => Number(venue.id) === Number(device.assigned_venue_id))?.name ?? 'campo assegnato'}`
+        : '';
+      return `<option value="${escapeHtml(device.device_id)}">${escapeHtml(label + suffix)}</option>`;
+    })
+    .join('');
+  select.innerHTML = `<option value="">-- Non assegnata --</option>${options}`;
 }
 
 function formatDashboardNumber(value) {
@@ -1873,30 +1911,209 @@ function renderIssueReportsPanel() {
     : '<div class="empty-state compact">Nessun problema aperto.</div>';
 }
 
-function renderPreEventResults(rows) {
-  const target = getEl('dashboard-pre-event-panel');
-  if (!target) return;
+function formatRegiaStatusLabel(status) {
+  const labels = {
+    available: 'Disponibile',
+    busy: 'Occupato',
+    temporarily_closed: 'Chiuso temporaneamente',
+    maintenance: 'Manutenzione',
+    unavailable: 'Non disponibile',
+  };
+  return labels[status] ?? 'Disponibile';
+}
 
+function formatDeviceStatus(device) {
+  if (device?.is_revoked) return { label: 'Revocato', badge: 'badge-danger' };
+  if (device?.is_blocked) return { label: 'Bloccato', badge: 'badge-danger' };
+  if (device?.is_offline_ready) return { label: 'Offline pronto', badge: 'badge-success' };
+  return { label: 'Attivo', badge: 'badge-info' };
+}
+
+function renderRegiaMetric(id, value) {
+  const el = getEl(id);
+  if (el) el.textContent = formatDashboardNumber(value ?? 0);
+}
+
+function isDeviceCritical(device) {
+  if (!device) return false;
+  if (device.is_revoked || device.is_blocked) return true;
+  if (!device.is_offline_ready) return true;
+  const lastSeen = device.last_sync_at || device.last_seen_at;
+  if (!lastSeen) return true;
+  const ageMinutes = (Date.now() - new Date(lastSeen).getTime()) / 60000;
+  return Number.isFinite(ageMinutes) && ageMinutes > 30;
+}
+
+function getRegiaEventMode(snapshot = {}) {
+  const matches = snapshot?.matches ?? {};
+  const venues = snapshot?.venues ?? [];
+  const devices = snapshot?.devices ?? [];
+  const issues = snapshot?.issues ?? [];
+  const closedVenue = venues.some((venue) => ['temporarily_closed', 'maintenance', 'unavailable'].includes(venue.status ?? venue.operational_status));
+  const criticalDevices = devices.filter(isDeviceCritical).length;
+  if (Number(matches.paused ?? 0) > 0) {
+    return { label: 'Sospensione attiva', icon: 'fa-pause', tone: 'danger' };
+  }
+  return { label: 'Operativo', icon: 'fa-circle-check', tone: 'success' };
+}
+
+function renderRegiaHeroStatus(snapshot = {}) {
+  const mode = getRegiaEventMode(snapshot);
+  const badge = getEl('regia-mode-badge');
+  if (badge) {
+    badge.className = `regia-status-chip ${mode.tone}`;
+    badge.innerHTML = `<i class="fa-solid ${mode.icon}"></i> ${escapeHtml(mode.label)}`;
+  }
+  const refresh = getEl('regia-last-refresh');
+  if (refresh) refresh.textContent = `Aggiornato ${formatReportDateTime(new Date().toISOString())}`;
+}
+
+function renderRegiaChecklist(rows) {
+  const target = getEl('regia-checklist-panel');
+  if (!target) return;
   const items = Array.isArray(rows) ? rows : [];
+  const okCount = Math.max(0, 8 - items.filter((row) => row.severity === 'error' || row.severity === 'warning').length);
+  const percent = Math.round((okCount / 8) * 100);
+  const snapshotPercent = Number(state.regiaSnapshot?.readiness_percent ?? percent);
+  const readiness = getEl('regia-readiness-value');
+  if (readiness) readiness.textContent = `${snapshotPercent}%`;
+  target.innerHTML = items.length
+    ? `<div class="regia-checklist">
+        ${items
+          .slice(0, 12)
+          .map(
+            (row) => `
+              <button class="regia-check-item ${escapeHtml(row.severity ?? 'warning')}" data-entity-type="${escapeHtml(row.entity_type ?? '')}" data-entity-id="${escapeHtml(row.entity_id ?? '')}" type="button">
+                <i class="fa-solid ${row.severity === 'error' ? 'fa-xmark' : 'fa-triangle-exclamation'}"></i>
+                <span>${escapeHtml(row.message ?? 'Controllo senza descrizione')}</span>
+              </button>
+            `
+          )
+          .join('')}
+      </div>`
+    : `<div class="regia-checklist">
+        <div class="regia-check-item success"><i class="fa-solid fa-check"></i><span>Tornei configurati</span></div>
+        <div class="regia-check-item success"><i class="fa-solid fa-check"></i><span>Calendario senza errori bloccanti</span></div>
+        <div class="regia-check-item success"><i class="fa-solid fa-check"></i><span>Backup e controlli pronti</span></div>
+      </div>`;
+}
+
+function buildRegiaActionQueue(snapshot = {}, checklist = []) {
+  const items = [];
+  const matches = snapshot?.matches ?? {};
+  const devices = snapshot?.devices ?? [];
+  const venues = snapshot?.venues ?? [];
+  const issues = snapshot?.issues ?? [];
+  const delayed = snapshot?.delayed_matches ?? [];
+
+  if (Number(matches.paused ?? 0) > 0) {
+    items.push({
+      severity: 'danger',
+      icon: 'fa-pause',
+      title: `${formatDashboardNumber(matches.paused)} match sospesi`,
+      detail: 'Verifica se riprendere, rinviare o comunicare una nuova fascia oraria.',
+      entityType: 'matches',
+    });
+  }
+
+  delayed.slice(0, 4).forEach((match) => {
+    items.push({
+      severity: Number(match.delay_minutes ?? 0) >= 15 ? 'danger' : 'warning',
+      icon: 'fa-stopwatch',
+      title: `${match.home ?? 'Da definire'} vs ${match.away ?? 'Da definire'} in ritardo`,
+      detail: `${match.venue ?? 'Campo da definire'} · +${Number(match.delay_minutes ?? 0)} min`,
+      entityType: 'match',
+      entityId: match.id,
+    });
+  });
+
+  checklist
+    .filter((row) => ['error', 'warning'].includes(row?.severity))
+    .slice(0, 5)
+    .forEach((row) => {
+      items.push({
+        severity: row.severity ?? 'warning',
+        icon: row.severity === 'error' ? 'fa-xmark' : 'fa-triangle-exclamation',
+        title: row.message ?? 'Controllo da verificare',
+        detail: row.code ?? 'validazione',
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+      });
+    });
+
+  venues
+    .filter((venue) => ['temporarily_closed', 'maintenance', 'unavailable'].includes(venue.status ?? venue.operational_status))
+    .slice(0, 4)
+    .forEach((venue) => {
+      items.push({
+        severity: 'danger',
+        icon: 'fa-location-dot',
+        title: `${venue.name ?? 'Campo'} non disponibile`,
+        detail: venue.reason || formatRegiaStatusLabel(venue.status ?? venue.operational_status),
+        entityType: 'venue',
+        entityId: venue.id,
+      });
+    });
+
+  devices
+    .filter(isDeviceCritical)
+    .slice(0, 4)
+    .forEach((device) => {
+      const status = formatDeviceStatus(device);
+      items.push({
+        severity: device.is_revoked || device.is_blocked ? 'danger' : 'warning',
+        icon: 'fa-laptop',
+        title: device.label || 'Postazione senza nome',
+        detail: status.label,
+        entityType: 'device',
+        entityId: device.device_id,
+      });
+    });
+
+  issues.slice(0, 4).forEach((issue) => {
+    items.push({
+      severity: 'warning',
+      icon: 'fa-message',
+      title: issue.reporter || 'Problema segnalato',
+      detail: String(issue.message ?? '').slice(0, 120),
+      entityType: 'issue',
+      entityId: issue.id,
+    });
+  });
+
+  const severityOrder = { danger: 0, error: 0, warning: 1, info: 2, success: 3 };
+  return items.sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2)).slice(0, 12);
+}
+
+function renderRegiaActionQueue(snapshot = {}, checklist = []) {
+  const target = getEl('regia-action-queue-panel');
+  if (!target) return;
+  const items = buildRegiaActionQueue(snapshot, checklist);
   if (!items.length) {
     target.innerHTML = `
-      <div class="pre-event-result info">
-        <strong>Nessun problema rilevato</strong>
-        <small>Il controllo non ha trovato conflitti o dati mancanti.</small>
+      <div class="regia-action-empty">
+        <i class="fa-solid fa-circle-check"></i>
+        <div>
+          <strong>Nessun intervento urgente</strong>
+          <span>Campi, match, postazioni e segnalazioni non richiedono azioni immediate.</span>
+        </div>
       </div>
     `;
     return;
   }
 
   target.innerHTML = `
-    <div class="pre-event-result-list">
+    <div class="regia-action-queue">
       ${items
         .map(
-          (row) => `
-            <article class="pre-event-result ${escapeHtml(row.severity ?? 'warning')}">
-              <strong>${escapeHtml(row.message ?? 'Controllo senza descrizione')}</strong>
-              <small>${escapeHtml(row.code ?? 'controllo')} · ${escapeHtml(row.entity_type ?? 'sistema')}${row.entity_id ? ` #${escapeHtml(row.entity_id)}` : ''}</small>
-            </article>
+          (item) => `
+            <button class="regia-action-item ${escapeHtml(item.severity)}" type="button" data-entity-type="${escapeHtml(item.entityType ?? '')}" data-entity-id="${escapeHtml(item.entityId ?? '')}">
+              <i class="fa-solid ${escapeHtml(item.icon)}"></i>
+              <span>
+                <strong>${escapeHtml(item.title)}</strong>
+                <small>${escapeHtml(item.detail)}</small>
+              </span>
+            </button>
           `
         )
         .join('')}
@@ -1904,12 +2121,300 @@ function renderPreEventResults(rows) {
   `;
 }
 
-async function handleValidatePreEvent() {
-  const sportValue = getEl('filter-match-sport')?.value;
-  const sportId = sportValue && sportValue !== 'all' ? Number(sportValue) : null;
-  const rows = await validatePreEvent(sportId);
-  renderPreEventResults(rows);
-  showToast('Controllo giornata completato.', 'success');
+function renderRegiaVenues(venues = []) {
+  const target = getEl('regia-venues-panel');
+  if (!target) return;
+  target.innerHTML = venues.length
+    ? `<div class="regia-venue-list">
+        ${venues
+          .map(
+            (venue) => `
+              <article class="regia-venue-row">
+                <div>
+                  <strong>${escapeHtml(venue.name)}</strong>
+                  <small>${escapeHtml(venue.reason || `${Number(venue.matches_today ?? 0)} match oggi`)}</small>
+                </div>
+                <div class="regia-venue-actions" data-venue-id="${venue.id}">
+                  <select data-action="regia-venue-status">
+                    ${['available', 'busy', 'temporarily_closed', 'maintenance', 'unavailable']
+                      .map((status) => `<option value="${status}" ${status === (venue.status ?? venue.operational_status) ? 'selected' : ''}>${escapeHtml(formatRegiaStatusLabel(status))}</option>`)
+                      .join('')}
+                  </select>
+                </div>
+              </article>
+            `
+          )
+          .join('')}
+      </div>`
+    : '<div class="empty-state">Nessun campo configurato.</div>';
+}
+
+function renderRegiaDevices(devices = []) {
+  const target = getEl('regia-devices-panel');
+  if (!target) return;
+  if (!devices.length) {
+    target.innerHTML = '<div class="empty-state">Nessuna postazione registrata. Apri la piattaforma da ogni dispositivo per registrarlo.</div>';
+    return;
+  }
+
+  target.innerHTML = `
+    <table class="regia-device-table">
+      <thead><tr><th>Postazione</th><th>Campo</th><th>Operatore</th><th>Offline</th><th>Ultimo sync</th><th>Stato</th><th>Azioni</th></tr></thead>
+      <tbody>
+        ${devices
+          .map((device) => {
+            const status = formatDeviceStatus(device);
+            const venueOptions = [
+              '<option value="">Nessun campo</option>',
+              ...state.venues.map((venue) => `<option value="${venue.id}" ${Number(device.assigned_venue_id) === Number(venue.id) ? 'selected' : ''}>${escapeHtml(venue.name)}</option>`),
+            ].join('');
+            return `
+              <tr data-device-id="${escapeHtml(device.device_id)}">
+                <td>
+                  <strong>${escapeHtml(device.label || 'Dispositivo non nominato')}</strong>
+                  <small>${escapeHtml(String(device.device_id).slice(0, 8))}</small>
+                </td>
+                <td><select data-device-field="venue">${venueOptions}</select></td>
+                <td><input data-device-field="operator" type="text" value="${escapeHtml(device.operator_name ?? '')}" placeholder="Operatore" /></td>
+                <td>${device.is_offline_ready ? 'Pronto' : 'Da preparare'} · ${Number(device.offline_match_count ?? 0)} match</td>
+                <td>${escapeHtml(formatReportDateTime(device.last_sync_at ?? device.last_seen_at))}</td>
+                <td><span class="badge ${status.badge}">${escapeHtml(status.label)}</span></td>
+                <td>
+                  <div class="table-actions">
+                    <button class="icon-btn edit" data-action="save-regia-device" title="Salva postazione" aria-label="Salva postazione"><i class="fa-solid fa-floppy-disk"></i></button>
+                    <button class="icon-btn ${device.is_blocked ? 'edit' : 'delete'}" data-action="toggle-regia-device-block" title="${device.is_blocked ? 'Sblocca' : 'Blocca'} dispositivo" aria-label="${device.is_blocked ? 'Sblocca' : 'Blocca'} dispositivo"><i class="fa-solid ${device.is_blocked ? 'fa-unlock' : 'fa-ban'}"></i></button>
+                    <button class="icon-btn delete" data-action="revoke-regia-device" title="Revoca dispositivo" aria-label="Revoca dispositivo"><i class="fa-solid fa-plug-circle-xmark"></i></button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          })
+          .join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderRegiaDelays(delays = []) {
+  const target = getEl('regia-delays-panel');
+  if (!target) return;
+  target.innerHTML = delays.length
+    ? `<div class="regia-automation-note">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>Ritardi rilevati oltre la tolleranza.</span>
+      </div>
+      <div class="regia-delay-list">
+        ${delays
+          .map(
+            (match) => `
+              <button class="regia-delay-row" data-action="open-match-detail" data-id="${match.id}" type="button">
+                <strong>${escapeHtml(match.sport ?? '-')} · ${escapeHtml(match.home ?? 'Da definire')} vs ${escapeHtml(match.away ?? 'Da definire')}</strong>
+                <span>${escapeHtml(match.venue ?? 'Campo da definire')} · +${Number(match.delay_minutes ?? 0)} min</span>
+              </button>
+            `
+          )
+          .join('')}
+      </div>`
+    : `<div class="regia-automation-note success">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>Nessun ritardo oltre la tolleranza. Gli slittamenti automatici si applicano alla chiusura dei live in ritardo.</span>
+      </div>`;
+}
+
+function renderRegiaIssues(issues = []) {
+  const target = getEl('regia-issues-panel');
+  if (!target) return;
+  target.innerHTML = issues.length
+    ? `<div class="issue-report-list">
+        ${issues
+          .slice(0, 8)
+          .map(
+            (issue) => `
+              <article class="issue-report-row">
+                <strong>${escapeHtml(issue.reporter ?? 'Segnalazione')}</strong>
+                <p>${escapeHtml(issue.message ?? '').slice(0, 180)}</p>
+                <small>${escapeHtml(formatReportDateTime(issue.created_at))} · ${escapeHtml(issue.status ?? 'open')}</small>
+              </article>
+            `
+          )
+          .join('')}
+      </div>`
+    : '<div class="empty-state compact">Nessun problema operativo aperto.</div>';
+}
+
+function renderRegiaAnalytics(snapshot) {
+  const target = getEl('regia-analytics-panel');
+  if (!target) return;
+  const matches = snapshot?.matches ?? {};
+  const venues = snapshot?.venues ?? [];
+  const devices = snapshot?.devices ?? [];
+  const finished = Number(matches.finished ?? 0);
+  const total = Number(matches.total ?? 0);
+  const completion = total ? Math.round((finished / total) * 100) : 0;
+  const unavailableVenues = venues.filter((venue) => ['temporarily_closed', 'maintenance', 'unavailable'].includes(venue.status ?? venue.operational_status)).length;
+  target.innerHTML = `
+    <div class="regia-analytics-grid">
+      <div><span>Match totali</span><strong>${formatDashboardNumber(matches.total)}</strong></div>
+      <div><span>Ufficiali</span><strong>${formatDashboardNumber(matches.official)}</strong></div>
+      <div><span>Campi attivi</span><strong>${formatDashboardNumber(venues.filter((venue) => venue.active !== false).length)}</strong></div>
+      <div><span>Dispositivi offline pronti</span><strong>${formatDashboardNumber(devices.filter((device) => device.is_offline_ready && !device.is_revoked && !device.is_blocked).length)}</strong></div>
+      <div><span>Problemi aperti</span><strong>${formatDashboardNumber((snapshot?.issues ?? []).length)}</strong></div>
+      <div><span>Match sospesi</span><strong>${formatDashboardNumber(matches.paused)}</strong></div>
+      <div><span>Avanzamento evento</span><strong>${completion}%</strong></div>
+      <div><span>Campi non disponibili</span><strong>${formatDashboardNumber(unavailableVenues)}</strong></div>
+    </div>
+  `;
+}
+
+function handleRegiaActionNavigation(actionEl) {
+  const type = actionEl?.dataset?.entityType;
+  const rawId = actionEl?.dataset?.entityId;
+  const numericId = Number(rawId || 0);
+
+  if (type === 'match' && numericId) {
+    switchView('matches')
+      .then(() => openMatchDetail(numericId))
+      .catch((error) => showToast(error.message, 'error'));
+    return;
+  }
+
+  if (type === 'team') {
+    switchView('teams').catch((error) => showToast(error.message, 'error'));
+    return;
+  }
+
+  if (type === 'venue') {
+    switchView('venues').catch((error) => showToast(error.message, 'error'));
+    return;
+  }
+
+  if (type === 'device') {
+    getEl('regia-devices-panel')?.scrollIntoView({ block: 'center' });
+    return;
+  }
+
+  if (type === 'issue') {
+    getEl('regia-issues-panel')?.scrollIntoView({ block: 'center' });
+    return;
+  }
+
+  if (type === 'matches') {
+    switchView('matches').catch((error) => showToast(error.message, 'error'));
+  }
+}
+
+async function loadRegiaOperations() {
+  if (!canAccessControlCenter(state.admin?.ruolo)) return;
+  const [snapshot, checklist] = await Promise.all([
+    loadRegiaOperationalSnapshot({ toleranceMinutes: 10 }),
+    validatePreEvent(null).catch(() => []),
+  ]);
+  state.regiaSnapshot = snapshot ?? {};
+  state.registeredDevices = snapshot?.devices ?? state.registeredDevices ?? [];
+  const matches = snapshot?.matches ?? {};
+  const devices = snapshot?.devices ?? [];
+  const issues = snapshot?.issues ?? [];
+  renderRegiaHeroStatus(snapshot);
+  renderRegiaMetric('regia-count-finished', matches.finished);
+  renderRegiaMetric('regia-count-live', matches.live);
+  renderRegiaMetric('regia-count-scheduled', matches.scheduled);
+  renderRegiaMetric('regia-count-delayed', matches.delayed);
+  renderRegiaMetric('regia-count-unscheduled', matches.unscheduled);
+  renderRegiaMetric('regia-count-paused', matches.paused);
+  renderRegiaMetric('regia-count-device-alerts', devices.filter(isDeviceCritical).length);
+  renderRegiaMetric('regia-count-issues', issues.length);
+  renderRegiaActionQueue(snapshot, checklist);
+  renderRegiaChecklist(checklist);
+  renderRegiaVenues(snapshot?.venues ?? []);
+  renderRegiaDevices(devices);
+  renderRegiaDelays(snapshot?.delayed_matches ?? []);
+  renderRegiaIssues(issues);
+  renderRegiaAnalytics(snapshot);
+  renderDeviceOptions();
+}
+
+async function handleRegiaVenueStatusChange(select) {
+  const row = select.closest('[data-venue-id]');
+  const venueId = Number(row?.dataset.venueId || 0);
+  if (!venueId) return;
+  const reason = await showAppPrompt('Motivo dello stato campo:', {
+    title: 'Stato campo',
+    inputLabel: 'Motivo',
+    placeholder: 'Es. pioggia, manutenzione, campo occupato...',
+    confirmLabel: 'Aggiorna',
+  });
+  if (reason === null) {
+    await loadRegiaOperations();
+    return;
+  }
+  await setVenueOperationalStatus(venueId, select.value, reason);
+  await Promise.all([refreshVenuesState(), loadRegiaOperations()]);
+  showToast('Stato campo aggiornato.', 'success');
+}
+
+async function handleSaveRegiaDevice(row) {
+  const deviceId = row?.dataset.deviceId;
+  if (!deviceId) return;
+  const current = (state.regiaSnapshot?.devices ?? []).find((device) => String(device.device_id) === String(deviceId)) ?? {};
+  await updateRegisteredDeviceAdmin({
+    deviceId,
+    assignedVenueId: row.querySelector('[data-device-field="venue"]')?.value || null,
+    operatorName: row.querySelector('[data-device-field="operator"]')?.value || '',
+    isRevoked: Boolean(current.is_revoked),
+    isBlocked: Boolean(current.is_blocked),
+    anomalyNote: current.anomaly_note ?? '',
+  });
+  await loadRegiaOperations();
+  showToast('Postazione aggiornata.', 'success');
+}
+
+async function handleToggleRegiaDeviceBlock(row) {
+  const deviceId = row?.dataset.deviceId;
+  if (!deviceId) return;
+  const current = (state.regiaSnapshot?.devices ?? []).find((device) => String(device.device_id) === String(deviceId)) ?? {};
+  const shouldBlock = !current.is_blocked;
+  const reason = shouldBlock
+    ? await showAppPrompt('Motivo blocco dispositivo:', {
+        title: 'Blocca dispositivo',
+        inputLabel: 'Motivo',
+        placeholder: 'Es. postazione non autorizzata',
+        confirmLabel: 'Blocca',
+      })
+    : '';
+  if (reason === null) return;
+  await updateRegisteredDeviceAdmin({
+    deviceId,
+    assignedVenueId: current.assigned_venue_id ?? null,
+    assignedAdminId: current.assigned_admin_id ?? null,
+    operatorName: current.operator_name ?? '',
+    isRevoked: Boolean(current.is_revoked),
+    isBlocked: shouldBlock,
+    anomalyNote: reason || current.anomaly_note || '',
+  });
+  await loadRegiaOperations();
+  showToast(shouldBlock ? 'Dispositivo bloccato.' : 'Dispositivo sbloccato.', 'success');
+}
+
+async function handleRevokeRegiaDevice(row) {
+  const deviceId = row?.dataset.deviceId;
+  if (!deviceId) return;
+  if (!(await showAppConfirm('Revocare questa postazione? Non verra piu considerata operativa.', {
+    title: 'Revoca dispositivo',
+    tone: 'danger',
+    confirmLabel: 'Revoca',
+  }))) return;
+  const current = (state.regiaSnapshot?.devices ?? []).find((device) => String(device.device_id) === String(deviceId)) ?? {};
+  await updateRegisteredDeviceAdmin({
+    deviceId,
+    assignedVenueId: current.assigned_venue_id ?? null,
+    assignedAdminId: current.assigned_admin_id ?? null,
+    operatorName: current.operator_name ?? '',
+    isRevoked: true,
+    isBlocked: Boolean(current.is_blocked),
+    anomalyNote: 'Revocato dal Super Admin',
+  });
+  await loadRegiaOperations();
+  showToast('Dispositivo revocato.', 'success');
 }
 
 async function refreshSystemHealth() {
@@ -2019,6 +2524,7 @@ function renderSportsTableRows() {
         <td>${sport.is_active ? '<span class="badge badge-success">Attivo</span>' : '<span class="badge badge-warning">Disattivo</span>'}</td>
         <td>
           <div class="table-actions" ${canManageAll(state.admin?.ruolo) ? '' : 'style="display:none"'}>
+            <button class="icon-btn edit" data-action="qr-sport" data-id="${sport.id}" title="QR torneo" aria-label="QR torneo"><i class="fa-solid fa-qrcode"></i></button>
             <button class="icon-btn edit" data-action="edit-sport" data-id="${sport.id}"><i class="fa-solid fa-pen"></i></button>
             <button class="icon-btn delete" data-action="delete-sport" data-id="${sport.id}"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -2053,6 +2559,7 @@ async function loadTeamsTable() {
         <td>
           <div class="table-actions" ${canManageAll(state.admin?.ruolo) ? '' : 'style="display:none"'}>
             <button class="icon-btn telegram" data-action="telegram-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" title="Notifica Telegram"><i class="fa-brands fa-telegram"></i></button>
+            <button class="icon-btn edit" data-action="qr-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${team.sport_id}" title="QR squadra" aria-label="QR squadra"><i class="fa-solid fa-qrcode"></i></button>
             <button class="icon-btn edit" data-action="edit-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${team.sport_id}"><i class="fa-solid fa-pen"></i></button>
             <button class="icon-btn delete" data-action="delete-team" data-id="${team.id}"><i class="fa-solid fa-trash"></i></button>
           </div>
@@ -2238,9 +2745,7 @@ function openMatchDetail(matchId) {
     canEditMatches(state.admin?.ruolo)
       ? `<button class="btn btn-ghost" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i> Modifica</button>`
       : '',
-    match.venue?.slug
-      ? `<button class="btn btn-ghost" data-action="qr-match" data-venue-id="${match.venue.id}" type="button"><i class="fa-solid fa-qrcode"></i> QR</button>`
-      : '',
+    `<button class="btn btn-ghost" data-action="qr-match" data-id="${match.id}" type="button"><i class="fa-solid fa-qrcode"></i> QR Match</button>`,
     canEditMatches(state.admin?.ruolo)
       ? `<button class="btn btn-ghost" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i> Telegram</button>`
       : '',
@@ -2249,6 +2754,9 @@ function openMatchDetail(matchId) {
       : '',
     match.is_finished && canManageAll(state.admin?.ruolo)
       ? `<button class="btn btn-warning" data-action="reopen-match" data-id="${match.id}" type="button"><i class="fa-solid fa-unlock-keyhole"></i> Riapri</button>`
+      : '',
+    match.is_finished && canAccessControlCenter(state.admin?.ruolo) && currentOperationalStatus !== 'official'
+      ? `<button class="btn btn-success" data-action="approve-official-match" data-id="${match.id}" type="button"><i class="fa-solid fa-certificate"></i> Rendi ufficiale</button>`
       : '',
   ].filter(Boolean);
 
@@ -2264,6 +2772,7 @@ function openMatchDetail(matchId) {
         <div><dt>Fase</dt><dd>${escapeHtml(match.round_name ?? '-')}</dd></div>
         <div><dt>Slot</dt><dd>${escapeHtml(schedule)}</dd></div>
         <div><dt>Campo</dt><dd>${escapeHtml(match.venue?.name ?? 'Campo da definire')}</dd></div>
+        <div><dt>Postazione</dt><dd>${escapeHtml(match.assigned_device?.label ?? match.assigned_device_id ?? 'Non assegnata')}</dd></div>
         <div><dt>Note</dt><dd>${escapeHtml(match.schedule_notes || '-')}</dd></div>
       </dl>
       <section class="match-detail-staff">
@@ -2383,21 +2892,71 @@ async function handleDeleteVenue(venueId) {
   showToast('Campo eliminato.', 'success');
 }
 
-function showVenueQr(venue) {
-  if (!venue) return;
-  const url = getVenueQrUrl(venue, window.location.href);
+function getPublicBaseUrl(baseHref = window.location.href) {
+  const url = new URL(baseHref);
+  const markers = ['/admin/', '/admin.html', '/admin', '/live.html', '/gym.html', '/index.html'];
+  const marker = markers.find((item) => url.pathname.includes(item));
+  if (marker) {
+    url.pathname = url.pathname.slice(0, url.pathname.indexOf(marker) + 1);
+  } else if (!url.pathname.endsWith('/')) {
+    url.pathname = url.pathname.replace(/[^/]*$/, '');
+  }
+  url.search = '';
+  url.hash = '';
+  return url;
+}
+
+function getEntityQrUrl(type, entity) {
+  const url = getPublicBaseUrl();
+  if (type === 'venue') url.searchParams.set('venue', entity.slug);
+  if (type === 'team') {
+    url.searchParams.set('sport', String(entity.sport_id));
+    url.searchParams.set('team', String(entity.id));
+  }
+  if (type === 'match') {
+    url.searchParams.set('sport', String(entity.sport_id));
+    url.searchParams.set('match', String(entity.id));
+  }
+  if (type === 'sport') url.searchParams.set('sport', String(entity.id));
+  return url.toString();
+}
+
+function showQrPreview({ title, subtitle = '', url }) {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(url)}`;
-  getEl('qr-modal-title').textContent = `QR · ${venue.name}`;
+  getEl('qr-modal-title').textContent = title;
   getEl('qr-modal-content').innerHTML = `
     <div class="qr-preview">
-      <img src="${escapeHtml(qrUrl)}" alt="QR ${escapeHtml(venue.name)}" />
+      <img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(title)}" />
       <div>
-        <h3>${escapeHtml(venue.name)}</h3>
+        <h3>${escapeHtml(subtitle || title)}</h3>
         <p class="muted">${escapeHtml(url)}</p>
       </div>
     </div>
   `;
   openModal('modal-venue-qr');
+}
+
+function showVenueQr(venue) {
+  if (!venue) return;
+  showQrPreview({
+    title: `QR Campo · ${venue.name}`,
+    subtitle: venue.name,
+    url: getVenueQrUrl(venue, window.location.href),
+  });
+}
+
+function showEntityQr(type, entity) {
+  if (!entity) return;
+  const labels = {
+    team: `QR Squadra · ${entity.name ?? 'Squadra'}`,
+    match: `QR Match · ${getMatchTeamsLabel(entity)}`,
+    sport: `QR Torneo · ${entity.name ?? 'Torneo'}`,
+  };
+  showQrPreview({
+    title: labels[type] ?? 'QR',
+    subtitle: labels[type] ?? 'QR',
+    url: getEntityQrUrl(type, entity),
+  });
 }
 
 function getHonorEditionYear(entry) {
@@ -2499,6 +3058,20 @@ function resetPublicNotificationForm() {
   if (active) active.checked = true;
   const severity = getEl('public-notification-severity');
   if (severity) severity.value = 'info';
+  const expires = getEl('public-notification-expires');
+  if (expires) expires.value = '';
+}
+
+function toDateTimeLocalInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
 function fillPublicNotificationForm(notification) {
@@ -2511,6 +3084,8 @@ function fillPublicNotificationForm(notification) {
   getEl('public-notification-body').value = notification.body ?? '';
   getEl('public-notification-severity').value = notification.severity ?? 'info';
   getEl('public-notification-active').checked = notification.is_active !== false;
+  const expires = getEl('public-notification-expires');
+  if (expires) expires.value = toDateTimeLocalInput(notification.expires_at);
   getEl('public-notification-title')?.focus();
 }
 
@@ -2541,7 +3116,7 @@ async function renderPublicNotificationsAdmin() {
               <div class="public-admin-notification-copy">
                 <strong>${escapeHtml(item.title)}</strong>
                 ${item.body ? `<p>${escapeHtml(item.body)}</p>` : ''}
-                <small>${item.is_active === false ? 'Non visibile' : 'Visibile'} · Aggiornata ${escapeHtml(formatDateTime(item.updated_at ?? item.created_at))}</small>
+                <small>${item.is_active === false ? 'Non visibile' : 'Visibile'} · Aggiornata ${escapeHtml(formatDateTime(item.updated_at ?? item.created_at))}${item.expires_at ? ` · Scade ${escapeHtml(formatDateTime(item.expires_at))}` : ''}</small>
               </div>
               ${
                 canEditPublicNotifications
@@ -2570,7 +3145,9 @@ async function handleSavePublicNotification(event) {
     title: getEl('public-notification-title')?.value,
     body: getEl('public-notification-body')?.value,
     severity: getEl('public-notification-severity')?.value,
-    expiresAt: null,
+    expiresAt: getEl('public-notification-expires')?.value
+      ? new Date(getEl('public-notification-expires').value).toISOString()
+      : null,
     isActive: Boolean(getEl('public-notification-active')?.checked),
   });
 
@@ -3577,7 +4154,7 @@ function renderStatusHistoryRows(rows) {
     .map(
       (row) => `
         <article class="status-history-row">
-          <strong>${escapeHtml(formatOperationalStatusLabel(row.previous_status))} → ${escapeHtml(formatOperationalStatusLabel(row.new_status))}</strong>
+          <strong>${escapeHtml(formatOperationalStatusLabel(row.previous_status))} ? ${escapeHtml(formatOperationalStatusLabel(row.new_status))}</strong>
           <span>${escapeHtml(formatReportDateTime(row.changed_at))}</span>
           ${row.reason ? `<small>${escapeHtml(row.reason)}</small>` : ''}
         </article>
@@ -3739,6 +4316,8 @@ async function openMatchModal(match = null) {
   getEl('select-home-team').value = match?.home_team_id ? String(match.home_team_id) : '';
   getEl('select-away-team').value = match?.away_team_id ? String(match.away_team_id) : '';
   getEl('select-match-venue').value = match?.venue_id ? String(match.venue_id) : '';
+  const deviceSelect = getEl('select-match-device');
+  if (deviceSelect) deviceSelect.value = match?.assigned_device_id ?? '';
 
   if (match?.scheduled_start) {
     const start = new Date(match.scheduled_start);
@@ -3767,6 +4346,7 @@ function buildMatchFormPayload() {
     awayTeamId: Number(getEl('select-away-team').value || 0),
     roundName: getEl('select-match-phase').value,
     venueId: Number(getEl('select-match-venue').value || 0) || null,
+    assignedDeviceId: getEl('select-match-device')?.value || null,
     scheduledStart: hasSchedule ? combineLocalDateTime(date, startTime) : null,
     scheduledEnd: hasSchedule ? combineLocalDateTime(date, endTime) : null,
     scheduleNotes: getEl('input-match-notes')?.value ?? '',
@@ -3804,6 +4384,14 @@ async function handleSaveMatch(event) {
     savedMatch = await updateManualMatch(payload);
   } else {
     savedMatch = await createManualMatch(payload);
+  }
+  const savedMatchId = Number(payload.matchId || savedMatch?.id || 0);
+  if (canAccessControlCenter(state.admin?.ruolo) && savedMatchId) {
+    const originalDeviceId = String(originalMatch?.assigned_device_id ?? '');
+    const nextDeviceId = String(payload.assignedDeviceId ?? '');
+    if (originalDeviceId !== nextDeviceId) {
+      await assignMatchDevice(savedMatchId, nextDeviceId, payload.matchId ? 'Aggiornamento postazione match' : 'Assegnazione postazione match');
+    }
   }
   closeModal('modal-match');
   await loadMatchesTable();
@@ -4886,8 +5474,52 @@ function bindCoreActions() {
     }
   });
 
-  getEl('btn-validate-pre-event')?.addEventListener('click', () => {
-    handleValidatePreEvent().catch((error) => showToast(error.message, 'error'));
+  getEl('btn-refresh-regia-ops')?.addEventListener('click', () => {
+    loadRegiaOperations().catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('regia-venues-panel')?.addEventListener('change', (event) => {
+    const select = event.target.closest('[data-action="regia-venue-status"]');
+    if (!select) return;
+    handleRegiaVenueStatusChange(select).catch((error) => showToast(error.message, 'error'));
+  });
+  getEl('regia-devices-panel')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    const row = actionEl.closest('[data-device-id]');
+    if (actionEl.dataset.action === 'save-regia-device') {
+      handleSaveRegiaDevice(row).catch((error) => showToast(error.message, 'error'));
+    }
+    if (actionEl.dataset.action === 'toggle-regia-device-block') {
+      handleToggleRegiaDeviceBlock(row).catch((error) => showToast(error.message, 'error'));
+    }
+    if (actionEl.dataset.action === 'revoke-regia-device') {
+      handleRevokeRegiaDevice(row).catch((error) => showToast(error.message, 'error'));
+    }
+  });
+  getEl('regia-action-queue-panel')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('.regia-action-item');
+    if (!actionEl) return;
+    handleRegiaActionNavigation(actionEl);
+  });
+  getEl('regia-checklist-panel')?.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-entity-type][data-entity-id]');
+    if (!item) return;
+    const type = item.dataset.entityType;
+    const id = Number(item.dataset.entityId || 0);
+    if (type === 'match' && id) {
+      switchView('matches').then(() => {
+        const match = getMatchById(id);
+        if (match) openMatchDetail(id);
+      }).catch((error) => showToast(error.message, 'error'));
+    }
+    if (type === 'team') {
+      switchView('teams').catch((error) => showToast(error.message, 'error'));
+    }
+  });
+  getEl('regia-delays-panel')?.addEventListener('click', (event) => {
+    const actionEl = event.target.closest('[data-action="open-match-detail"]');
+    if (!actionEl) return;
+    switchView('matches').then(() => openMatchDetail(Number(actionEl.dataset.id))).catch((error) => showToast(error.message, 'error'));
   });
   adminUsersPanel.bind();
 
@@ -5181,6 +5813,7 @@ function bindCoreActions() {
     const action = actionEl.dataset.action;
     const id = Number(actionEl.dataset.id);
     if (action === 'edit-sport') return openSportModal(getSportById(id));
+    if (action === 'qr-sport') return showEntityQr('sport', getSportById(id));
     if (action === 'delete-sport') {
       handleDeleteSport(id).catch((error) => showToast(error.message, 'error'));
     }
@@ -5203,6 +5836,13 @@ function bindCoreActions() {
     if (action === 'telegram-team') {
       handleSendTelegramTeamReminder(id, actionEl.dataset.name).catch((error) => showToast(error.message, 'error'));
       return;
+    }
+    if (action === 'qr-team') {
+      return showEntityQr('team', {
+        id,
+        name: actionEl.dataset.name,
+        sport_id: Number(actionEl.dataset.sportId),
+      });
     }
     if (action === 'edit-team') {
       return openTeamModal({
@@ -5248,9 +5888,8 @@ function bindCoreActions() {
       return;
     }
     if (action === 'qr-match') {
-      const venue = state.venues.find((item) => Number(item.id) === Number(actionEl.dataset.venueId));
       closeModal('modal-match-detail');
-      showVenueQr(venue);
+      showEntityQr('match', getMatchById(id));
       return;
     }
     if (action === 'telegram-match') {
@@ -5386,9 +6025,8 @@ function bindCoreActions() {
       return;
     }
     if (action === 'qr-match') {
-      const venue = state.venues.find((item) => Number(item.id) === Number(actionEl.dataset.venueId));
       closeModal('modal-match-detail');
-      showVenueQr(venue);
+      showEntityQr('match', getMatchById(id));
       return;
     }
     if (action === 'telegram-match') {
@@ -5429,6 +6067,25 @@ function bindCoreActions() {
     }
     if (action === 'reopen-match') {
       handleReopenMatchForCorrection(id).catch((error) => showToast(error.message, 'error'));
+      return;
+    }
+    if (action === 'approve-official-match') {
+      showAppPrompt('Motivo/verifica approvazione ufficiale:', {
+        title: 'Risultato ufficiale',
+        inputLabel: 'Nota verifica',
+        placeholder: 'Es. Referto controllato dal Super Admin',
+        confirmLabel: 'Rendi ufficiale',
+      })
+        .then((reason) => {
+          if (reason === null) return null;
+  return approveMatchOfficial(id, reason || 'Referto verificato dal Super Admin');
+        })
+        .then((result) => {
+          if (!result) return;
+          return loadMatchesTable().then(() => openMatchDetail(id));
+        })
+        .then(() => showToast('Risultato reso ufficiale.', 'success'))
+        .catch((error) => showToast(error.message, 'error'));
     }
   });
 
@@ -5504,7 +6161,7 @@ async function init() {
     return;
   }
 
-  await Promise.all([refreshSportsState(), refreshVenuesState()]);
+  await Promise.all([refreshSportsState(), refreshVenuesState(), refreshDevicesState()]);
   await loadDashboardStats();
 
   if (state.sports.length) {

@@ -61,6 +61,7 @@ const state = {
   venueSlug: null,
   venue: null,
   teamIdFromQuery: null,
+  matchIdFromQuery: null,
   audienceFromQuery: 'student',
   currentMatches: [],
 };
@@ -1003,6 +1004,11 @@ function getTeamIdFromQuery() {
   return Number(params.get('team') || 0) || null;
 }
 
+function getMatchIdFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return Number(params.get('match') || 0) || null;
+}
+
 function getAudienceFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const audience = String(params.get('audience') ?? 'student').trim().toLowerCase();
@@ -1391,6 +1397,10 @@ async function loadTournamentData() {
       loadTournamentData().catch((error) => showToast(error.message, 'error'));
     },
   });
+
+  if (state.matchIdFromQuery) {
+    window.setTimeout(() => openMatchDetails(state.matchIdFromQuery), 0);
+  }
 }
 
 function bindLogin() {
@@ -1504,6 +1514,7 @@ async function init() {
   renderSports(sports);
   renderHonorRollSportOptions(sports);
   const initialSportId = getSportIdFromQuery();
+  state.matchIdFromQuery = getMatchIdFromQuery();
   if (initialSportId) {
     getSportSelect().value = String(initialSportId);
     state.selectedSportId = initialSportId;

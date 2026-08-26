@@ -171,6 +171,10 @@ export function canManageAll(role) {
   return role === ROLES.SUPER_ADMIN;
 }
 
+export function canAccessControlCenter(role) {
+  return role === ROLES.SUPER_ADMIN;
+}
+
 export function canViewReports(role) {
   return (
     role === ROLES.SUPER_ADMIN ||

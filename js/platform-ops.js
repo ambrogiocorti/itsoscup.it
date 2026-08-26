@@ -190,6 +190,150 @@ export async function savePublicNotification(notification) {
   }, null);
 }
 
+export async function loadRegiaOperationalSnapshot({ toleranceMinutes = 10 } = {}) {
+  try {
+    return await runRpc(
+      'get_regia_operational_snapshot',
+      { p_tolerance_minutes: Math.max(1, Number(toleranceMinutes) || 10) },
+      'Centro di controllo'
+    );
+  } catch (error) {
+    if (!isMissingSchemaError(error)) throw error;
+  }
+
+  const now = Date.now();
+  const toleranceMs = Math.max(1, Number(toleranceMinutes) || 10) * 60000;
+  const [matchesResult, venuesResult, devicesResult, issuesResult] = await Promise.allSettled([
+    run(
+      db
+        .from('matches')
+        .select('id, status, is_finished, scheduled_start, scheduled_end, venue_id, assigned_device_id, delayed_detected_at, operational_status, sport:sports(name), home:teams!home_team_id(name), away:teams!away_team_id(name), venue:venues(name)')
+        .order('scheduled_start', { ascending: true, nullsFirst: false }),
+      'Fallback Centro Operativo - match'
+    ),
+    run(
+      db.from('venues').select('id, name, slug, is_active, operational_status, operational_reason').order('name', { ascending: true }),
+      'Fallback Centro Operativo - campi'
+    ),
+    run(
+      db
+        .from('registered_devices')
+        .select('device_id, label, assigned_venue_id, assigned_admin_id, last_seen_at, last_sync_at, offline_match_count, is_offline_ready, is_revoked, is_blocked, operator_name, anomaly_note')
+        .order('last_seen_at', { ascending: false }),
+      'Fallback Centro Operativo - dispositivi'
+    ),
+    loadIssueReports({ limit: 20 }),
+  ]);
+
+  const matches = matchesResult.status === 'fulfilled' ? matchesResult.value.data ?? [] : [];
+  const venues = venuesResult.status === 'fulfilled' ? venuesResult.value.data ?? [] : [];
+  const devices = devicesResult.status === 'fulfilled' ? devicesResult.value.data ?? [] : [];
+  const issues = issuesResult.status === 'fulfilled' ? issuesResult.value ?? [] : [];
+  const activeMatches = matches.filter((match) => match.status !== 'cancelled');
+  const readyMatches = activeMatches.filter(
+    (match) => match.venue_id && match.scheduled_start && match.scheduled_end && match.assigned_device_id
+  );
+  const delayedMatches = activeMatches.filter((match) => {
+    if (match.is_finished || match.status === 'live' || !match.scheduled_start) return false;
+    return new Date(match.scheduled_start).getTime() + toleranceMs < now;
+  });
+
+  return {
+    readiness_percent: activeMatches.length ? Math.round((readyMatches.length / activeMatches.length) * 100) : 0,
+    matches: {
+      total: activeMatches.length,
+      finished: activeMatches.filter((match) => match.is_finished).length,
+      live: activeMatches.filter((match) => match.status === 'live').length,
+      scheduled: activeMatches.filter((match) => !match.is_finished && match.scheduled_start).length,
+      unscheduled: activeMatches.filter((match) => !match.is_finished && !match.scheduled_start).length,
+      delayed: delayedMatches.length,
+      paused: activeMatches.filter((match) => match.operational_status === 'paused').length,
+      official: activeMatches.filter((match) => match.operational_status === 'official').length,
+    },
+    venues: venues.map((venue) => ({
+      ...venue,
+      status: venue.operational_status ?? (venue.is_active === false ? 'unavailable' : 'available'),
+      reason: venue.operational_reason ?? '',
+      active: venue.is_active !== false,
+    })),
+    devices,
+    issues,
+    delayed_matches: delayedMatches.map((match) => ({
+      id: match.id,
+      sport: match.sport?.name ?? '-',
+      home: match.home?.name ?? 'Da definire',
+      away: match.away?.name ?? 'Da definire',
+      venue: match.venue?.name ?? 'Campo da definire',
+      scheduled_start: match.scheduled_start,
+      delay_minutes: Math.max(0, Math.floor((now - new Date(match.scheduled_start).getTime()) / 60000)),
+    })),
+    fallback: true,
+  };
+}
+
+export async function updateRegisteredDeviceAdmin({
+  deviceId,
+  assignedVenueId = null,
+  assignedAdminId = null,
+  isRevoked = false,
+  isBlocked = false,
+  operatorName = '',
+  anomalyNote = '',
+} = {}) {
+  if (!String(deviceId ?? '').trim()) throw new Error('Dispositivo non valido.');
+  return runRpc(
+    'set_registered_device_admin',
+    {
+      p_device_id: String(deviceId).trim(),
+      p_assigned_venue_id: assignedVenueId ? Number(assignedVenueId) : null,
+      p_assigned_admin_id: assignedAdminId || null,
+      p_is_revoked: Boolean(isRevoked),
+      p_is_blocked: Boolean(isBlocked),
+      p_operator_name: String(operatorName ?? '').trim() || null,
+      p_anomaly_note: String(anomalyNote ?? '').trim() || null,
+    },
+    'Aggiornamento dispositivo Centro di controllo'
+  );
+}
+
+export async function setVenueOperationalStatus(venueId, status, reason = '') {
+  if (!Number(venueId)) throw new Error('Campo non valido.');
+  return runRpc(
+    'set_venue_operational_status',
+    {
+      p_venue_id: Number(venueId),
+      p_status: status,
+      p_reason: String(reason ?? '').trim() || null,
+    },
+    'Aggiornamento stato campo'
+  );
+}
+
+export async function assignMatchDevice(matchId, deviceId = '', reason = '') {
+  if (!Number(matchId)) throw new Error('Match non valido.');
+  return runRpc(
+    'assign_match_device_admin',
+    {
+      p_match_id: Number(matchId),
+      p_device_id: String(deviceId ?? '').trim() || null,
+      p_reason: String(reason ?? '').trim() || null,
+    },
+    'Assegnazione postazione match'
+  );
+}
+
+export async function approveMatchOfficial(matchId, reason = '') {
+  if (!Number(matchId)) throw new Error('Match non valido.');
+  return runRpc(
+    'approve_match_official_admin',
+    {
+      p_match_id: Number(matchId),
+      p_reason: String(reason ?? '').trim() || null,
+    },
+    'Approvazione risultato ufficiale'
+  );
+}
+
 export async function deletePublicNotification(notificationId) {
   const id = Number(notificationId || 0);
   if (!id) throw new Error('Notifica non valida.');

@@ -66,6 +66,16 @@ function isDeviceSchemaMissing(error) {
   return ['updated_device_id', 'updated_device_label'].some((column) => message.includes(column));
 }
 
+function isAssignedDeviceSchemaMissing(error) {
+  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
+  return (
+    message.includes('assigned_device_id') ||
+    message.includes('matches_assigned_device_id_fkey') ||
+    message.includes('assigned_device') ||
+    message.includes('relationship')
+  );
+}
+
 function stripDeviceFields(payload) {
   const { updated_device_id, updated_device_label, ...rest } = payload;
   return rest;
@@ -216,20 +226,33 @@ export async function loadMatchesBySport(sportId, { includeUnfinished = true } =
 }
 
 export async function listMatchesForAdmin(filters = {}) {
-  let query = db
-    .from('matches')
-    .select('*, sport:sports(name, sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name), venue:venues(id, name, slug)')
-    .order('scheduled_start', { ascending: true })
-    .order('id', { ascending: false });
+  const buildQuery = (selectExpression) => {
+    let query = db
+      .from('matches')
+      .select(selectExpression)
+      .order('scheduled_start', { ascending: true })
+      .order('id', { ascending: false });
 
-  if (filters.sportId && filters.sportId !== 'all') {
-    query = query.eq('sport_id', Number(filters.sportId));
-  }
-  if (filters.venueId && filters.venueId !== 'all') {
-    query = query.eq('venue_id', Number(filters.venueId));
-  }
+    if (filters.sportId && filters.sportId !== 'all') {
+      query = query.eq('sport_id', Number(filters.sportId));
+    }
+    if (filters.venueId && filters.venueId !== 'all') {
+      query = query.eq('venue_id', Number(filters.venueId));
+    }
 
-  const { data } = await run(query, 'Caricamento calendario admin');
+    return query;
+  };
+
+  const { data } = await run(
+    buildQuery('*, sport:sports(name, sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name), venue:venues(id, name, slug), assigned_device:registered_devices!matches_assigned_device_id_fkey(device_id, label, is_offline_ready, is_revoked, is_blocked)'),
+    'Caricamento calendario admin'
+  ).catch((error) => {
+    if (!isAssignedDeviceSchemaMissing(error)) throw error;
+    return run(
+      buildQuery('*, sport:sports(name, sport_type), home:teams!home_team_id(name), away:teams!away_team_id(name), venue:venues(id, name, slug)'),
+      'Caricamento calendario admin'
+    );
+  });
   const needle = String(filters.teamSearch ?? '').trim().toLowerCase();
   const phase = String(filters.phase ?? 'all');
 
