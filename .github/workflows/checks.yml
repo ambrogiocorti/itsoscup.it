@@ -1,0 +1,23 @@
+name: ITSOSCup checks
+on:
+  push:
+    branches: [main, feat/offline-registrations-notices-analytics]
+  pull_request:
+    branches: [main]
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: JavaScript syntax
+        run: npm run check:js
+      - name: Static regression checks
+        run: npm test
+      - name: Innovation analytics tests
+        run: npm run test:innovation
