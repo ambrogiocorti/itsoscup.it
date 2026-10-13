@@ -24,18 +24,26 @@ nel branch `feat/offline-registrations-notices-analytics` fino alla pubblicazion
   implementato.** Le operazioni dipendono dall'API Supabase e dal suo sistema
   di autenticazione remota, e il frontend carica l'SDK da CDN.
 
-## Uso
+## Dove si trovano le funzioni
 
-1. Aprire `admin/innovation.html` dal link **Classi · Avvisi · Analisi**
-   nella dashboard amministrativa.
-2. Selezionare torneo, aggiungere una classe e distribuire il collegamento
-   generato in modo riservato alla classe.
-3. La classe usa `class.html` per inviare la rosa, scegliere il capitano,
-   consultare gli avvisi e confermare le letture.
-4. Il responsabile approva la proposta, che diventa una squadra reale nel torneo.
-5. Dal pannello si selezionano le classi e si pubblicano i messaggi. Le variazioni
-   ai dati di calendario delle partite registrate sono comunicate automaticamente.
-6. La sezione Analisi mostra indicatori reali ed esporta un CSV.
+Il pannello autonomo `admin/innovation.html` non viene più utilizzato:
+gli URL precedenti rimandano alla dashboard principale.
+
+- **Squadre → Iscrizioni delle classi:** scelta del torneo, inviti, copia del
+  collegamento, rotazione del codice, revisione delle proposte e approvazione.
+- **Telegram → Notifiche pubbliche:** selezione *Tutti / Classi selezionate*,
+  scelta del torneo e selezione multipla delle classi destinatari. Il
+  messaggio indirizzato a classi è **riservato al portale classe** e non
+  compare nella home. La cronologia riporta conferme di lettura.
+- **Report → Analisi post-evento:** statistiche organizzative e CSV;
+  i timestamp mancanti producono `ND`, non stime.
+- **Portale classe (`class.html`):** accesso tramite codice riservato,
+  proposta della rosa e conferma di lettura.
+
+I componenti usano il CSS globale e le variabili del tema, più
+`css/integrated-workflows.css` per layout specifici.
+I superadmin possono gestire inviti/approvazioni; superadmin e match_manager
+possono inviare avvisi alle classi; la home pubblica rimane riservata ai superadmin.
 
 ## Migrazioni applicate in ordine
 
@@ -94,3 +102,24 @@ garantire iscrizioni, orari, gestione partite e firme senza Internet occorre:
    contemporanei, credenziali offline, backup e ripristino.
 
 **Non pubblicizzare l'offline completo prima della prova su più dispositivi.**
+
+## Strategia offline indipendente dalla Wi-Fi scolastica
+
+**Nessuna dipendenza obbligatoria dalla LAN della scuola.** Le due
+configurazioni da valutare sono:
+
+- **Con rete locale autorizzata:** un dispositivo nella palestra fa da
+  server offline locale; gli altri dispositivi si collegano alla sua rete
+  privata, senza necessariamente usare il Wi-Fi scolastico. Il database
+  rimane condiviso e si sincronizza con il cloud quando torna Internet.
+- **Senza rete locale:** ogni dispositivo registra le operazioni offline in
+  una coda persistente e firmata; lo scambio avviene dopo, tramite un
+  punto di sincronizzazione autorizzato. Per le modifiche conflittuali
+  sono necessari ordine degli eventi, versioni e una revisione manuale.
+
+Prima di scegliere: verificare con l'istituto policy di rete, dispositivi,
+alimentazione, backup, diritto al trattamento dei dati e operatività
+in caso di guasto del dispositivo coordinatore.
+
+Questa documentazione non costituisce ancora implementazione
+del database o dell'autenticazione offline completi.
