@@ -173,30 +173,23 @@ export async function listOfflineOperations({ status = null } = {}) {
 
 export async function updateOfflineOperation(id, patch = {}) {
   try {
-    const current = await new Promise((resolve, reject) => {
-      openOfflineDb()
-        .then((db) => {
-          if (!db) return resolve(null);
-          const tx = db.transaction(STORES.OPERATIONS, 'readwrite');
-          const store = tx.objectStore(STORES.OPERATIONS);
-          const getRequest = store.get(id);
-          getRequest.onsuccess = () => {
-            const next = {
-              ...(getRequest.result ?? { id }),
-              ...patch,
-              updated_at: new Date().toISOString(),
-            };
-            store.put(next);
-            resolve(next);
-          };
-          getRequest.onerror = () => reject(getRequest.error);
-        })
-        .catch(reject);
+    const db=await openOfflineDb();
+    if(!db)return null;
+    return await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORES.OPERATIONS,'readwrite');
+      const store=tx.objectStore(STORES.OPERATIONS);
+      let updated=null;
+      const get=store.get(id);
+      get.onsuccess=()=>{
+        if(!get.result)return;
+        updated={...get.result,...patch,updated_at:new Date().toISOString()};
+        store.put(updated);
+      };
+      tx.oncomplete=()=>resolve(updated);
+      tx.onerror=()=>reject(tx.error);
+      tx.onabort=()=>reject(tx.error);
     });
-    return current;
-  } catch (_error) {
-    return null;
-  }
+  }catch(_error){return null;}
 }
 
 export async function getOfflineStorageSummary() {
