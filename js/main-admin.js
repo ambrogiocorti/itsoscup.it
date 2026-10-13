@@ -101,6 +101,7 @@ import {
   upsertMatchCheckin,
 } from './platform-ops.js?v=51';
 import { startTourIfNeeded } from './onboarding.js';
+import { initIntegratedAdmin } from './admin-integrated-workflows.js';
 import { loadLiveMatch } from './live.js';
 import { db, run } from './db.js';
 import { APP_CONFIG } from './app-config.js';
@@ -6187,6 +6188,12 @@ async function init() {
     await populateMatchTeams(getEl('select-sport-match').value);
     await loadSettingsForSelectedSport();
   }
+
+  initIntegratedAdmin({ role: state.admin?.ruolo, sports: state.sports })
+    .catch((error) => {
+      console.error('Sezioni integrate non disponibili:', error);
+      showToast('Le sezioni classi e analisi non sono disponibili: ' + error.message,'error');
+    });
 
   if (canManageAll(state.admin?.ruolo)) await switchView('dashboard');
   else if (canEditMatches(state.admin?.ruolo)) await switchView('matches');
