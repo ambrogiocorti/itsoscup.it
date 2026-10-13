@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="it"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Postazione senza rete | ITSOSCup</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/style.css?v=56">
+<link rel="stylesheet" href="./css/integrated-workflows.css?v=56">
+<style>
+.offline-workspace {max-width:1100px;margin:24px auto 80px;padding:0 17px;}
+.offline-workspace-header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 22px}
+.offline-workspace-header h1{font-size:clamp(1.45rem,3vw,2.2rem);margin:0;color:var(--color-text);}
+.offline-workspace .card{margin-bottom:20px}
+.offline-workspace .card-body{padding:22px}
+.offline-workspace .field{margin:0 0 12px}
+.offline-workspace .field input,.offline-workspace .field select,.offline-workspace .field textarea{width:100%}
+.offline-workspace .offline-banner{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;line-height:1.6}
+.offline-workspace .offline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.offline-workspace .offline-match{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--color-border);padding:12px 0}
+.offline-workspace .offline-match strong{display:block;overflow-wrap:anywhere}
+.offline-workspace .offline-match small{display:block;color:var(--color-text-soft)}
+.offline-workspace .offline-actions{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.offline-workspace .offline-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.offline-workspace .offline-score input{font-size:1.7rem;font-weight:900;text-align:center}
+.offline-workspace .offline-note{font-size:.86rem;color:var(--color-text-soft)}
+.offline-workspace [hidden]{display:none!important}
+.offline-workspace #offline-status{font-weight:700;white-space:pre-wrap}
+.offline-workspace #offline-status.is-error{color:var(--color-danger)}
+.offline-workspace .offline-ops-row{padding:10px 0;border-bottom:1px solid var(--color-border);font-size:.86rem}
+.offline-workspace button{cursor:pointer}
+@media(max-width:720px){.offline-workspace .offline-grid,.offline-workspace .offline-score{grid-template-columns:1fr}}
+</style></head><body>
+<main class="offline-workspace">
+<header class="offline-workspace-header"><div>
+  <p class="itsos-flow-muted">ITSOSCup · Modalità di emergenza senza rete</p><h1>Postazione autonoma</h1>
+</div><a class="btn btn-ghost" href="./admin/"><span aria-hidden="true">←</span> Dashboard</a></header>
+<p class="offline-banner">Questa postazione salva i dati <strong>solo su questo dispositivo</strong>. Non deve essere collegata ad altri dispositivi. Per scambiare le partite e recuperare i risultati, usa un <strong>file cifrato trasferito tramite USB</strong>. Le partite vanno preparate in anticipo oppure importate da un pacchetto.</p>
+<p id="offline-status" role="status" aria-live="polite"></p>
+<div class="offline-grid">
+<section class="card"><div class="card-header">1 · Preparazione e trasferimento</div><div class="card-body">
+<p class="offline-note">Esporta la preparazione prima del torneo o importa il pacchetto sulla postazione destinata a segnare i risultati. La password non viene memorizzata.</p>
+<div class="field"><label for="offline-package-password">Password del pacchetto (almeno 12 caratteri)</label><input id="offline-package-password" type="password" minlength="12" autocomplete="off" placeholder="Password comunicata agli operatori"></div>
+<div class="offline-actions">
+<button type="button" class="btn btn-ghost" id="offline-export-prepared">Esporta partite</button>
+<button type="button" class="btn btn-primary" id="offline-export-results">Esporta risultati</button>
+</div>
+<div class="field"><label for="offline-package-file">Importa un pacchetto ITSOSCup (.json)</label><input id="offline-package-file" type="file" accept=".json,application/json"></div>
+<button class="btn btn-ghost" type="button" id="offline-import">Importa dal dispositivo USB</button>
+<p class="offline-note">Non inviare i file non cifrati e non condividere la password insieme al file.</p>
+</div></section>
+<section class="card"><div class="card-header">2 · Partite preparate</div><div class="card-body">
+<p class="offline-note">Apri una partita, registra il punteggio e salva sul dispositivo. Le modifiche non vengono inviate automaticamente.</p>
+<div id="offline-matches" aria-live="polite">Caricamento archivio locale…</div>
+</div></section></div>
+<section class="card" id="offline-editor" hidden><div class="card-header"><span id="offline-editor-label">Partita</span></div><div class="card-body">
+<div class="offline-score">
+<div class="field"><label for="offline-home-score" id="offline-home-label">Squadra casa</label><input type="number" id="offline-home-score" min="0" max="999" inputmode="numeric" required></div>
+<div class="field"><label for="offline-away-score" id="offline-away-label">Squadra ospite</label><input type="number" id="offline-away-score" min="0" max="999" inputmode="numeric" required></div>
+</div>
+<div class="offline-grid">
+<div class="field"><label for="offline-minutes">Tempo di gioco (minuti)</label><input type="number" id="offline-minutes" min="0" max="999" value="0"></div>
+<div class="field"><label for="offline-period">Tempo / set / periodo</label><input type="number" id="offline-period" min="1" max="99" value="1"></div>
+</div>
+<div class="field"><label for="offline-notes">Annotazioni di gara</label><textarea id="offline-notes" rows="3" maxlength="1000" placeholder="Eventi essenziali, contestazioni, note"></textarea></div>
+<div class="offline-actions"><button class="btn btn-primary" type="button" id="offline-save">Salva sul dispositivo</button><button class="btn btn-ghost" id="offline-close" type="button">Chiudi</button></div>
+<p class="offline-note">Questa modalità registra una <strong>bozza del punteggio</strong>, non sostituisce il referto completo con firme o statistiche. L'invio al cloud richiede controllo dei conflitti e autenticazione online.</p>
+</div></section>
+<section class="card"><div class="card-header">3 · Registro e sincronizzazione controllata</div><div class="card-body">
+<p class="offline-note">Importa i risultati sul dispositivo da cui hai accesso autorizzato a Supabase. La sincronizzazione richiede Internet e verifica la versione del match: in caso di modifiche concorrenti si blocca, senza sovrascrivere.</p>
+<div id="offline-operations" aria-live="polite"></div>
+<div class="offline-actions"><button type="button" class="btn btn-primary" id="offline-sync">Verifica e sincronizza i risultati in attesa</button><button class="btn btn-ghost" type="button" id="offline-refresh">Aggiorna</button></div>
+<p class="offline-note">I conflitti restano archiviati per la verifica manuale. Non eliminare i pacchetti USB fino all'avvenuto collaudo e alla conferma dei risultati.</p>
+</div></section>
+</main>
+<script type="module" src="./js/offline-workspace.js"></script>
+<script>if('serviceWorker' in navigator&&window.isSecureContext)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
+</body></html>

@@ -340,6 +340,7 @@
             <div class="top-row-actions">
               <button class="btn btn-primary icon-only-action" id="btn-generate-matches" data-requires-match-write title="Genera automatico" aria-label="Genera automatico"><i class="fa-solid fa-bolt"></i></button>
               <button class="btn btn-ghost icon-only-action" id="btn-prepare-offline" type="button" data-requires-match-write title="Prepara offline" aria-label="Prepara offline"><i class="fa-solid fa-cloud-arrow-down"></i></button>
+              <a class="btn btn-ghost" href="offline-workspace.html" data-requires-match-write title="Pacchetti USB e registrazione autonoma senza rete"><i class="fa-solid fa-hard-drive"></i> Postazione offline</a>
               <button class="btn btn-ghost" id="btn-download-finished-match-reports" type="button"><i class="fa-solid fa-file-pdf"></i> Tutti i referti</button>
               <button class="btn btn-ghost icon-only-action" id="btn-toggle-matches-view" type="button" aria-pressed="false" title="Vista calendario" aria-label="Vista calendario">
                 <i class="fa-solid fa-calendar-days"></i>
@@ -437,13 +438,14 @@
               <form id="form-public-notification" class="public-notification-admin-form" data-requires-match-write>
                 <input type="hidden" id="public-notification-id" />
                 <div class="field">
-                  <label for="public-notification-audience">Destinatari</label>
+                  <label for="public-notification-audience">Destinatari — seleziona le classi dopo aver scelto il torneo</label>
                   <select id="public-notification-audience" aria-controls="public-notification-target-fields">
                     <option value="public">Tutti — notifica nella home</option>
                     <option value="classes">Classi selezionate — portale classe</option>
                   </select>
                 </div>
                 <div id="public-notification-target-fields" class="itsos-flow-notice-extra" hidden>
+                  <p class="itsos-flow-note">Per scegliere le classi, prima seleziona <strong>Classi selezionate</strong> nel menu Destinatari. Quindi scegli il torneo e una o più classi qui sotto.</p>
                   <div class="itsos-flow-notice-targets">
                     <div class="field">
                       <label for="class-notice-sport">Torneo</label>
@@ -454,6 +456,7 @@
                       <select id="class-notice-recipients" multiple size="5" aria-describedby="class-notice-tip"></select>
                       <small class="itsos-flow-help" id="class-notice-tip">Selezione multipla: Ctrl o ⌘ + clic.</small>
                       <button class="itsos-flow-btn-link" type="button" id="btn-all-class-notice-recipients">Seleziona tutte le classi del torneo</button>
+                      <span id="class-notice-recipient-count" class="itsos-flow-help" aria-live="polite"></span>
                     </div>
                   </div>
                   <p class="itsos-flow-muted">Il messaggio sarà visibile solo nel portale delle classi selezionate, con conferma di lettura.</p>
@@ -559,6 +562,7 @@
                   <select id="class-registration-sport"><option value="">Seleziona torneo</option></select>
                 </div>
                 <button id="btn-refresh-class-registrations" class="btn btn-ghost" type="button"><i class="fa-solid fa-rotate"></i> Aggiorna iscrizioni</button>
+                <button id="btn-import-existing-classes" class="btn btn-ghost" type="button" title="Collega le squadre già create ai portali delle classi"><i class="fa-solid fa-file-import"></i> Collega squadre esistenti</button>
               </div>
               <div class="itsos-flow-grid">
                 <section class="itsos-flow-panel">

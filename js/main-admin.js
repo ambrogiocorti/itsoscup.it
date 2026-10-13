@@ -6163,6 +6163,13 @@ async function init() {
   }
 
   await Promise.all([refreshSportsState(), refreshVenuesState(), refreshDevicesState()]);
+  // Render the integrated selectors immediately; later dashboard requests must not delay them.
+  initIntegratedAdmin({ role: state.admin?.ruolo, sports: state.sports })
+    .catch((error) => {
+      console.error('Sezioni integrate non disponibili:', error);
+      showToast('Le sezioni classi e analisi non sono disponibili: ' + error.message,'error');
+    });
+
   await loadDashboardStats();
 
   if (state.sports.length) {
@@ -6188,12 +6195,6 @@ async function init() {
     await populateMatchTeams(getEl('select-sport-match').value);
     await loadSettingsForSelectedSport();
   }
-
-  initIntegratedAdmin({ role: state.admin?.ruolo, sports: state.sports })
-    .catch((error) => {
-      console.error('Sezioni integrate non disponibili:', error);
-      showToast('Le sezioni classi e analisi non sono disponibili: ' + error.message,'error');
-    });
 
   if (canManageAll(state.admin?.ruolo)) await switchView('dashboard');
   else if (canEditMatches(state.admin?.ruolo)) await switchView('matches');

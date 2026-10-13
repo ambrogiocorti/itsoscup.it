@@ -1,5 +1,5 @@
 import {
-  listClassInvites, createClassInvite, rotateClassInvite, listClassRegistrations,
+  listClassInvites, createClassInvite, rotateClassInvite, importExistingTeamsAsClasses, listClassRegistrations,
   decideClassRegistration, sendClassNotice, listClassNoticeHistory,
   loadEventAnalytics, analyticsCsv, safeLabel
 } from './class-portal-admin.js';
@@ -25,11 +25,14 @@ function option(label, value) {
 function setSportOptions(targetId, first = '') {
   const select = el(targetId);
   if (!select) return;
-  select.replaceChildren(option('Seleziona torneo',''),
-    ...state.sports.filter(s => s.sport_type !== 'atletica')
-      .map(s => option(s.name + (s.year ? ' · ' + s.year + '°' : ''),s.id)));
-  if (first && [...select.options].some(o => o.value === String(first))) select.value = String(first);
-  else if (select.options.length > 1) select.selectedIndex = 1;
+  const selected = String(first || select.value || '');
+  const sports = state.sports.filter(s => Number(s.id) > 0 && String(s.sport_type||'').toLowerCase() !== 'atletica');
+  select.replaceChildren(option('— Seleziona un torneo —',''),
+    ...sports.map(s => option(s.name + (s.year ? ' · ' + s.year + '°' : ''),s.id)));
+  if (sports.some(s => String(s.id) === selected)) select.value = selected;
+  else if (sports.length) select.value = String(sports[0].id);
+  select.disabled = !sports.length;
+  if (!sports.length) select.replaceChildren(option('Nessun torneo disponibile — riprova',''));
 }
 function selectedSport(id) { return Number(el(id)?.value || 0); }
 function empty(message) { return '<div class="empty-state compact">' + safeLabel(message) + '</div>'; }
@@ -108,6 +111,23 @@ async function handleInviteSubmit(event) {
   } catch(error) { feedback('class-registration-feedback',error.message,true); }
   finally { if(button) button.disabled = false; }
 }
+async function connectExistingTeams() {
+  const sportId=selectedSport('class-registration-sport');
+  if(!sportId)return feedback('class-registration-feedback','Seleziona un torneo prima di collegare le squadre.',true);
+  if(!window.confirm('Collegare le squadre già create ai portali di classe? Le iscrizioni esistenti non saranno modificate.'))return;
+  const button=el('btn-import-existing-classes');if(button)button.disabled=true;
+  try{
+    const inserted=await importExistingTeamsAsClasses(sportId);
+    await refreshRegistrations();
+    if(selectedSport('class-notice-sport')===sportId){
+      await refreshNoticeInvites();
+      await refreshNoticeHistory();
+    }
+    feedback('class-registration-feedback',
+      'Classi collegate: '+Number(inserted||0)+'. I link delle classi sono disponibili nella lista a sinistra. Distribuirli solo ai destinatari.');
+  }catch(error){feedback('class-registration-feedback',error.message,true);}
+  finally{if(button)button.disabled=false;}
+}
 async function onInviteListClick(event) {
   const button = event.target.closest('[data-class-action]');
   if (!button) return;
@@ -159,15 +179,25 @@ function updateAudience() {
     if(hiddenId) hiddenId.value='';
   }
 }
+function updateRecipientCount(){
+  const picker=el('class-notice-recipients');
+  const counter=el('class-notice-recipient-count');
+  if(!picker||!counter)return;
+  const selected=[...picker.selectedOptions].length;
+  counter.textContent=selected+' classi selezionate su '+picker.options.length;
+}
 async function refreshNoticeInvites() {
   const id=selectedSport('class-notice-sport');
   const select=el('class-notice-recipients');
   if(!select)return;
   select.replaceChildren();
+  updateRecipientCount();
   if(!id)return;
   try {
     state.noticeInvites=(await listClassInvites(id)).filter(i=>i.is_active);
     select.replaceChildren(...state.noticeInvites.map(i=>option(i.class_name,i.id)));
+    select.disabled=!state.noticeInvites.length;
+    updateRecipientCount();
     if(!state.noticeInvites.length) feedback('public-notice-feedback','Nessuna classe invitata: crea gli inviti da Squadre.',true);
     else feedback('public-notice-feedback','');
   } catch(error) { feedback('public-notice-feedback',error.message,true); }
@@ -228,12 +258,14 @@ function prepareNotifications() {
     audience.value='classes';
   }
   audience.addEventListener('change',updateAudience);
+  el('class-notice-recipients')?.addEventListener('change',updateRecipientCount);
   el('class-notice-sport')?.addEventListener('change',()=>{
     refreshNoticeInvites();
     refreshNoticeHistory();
   });
   el('btn-all-class-notice-recipients')?.addEventListener('click',()=>{
     for(const o of el('class-notice-recipients').options)o.selected=true;
+    updateRecipientCount();
   });
   el('btn-refresh-class-notices')?.addEventListener('click',refreshNoticeHistory);
   el('form-public-notification')?.addEventListener('submit',handleClassNotification,true);
@@ -282,13 +314,28 @@ function exportAnalytics(){
 }
 export async function initIntegratedAdmin({role,sports=[]}={}){
   state.role=role||'';
-  state.sports=sports||[];
+  state.sports=Array.isArray(sports)?sports.filter(s=>s && Number(s.id)>0):[];
+  if(!state.sports.length){
+    try{
+      const {loadSports}=await import('./matches.js');
+      state.sports=await loadSports({includeInactive:true});
+    }catch(error){
+      feedback('class-registration-feedback','Tornei non caricati: '+error.message,true);
+    }
+  }
   setSportOptions('class-registration-sport');
   setSportOptions('class-notice-sport');
   prepareNotifications();
+  el('public-notification-audience')?.addEventListener('change',()=>{
+    feedback('public-notice-feedback',
+      el('public-notification-audience').value==='classes'
+        ? 'Seleziona un torneo e una o più classi qui sotto. Le classi senza invito si possono importare dalle squadre già presenti.'
+        : '');
+  });
   if(fullAccess(role)){
     el('class-registration-sport')?.addEventListener('change',refreshRegistrations);
     el('btn-refresh-class-registrations')?.addEventListener('click',refreshRegistrations);
+    el('btn-import-existing-classes')?.addEventListener('click',connectExistingTeams);
     el('form-create-class-invite')?.addEventListener('submit',handleInviteSubmit);
     el('class-invite-list')?.addEventListener('click',onInviteListClick);
     el('class-registration-list')?.addEventListener('click',onRegistrationClick);
