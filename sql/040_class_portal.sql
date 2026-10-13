@@ -114,6 +114,10 @@ begin
  select * into v_row from public.class_registrations where id=p_registration_id for update;
  if not found or v_row.status<>'pending' then raise exception 'Iscrizione non in attesa'; end if;
  if p_approve then
+   if exists (select 1 from public.teams where sport_id = v_row.sport_id
+      and lower(btrim(name)) = lower(btrim(v_row.class_name))) then
+     raise exception 'Esiste gia una squadra per questa classe: evitare duplicati';
+   end if;
    insert into public.teams(sport_id,name) values(v_row.sport_id,v_row.class_name) returning id into v_team_id;
    insert into public.players(team_id,full_name,is_captain)
      select v_team_id, value #>> '{}',lower(value #>> '{}')=lower(v_row.captain_name)
