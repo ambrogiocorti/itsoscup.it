@@ -84,6 +84,7 @@ async function saveEditor(){
   timeouts:draft?.payload?.timeouts||original.timeouts||{home:0,away:0},
   stats_snapshot:draft?.payload?.stats_snapshot||original.stats_snapshot||entry.stats||[],
   event_log:draft?.payload?.event_log||original.event_log||[],
+  offline_notes:notes,
   updated_at:new Date().toISOString(),
  };
  const device=await getOfflineDeviceId();
@@ -130,6 +131,11 @@ async function syncPending(){
  if(!session.allowed||session.offline||!canEditMatches(session.admin?.ruolo))throw new Error('Serve una sessione online di responsabile partite');
  const {loadLiveMatch,startLiveSession,releaseLiveSession,commitLiveUpdate}=await import('./live.js');
  const ops=pending(await listOfflineOperations());
+ const eligible=ops.filter(o=>o.status==='queued');
+ if(!eligible.length){info('Non ci sono risultati in attesa di sincronizzazione.');return;}
+ const preview=eligible.map(o=>'#'+o.match_id+': '+Number(o.payload?.home_score??0)+'-'+Number(o.payload?.away_score??0)).join(', ');
+ if(!window.confirm('Confermare la sincronizzazione delle bozze registrate?\\n'+preview+
+ '\\nIl sistema bloccherà i conflitti e non sovrascriverà referti modificati da altri.'))return;
  let synced=0,conflicts=0,failed=0;
  const seen=new Set();
  for(const op of ops){
