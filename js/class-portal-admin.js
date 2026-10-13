@@ -29,7 +29,7 @@ export async function listClassNoticeHistory(sportId){
  return (notices||[]).map(n=>({...n,recipients:(receipts||[]).filter(r=>r.notice_id===n.id)}));
 }
 export async function loadEventAnalytics(sportId){
- const {data:matches}=await run(db.from('matches').select('id,status,is_finished,scheduled_start,scheduled_end,started_at,finished_at,created_at,updated_at').eq('sport_id',Number(sportId)),'Partite');
+ const {data:matches}=await run(db.from('matches').select('id,status,is_finished,scheduled_start,scheduled_end,started_at,finished_at,created_at,updated_at,reopened_at').eq('sport_id',Number(sportId)),'Partite');
  let changes=[];
  try{
  const {data}=await run(db.from('match_reschedule_history').select('id,match_id,created_at').in('match_id',(matches||[]).map(x=>x.id).length?(matches||[]).map(x=>x.id):[-1]),'Modifiche calendario');
@@ -44,14 +44,14 @@ export async function loadEventAnalytics(sportId){
  const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length):null;
  return {total:(matches||[]).length,completed:completed.length,pending:(matches||[]).filter(m=>!m.is_finished && m.status!=='cancelled').length,
   lateStarts:delays.filter(n=>n>0).length,averageDelay:avg(delays),averageDuration:avg(durations),
-  reschedules:changes.length,measuredStarts:delays.length,measuredDurations:durations.length,
+  reschedules:changes.length,corrections:(matches||[]).filter(m=>m.reopened_at).length,measuredStarts:delays.length,measuredDurations:durations.length,
   matches:matches||[]};
 }
 export function analyticsCsv(data){
  const rows=[['Indicatore','Valore'],['Partite',data.total],['Concluse',data.completed],
  ['Da completare',data.pending],['Avvii in ritardo',data.lateStarts],
  ['Avvii monitorati',data.measuredStarts],['Ritardo medio (min)',data.averageDelay??'ND'],
- ['Durata media (min)',data.averageDuration??'ND'],['Riprogrammazioni',data.reschedules]];
+ ['Durata media (min)',data.averageDuration??'ND'],['Riprogrammazioni',data.reschedules],['Partite riaperte per correzione',data.corrections]];
  return '\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
 }
 export function safeLabel(value){return escapeHtml(String(value??''));}
