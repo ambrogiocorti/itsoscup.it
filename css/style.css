@@ -2628,6 +2628,51 @@ body.dialog-open {
   grid-column: 1 / -1;
 }
 
+.team-profile-announcements {
+  grid-column: 1 / -1;
+}
+.team-announcements-helper {
+  color: #64748b;
+  font-size: .88rem;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.team-public-notices-list {
+  display: grid;
+  gap: 10px;
+}
+.team-public-notice {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+}
+.team-public-notice-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+.team-public-notice-top strong {
+  color: #0f172a;
+  font-weight: 850;
+}
+.team-public-notice-top time {
+  color: #64748b;
+  font-size: .79rem;
+  font-weight: 650;
+}
+.team-public-notice p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 9px 0 0;
+  font-size: .91rem;
+  line-height: 1.65;
+  color: #334155;
+}
+
+
 .team-roster-list,
 .team-match-list {
   display: grid;
