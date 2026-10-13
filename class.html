@@ -1,0 +1,32 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Portale classe | ITSOSCup</title><link rel="stylesheet" href="./css/style.css?v=51"><style>body{background:#f8fafc;color:#0f172a;font-family:Inter,system-ui,sans-serif}.class-shell{max-width:750px;margin:40px auto;padding:20px}.class-card{background:white;border:1px solid #e2e8f0;padding:28px;border-radius:22px;margin:20px 0}.class-card input,.class-card textarea,.class-card select{width:100%;padding:12px;margin:9px 0;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a}.class-card button{background:#2563eb;color:white;border:0;border-radius:10px;padding:12px 20px;cursor:pointer}.class-muted{color:#64748b}.class-notice{padding:15px;border:1px solid #dbeafe;border-radius:13px;margin:12px 0;overflow-wrap:anywhere}#status{min-height:25px}button:disabled{opacity:.6}</style></head><body><main class="class-shell"><a href="./">← ITSOSCup</a><h1>Portale della classe</h1><p class="class-muted">Proposta di squadra, conferma docente e comunicazioni ufficiali della classe.</p><p id="status" role="status"></p><section class="class-card"><label>Codice classe ricevuto dall'organizzazione<input id="code" autocomplete="off" maxlength="100" placeholder="Incolla il codice"></label><button id="open">Accedi</button></section><div id="portal" hidden><section class="class-card"><h2 id="class-title"></h2><p id="registration-status"></p><form id="registration"><label>Componenti, un nome per riga<textarea id="roster" rows="10" maxlength="4500" required placeholder="Nome Cognome"></textarea></label><label>Capitano<select id="captain" required></select></label><button type="submit">Invia proposta ai docenti</button></form><p class="class-muted">I nomi della squadra non saranno pubblicati qui. L'approvazione è effettuata esclusivamente dagli organizzatori.</p></section><section class="class-card"><h2>Avvisi per la classe</h2><div id="notices"></div></section></div></main><script type="module">
+import {db,runRpc} from './js/db.js';
+const $=id=>document.getElementById(id);const code=()=>String($('code').value||'').trim();
+function el(tag,text){const node=document.createElement(tag);node.textContent=String(text??'');return node}
+function status(msg,bad=false){$('status').textContent=msg;$('status').style.color=bad?'#b91c1c':'#2563eb'}
+function names(){return $('roster').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)}
+$('roster').oninput=()=>{const previous=$('captain').value;$('captain').replaceChildren(...names().map(n=>{const o=el('option',n);o.value=n;return o}));if(names().includes(previous))$('captain').value=previous};
+async function load(){
+ const key=code();if(!key)return status('Inserisci un codice classe',true);
+ try{
+ const data=await runRpc('class_portal',{p_code:key},'Portale classe');
+ $('portal').hidden=false;$('class-title').textContent=data.class_name;
+ const reg=data.registration;
+ $('registration-status').textContent=reg?'Stato proposta: '+({pending:'In attesa di approvazione',approved:'Approvata',rejected:'Da correggere / respinta'}[reg.status]||reg.status)+(reg.decision_note?' — '+reg.decision_note:''):'Nessuna proposta inviata';
+ if(reg){$('roster').value=(reg.roster||[]).join('\n');$('roster').dispatchEvent(new Event('input'));$('captain').value=reg.captain||''}
+ $('registration').hidden=reg?.status==='approved';
+ const notices=$('notices');notices.replaceChildren();
+ if(!data.notices?.length)notices.append(el('p','Nessun avviso disponibile.'));
+ for(const n of data.notices||[]){
+ const card=document.createElement('article');card.className='class-notice';
+ card.append(el('h3',n.title),el('p',n.body),el('small',new Date(n.created_at).toLocaleString('it-IT')));
+ if(n.read_at)card.append(el('p','Lettura confermata'));
+ else{const b=el('button','Conferma lettura');b.onclick=async()=>{try{await runRpc('acknowledge_class_notice',{p_code:key,p_notice_id:n.id},'Conferma lettura');status('Lettura registrata');await load()}catch(e){status(e.message,true)}};card.append(b)}
+ notices.append(card);
+ }
+ status('Portale caricato');
+ }catch(e){$('portal').hidden=true;status(e.message,true)}
+}
+$('open').onclick=load;
+$('registration').onsubmit=async e=>{e.preventDefault();try{await runRpc('submit_class_registration',{p_code:code(),p_roster:names(),p_captain:$('captain').value},'Invio proposta');status('Proposta inviata');await load()}catch(error){status(error.message,true)}};
+const query=new URLSearchParams(location.search).get('code');if(query){$('code').value=query;load()}
+</script></body></html>
