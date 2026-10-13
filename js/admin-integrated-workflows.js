@@ -1,5 +1,5 @@
 import {
-  listClassInvites, createClassInvite, rotateClassInvite, listClassRegistrations,
+  listClassInvites, createClassInvite, rotateClassInvite, importExistingTeamsAsClasses, listClassRegistrations,
   decideClassRegistration, sendClassNotice, listClassNoticeHistory,
   loadEventAnalytics, analyticsCsv, safeLabel
 } from './class-portal-admin.js';
@@ -111,6 +111,23 @@ async function handleInviteSubmit(event) {
   } catch(error) { feedback('class-registration-feedback',error.message,true); }
   finally { if(button) button.disabled = false; }
 }
+async function connectExistingTeams() {
+  const sportId=selectedSport('class-registration-sport');
+  if(!sportId)return feedback('class-registration-feedback','Seleziona un torneo prima di collegare le squadre.',true);
+  if(!window.confirm('Collegare le squadre già create ai portali di classe? Le iscrizioni esistenti non saranno modificate.'))return;
+  const button=el('btn-import-existing-classes');if(button)button.disabled=true;
+  try{
+    const inserted=await importExistingTeamsAsClasses(sportId);
+    await refreshRegistrations();
+    if(selectedSport('class-notice-sport')===sportId){
+      await refreshNoticeInvites();
+      await refreshNoticeHistory();
+    }
+    feedback('class-registration-feedback',
+      'Classi collegate: '+Number(inserted||0)+'. I link delle classi sono disponibili nella lista a sinistra. Distribuirli solo ai destinatari.');
+  }catch(error){feedback('class-registration-feedback',error.message,true);}
+  finally{if(button)button.disabled=false;}
+}
 async function onInviteListClick(event) {
   const button = event.target.closest('[data-class-action]');
   if (!button) return;
@@ -162,15 +179,25 @@ function updateAudience() {
     if(hiddenId) hiddenId.value='';
   }
 }
+function updateRecipientCount(){
+  const picker=el('class-notice-recipients');
+  const counter=el('class-notice-recipient-count');
+  if(!picker||!counter)return;
+  const selected=[...picker.selectedOptions].length;
+  counter.textContent=selected+' classi selezionate su '+picker.options.length;
+}
 async function refreshNoticeInvites() {
   const id=selectedSport('class-notice-sport');
   const select=el('class-notice-recipients');
   if(!select)return;
   select.replaceChildren();
+  updateRecipientCount();
   if(!id)return;
   try {
     state.noticeInvites=(await listClassInvites(id)).filter(i=>i.is_active);
     select.replaceChildren(...state.noticeInvites.map(i=>option(i.class_name,i.id)));
+    select.disabled=!state.noticeInvites.length;
+    updateRecipientCount();
     if(!state.noticeInvites.length) feedback('public-notice-feedback','Nessuna classe invitata: crea gli inviti da Squadre.',true);
     else feedback('public-notice-feedback','');
   } catch(error) { feedback('public-notice-feedback',error.message,true); }
@@ -231,12 +258,14 @@ function prepareNotifications() {
     audience.value='classes';
   }
   audience.addEventListener('change',updateAudience);
+  el('class-notice-recipients')?.addEventListener('change',updateRecipientCount);
   el('class-notice-sport')?.addEventListener('change',()=>{
     refreshNoticeInvites();
     refreshNoticeHistory();
   });
   el('btn-all-class-notice-recipients')?.addEventListener('click',()=>{
     for(const o of el('class-notice-recipients').options)o.selected=true;
+    updateRecipientCount();
   });
   el('btn-refresh-class-notices')?.addEventListener('click',refreshNoticeHistory);
   el('form-public-notification')?.addEventListener('submit',handleClassNotification,true);
@@ -306,6 +335,7 @@ export async function initIntegratedAdmin({role,sports=[]}={}){
   if(fullAccess(role)){
     el('class-registration-sport')?.addEventListener('change',refreshRegistrations);
     el('btn-refresh-class-registrations')?.addEventListener('click',refreshRegistrations);
+    el('btn-import-existing-classes')?.addEventListener('click',connectExistingTeams);
     el('form-create-class-invite')?.addEventListener('submit',handleInviteSubmit);
     el('class-invite-list')?.addEventListener('click',onInviteListClick);
     el('class-registration-list')?.addEventListener('click',onRegistrationClick);
