@@ -70,7 +70,7 @@ test('class invites, targeted notices and analytics are integrated into existing
     window.__mockSupabase={createClient:()=>({
       from:queryFor,
       rpc:async(name,args)=>{
-        if(name==='send_class_notice'){
+        if(name==='send_team_class_notice'){
           window.__noticeSent=args;
           seeded.class_notices.unshift({id:33,sport_id:args.p_sport_id,title:args.p_title,body:args.p_body,created_at:'2026-10-14T12:00:00Z'});
           seeded.class_notice_recipients.push({notice_id:33,invite_id:args.p_invite_ids[0],read_at:null});
@@ -103,6 +103,7 @@ test('class invites, targeted notices and analytics are integrated into existing
   await expect(page.locator('#class-registration-list')).toContainText('Mario Rossi');
   await page.locator('#public-notification-audience').selectOption('classes');
   await expect(page.locator('#public-notification-target-fields')).toBeVisible();
+  await page.locator('#class-notice-publish-team').check();
   await expect(page.locator('#class-notice-recipients option')).toHaveCount(1);
   await page.locator('#class-notice-recipients').selectOption(['11111111-1111-1111-1111-111111111111']);
   await expect(page.locator('#class-notice-recipient-count')).toContainText('1 classi selezionate');
@@ -112,6 +113,7 @@ test('class invites, targeted notices and analytics are integrated into existing
   await expect(page.locator('#public-notice-feedback')).toContainText('Avviso inviato');
   const submitted=await page.evaluate(()=>window.__noticeSent);
   expect(submitted.p_invite_ids).toEqual(['11111111-1111-1111-1111-111111111111']);
+  expect(submitted.p_publish_to_team).toBe(true);
   await expect(page.locator('#class-notification-history')).toContainText('Nuovo orario');
   await expect(page.locator('#event-analytics-kpis')).toContainText('5 min');
 });
