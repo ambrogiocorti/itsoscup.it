@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tornei-scuola-offline-v51';
+const CACHE_NAME = 'tornei-scuola-offline-v53';
 
 const APP_SHELL = [
   './',
@@ -10,6 +10,10 @@ const APP_SHELL = [
   './live.html',
   './gym.html',
   './bracket-demo.html',
+  './class.html',
+  './admin/innovation.html',
+  './js/class-portal-admin.js',
+  './js/event-analytics.js',
   './manifest.webmanifest',
   './favicon.svg',
   './image.png',
@@ -56,7 +60,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => Promise.allSettled(APP_SHELL.map((url) => cache.add(url))))
+      .then((cache) => cache.addAll(APP_SHELL))
       .catch(() => undefined)
       .then(() => self.skipWaiting())
   );
