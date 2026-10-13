@@ -42,6 +42,7 @@
     <meta name="apple-mobile-web-app-title" content="ITSOS Cup" />
     <link rel="stylesheet" href="css/style.css?v=50"/>
     <link rel="stylesheet" href="css/admin-modules.css?v=50"/>
+    <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
   <body class="admin-page auth-pending">
@@ -77,7 +78,6 @@
         <ul class="sidebar-menu">
           <li><button class="sidebar-link active" data-view="dashboard" id="link-dashboard"><i class="fa-solid fa-house"></i> Dashboard</button></li>
           <li><button class="sidebar-link" data-view="operations" id="link-operations" data-requires-control-center><i class="fa-solid fa-tower-broadcast"></i> Centro di controllo</button></li>
-          <li><a class="sidebar-link" href="../admin/innovation.html" style="text-decoration:none"><i class="fa-solid fa-clipboard-list"></i> Classi · Avvisi · Analisi</a></li>
           <li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
           <li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
           <li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
@@ -231,6 +231,17 @@
               <button class="btn btn-primary" id="btn-print-report"><i class="fa-solid fa-print"></i> Stampa</button>
             </div>
           </div>
+          <section class="card itsos-flow-card" id="event-analytics-panel">
+            <div class="card-header"><i class="fa-solid fa-chart-simple"></i> Analisi post-evento</div>
+            <div class="card-body">
+              <p class="itsos-flow-lead">Indicatori organizzativi calcolati dai dati registrati. I valori mancanti non vengono stimati.</p>
+              <div id="event-analytics-kpis" class="itsos-flow-metrics"><div class="empty-state">Seleziona un torneo.</div></div>
+              <div class="itsos-flow-toolbar" style="margin-top:16px;margin-bottom:0">
+                <button type="button" id="btn-export-event-analytics" class="btn btn-ghost"><i class="fa-solid fa-file-csv"></i> Esporta analisi CSV</button>
+              </div>
+              <div id="event-analytics-feedback" class="itsos-flow-feedback" role="status"></div>
+            </div>
+          </section>
           <div class="report-columns-toolbar">
             <div class="report-columns-panel hidden" id="report-columns-panel"></div>
           </div>
@@ -423,8 +434,30 @@
           <section class="card" id="public-notifications-admin-card" style="margin-top: 14px">
             <div class="card-header"><i class="fa-solid fa-bell"></i> Notifiche pubbliche</div>
             <div class="card-body public-notification-admin-grid">
-              <form id="form-public-notification" class="public-notification-admin-form" data-requires-admin-write>
+              <form id="form-public-notification" class="public-notification-admin-form" data-requires-match-write>
                 <input type="hidden" id="public-notification-id" />
+                <div class="field">
+                  <label for="public-notification-audience">Destinatari</label>
+                  <select id="public-notification-audience" aria-controls="public-notification-target-fields">
+                    <option value="public">Tutti — notifica nella home</option>
+                    <option value="classes">Classi selezionate — portale classe</option>
+                  </select>
+                </div>
+                <div id="public-notification-target-fields" class="itsos-flow-notice-extra" hidden>
+                  <div class="itsos-flow-notice-targets">
+                    <div class="field">
+                      <label for="class-notice-sport">Torneo</label>
+                      <select id="class-notice-sport"><option value="">Seleziona torneo</option></select>
+                    </div>
+                    <div class="field">
+                      <label for="class-notice-recipients">Classi destinatarie</label>
+                      <select id="class-notice-recipients" multiple size="5" aria-describedby="class-notice-tip"></select>
+                      <small class="itsos-flow-help" id="class-notice-tip">Selezione multipla: Ctrl o ⌘ + clic.</small>
+                      <button class="itsos-flow-btn-link" type="button" id="btn-all-class-notice-recipients">Seleziona tutte le classi del torneo</button>
+                    </div>
+                  </div>
+                  <p class="itsos-flow-muted">Il messaggio sarà visibile solo nel portale delle classi selezionate, con conferma di lettura.</p>
+                </div>
                 <div class="field">
                   <label for="public-notification-title">Titolo</label>
                   <input id="public-notification-title" type="text" maxlength="120" placeholder="Es. Cambio palestra" required />
@@ -433,7 +466,7 @@
                   <label for="public-notification-body">Messaggio</label>
                   <textarea id="public-notification-body" rows="4" maxlength="600" placeholder="Scrivi un messaggio chiaro per studenti e classi."></textarea>
                 </div>
-                <div class="inline-grid cols-3">
+                <div id="public-notification-public-options" class="inline-grid cols-3">
                   <div class="field">
                     <label for="public-notification-severity">Tipo</label>
                     <select id="public-notification-severity">
@@ -452,6 +485,7 @@
                     <input id="public-notification-expires" type="datetime-local" />
                   </div>
                 </div>
+                <div id="public-notice-feedback" class="itsos-flow-feedback" role="status" aria-live="polite"></div>
                 <div class="public-notification-admin-actions">
                   <button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Pubblica notifica</button>
                   <button class="btn btn-ghost" id="btn-reset-public-notification" type="button">Nuova</button>
@@ -461,6 +495,13 @@
               <div class="public-notification-admin-list">
                 <div id="public-notifications-admin-list">
                   <div class="empty-state">Caricamento notifiche...</div>
+                </div>
+                <div class="itsos-flow-history">
+                  <div class="itsos-flow-toolbar">
+                    <h3>Avvisi alle classi</h3>
+                    <button type="button" class="btn btn-ghost" id="btn-refresh-class-notices"><i class="fa-solid fa-rotate"></i> Aggiorna</button>
+                  </div>
+                  <div id="class-notification-history" class="itsos-flow-history-list"><p class="itsos-flow-muted">Seleziona un torneo per consultare le letture.</p></div>
                 </div>
               </div>
             </div>
@@ -505,6 +546,37 @@
                 <thead><tr><th>Classe</th><th>Torneo</th><th>Capitano</th><th>Azioni</th></tr></thead>
                 <tbody id="table-teams-body"></tbody>
               </table>
+            </div>
+          </section>
+
+          <section class="card itsos-flow-card" id="class-registration-panel" data-requires-admin-write>
+            <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Iscrizioni delle classi</div>
+            <div class="card-body">
+              <p class="itsos-flow-lead">Una classe per squadra: crea il link di iscrizione, ricevi la proposta e conferma la rosa direttamente qui.</p>
+              <div class="itsos-flow-toolbar">
+                <div class="field">
+                  <label for="class-registration-sport">Torneo</label>
+                  <select id="class-registration-sport"><option value="">Seleziona torneo</option></select>
+                </div>
+                <button id="btn-refresh-class-registrations" class="btn btn-ghost" type="button"><i class="fa-solid fa-rotate"></i> Aggiorna iscrizioni</button>
+              </div>
+              <div class="itsos-flow-grid">
+                <section class="itsos-flow-panel">
+                  <h3>Invita una classe</h3>
+                  <p class="itsos-flow-muted">Ogni codice può essere rigenerato per revocare il precedente.</p>
+                  <form id="form-create-class-invite" class="itsos-flow-form-row">
+                    <div class="field"><label for="class-invite-name">Nome classe</label><input id="class-invite-name" type="text" maxlength="48" placeholder="Es. 4A" required /></div>
+                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i> Crea link</button>
+                  </form>
+                  <div id="class-invite-list" class="itsos-flow-list" aria-live="polite"></div>
+                </section>
+                <section class="itsos-flow-panel">
+                  <h3>Proposte da approvare</h3>
+                  <p class="itsos-flow-muted">Verifica i nominativi, poi approva o richiedi una correzione.</p>
+                  <div id="class-registration-list" class="itsos-flow-list" aria-live="polite"></div>
+                </section>
+              </div>
+              <div id="class-registration-feedback" class="itsos-flow-feedback" role="status"></div>
             </div>
           </section>
         </section>
@@ -1011,7 +1083,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=50').catch((error) => {
+      import('./js/main-admin.js?v=54').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(
