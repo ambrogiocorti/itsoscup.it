@@ -25,11 +25,14 @@ function option(label, value) {
 function setSportOptions(targetId, first = '') {
   const select = el(targetId);
   if (!select) return;
-  select.replaceChildren(option('Seleziona torneo',''),
-    ...state.sports.filter(s => s.sport_type !== 'atletica')
-      .map(s => option(s.name + (s.year ? ' · ' + s.year + '°' : ''),s.id)));
-  if (first && [...select.options].some(o => o.value === String(first))) select.value = String(first);
-  else if (select.options.length > 1) select.selectedIndex = 1;
+  const selected = String(first || select.value || '');
+  const sports = state.sports.filter(s => Number(s.id) > 0 && String(s.sport_type||'').toLowerCase() !== 'atletica');
+  select.replaceChildren(option('— Seleziona un torneo —',''),
+    ...sports.map(s => option(s.name + (s.year ? ' · ' + s.year + '°' : ''),s.id)));
+  if (sports.some(s => String(s.id) === selected)) select.value = selected;
+  else if (sports.length) select.value = String(sports[0].id);
+  select.disabled = !sports.length;
+  if (!sports.length) select.replaceChildren(option('Nessun torneo disponibile — riprova',''));
 }
 function selectedSport(id) { return Number(el(id)?.value || 0); }
 function empty(message) { return '<div class="empty-state compact">' + safeLabel(message) + '</div>'; }
@@ -282,10 +285,24 @@ function exportAnalytics(){
 }
 export async function initIntegratedAdmin({role,sports=[]}={}){
   state.role=role||'';
-  state.sports=sports||[];
+  state.sports=Array.isArray(sports)?sports.filter(s=>s && Number(s.id)>0):[];
+  if(!state.sports.length){
+    try{
+      const {loadSports}=await import('./matches.js');
+      state.sports=await loadSports({includeInactive:true});
+    }catch(error){
+      feedback('class-registration-feedback','Tornei non caricati: '+error.message,true);
+    }
+  }
   setSportOptions('class-registration-sport');
   setSportOptions('class-notice-sport');
   prepareNotifications();
+  el('public-notification-audience')?.addEventListener('change',()=>{
+    feedback('public-notice-feedback',
+      el('public-notification-audience').value==='classes'
+        ? 'Seleziona un torneo e una o più classi qui sotto. Le classi senza invito si possono importare dalle squadre già presenti.'
+        : '');
+  });
   if(fullAccess(role)){
     el('class-registration-sport')?.addEventListener('change',refreshRegistrations);
     el('btn-refresh-class-registrations')?.addEventListener('click',refreshRegistrations);
