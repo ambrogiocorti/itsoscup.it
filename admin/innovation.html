@@ -18,7 +18,7 @@ async function refresh(){
  $('metrics').innerHTML=ms.map(([t,v])=>'<div><strong>'+safeLabel(v)+'</strong>'+safeLabel(t)+'</div>').join('');
  }catch(e){status(e.message,true)}}
 document.addEventListener('click',async e=>{
- const copy=e.target.closest('[data-copy]');if(copy){try{await navigator.clipboard.writeText(new URL('class.html?code='+encodeURIComponent(copy.dataset.copy),location.href).href);status('Link copiato');}catch{status('Copia non riuscita',true)}}
+ const copy=e.target.closest('[data-copy]');if(copy){try{await navigator.clipboard.writeText(new URL('class.html?code='+encodeURIComponent(copy.dataset.copy),document.baseURI).href);status('Link copiato');}catch{status('Copia non riuscita',true)}}
  const d=e.target.closest('[data-decision]');if(d){try{await decideClassRegistration(Number(d.dataset.decision),d.dataset.approve==='1');status('Proposta elaborata');await refresh()}catch(e){status(e.message,true)}}
 });
 $('create-invite').onclick=async()=>{try{await createClassInvite($('sport').value,$('class-name').value);$('class-name').value='';status('Invito creato');await refresh()}catch(e){status(e.message,true)}};
