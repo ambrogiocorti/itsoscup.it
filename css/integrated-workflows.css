@@ -1,0 +1,95 @@
+/* ITSOSCup — componenti aggiuntivi. Eredita i token dal tema principale. */
+.itsos-flow-card { margin-top: 18px; }
+.itsos-flow-card .card-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.itsos-flow-card .card-body { padding: 22px; }
+.itsos-flow-lead { color: var(--color-text-soft); font-size: .91rem; margin: 0 0 17px; line-height: 1.65; }
+.itsos-flow-toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.itsos-flow-toolbar .field { flex: 1 1 215px; min-width: 0; }
+.itsos-flow-toolbar button { flex-shrink: 0; }
+.itsos-flow-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.itsos-flow-panel { min-width: 0; padding: 17px; background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.itsos-flow-panel h3 { margin: 0 0 4px; font-size: 1rem; font-weight: 800; }
+.itsos-flow-panel p { margin: 0 0 13px; }
+.itsos-flow-panel .field { margin-bottom: 12px; }
+.itsos-flow-panel .field input,.itsos-flow-panel .field select,.itsos-flow-panel .field textarea { width: 100%; }
+.itsos-flow-list { display: grid; gap: 10px; max-height: 420px; overflow-y: auto; }
+.itsos-flow-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: start; padding: 13px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
+.itsos-flow-row strong { display: block; font-size: .92rem; overflow-wrap: anywhere; }
+.itsos-flow-row p { margin: 5px 0 0; font-size: .86rem; }
+.itsos-flow-row small { color: var(--color-text-soft); display: block; margin-top: 3px; }
+.itsos-flow-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
+.itsos-flow-actions .btn { white-space: nowrap; }
+.itsos-flow-note { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 10px 13px; color: var(--color-text-soft); font-size: .87rem; }
+.itsos-flow-feedback { min-height: 0; margin-top: 10px; font-size: .88rem; font-weight: 700; color: var(--color-primary); }
+.itsos-flow-feedback.is-error { color: var(--color-danger); }
+.itsos-flow-feedback:empty { display: none; }
+.itsos-flow-form-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 9px; align-items: end; }
+.itsos-flow-form-row .field { margin: 0; }
+.itsos-flow-approval { grid-column: 1/-1; padding-top: 12px; border-top: 1px solid var(--color-border); }
+.itsos-flow-approval textarea { width: 100%; margin-bottom: 8px; }
+.itsos-flow-approval .itsos-flow-actions { justify-content: flex-start; }
+.itsos-flow-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: .74rem; font-weight: 800; margin-left: 7px; }
+.itsos-flow-badge.is-ok { background: #d1fae5; color: #047857; }
+.itsos-flow-badge.is-denied { background: #fee2e2; color: #b91c1c; }
+.itsos-flow-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.itsos-flow-metric { padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-soft); }
+.itsos-flow-metric strong { display: block; font-size: clamp(1.4rem,2.3vw,2rem); line-height: 1.2; font-weight: 900; color: var(--color-text); }
+.itsos-flow-metric span { display: block; margin-top: 5px; font-size: .82rem; color: var(--color-text-soft); }
+.itsos-flow-metric:nth-child(1) strong { color: var(--primary); }
+.itsos-flow-notice-extra { padding: 14px 0 4px; }
+.itsos-flow-notice-extra[hidden],.itsos-flow-notice-row[hidden] { display: none !important; }
+.itsos-flow-notice-extra select[multiple] { min-height: 152px; width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); padding: 8px; }
+.itsos-flow-notice-extra select[multiple] option { padding: 8px; border-radius: 6px; }
+.itsos-flow-notice-extra select[multiple] option:checked { background: #dbeafe linear-gradient(#dbeafe,#dbeafe); color: #1d4ed8; }
+.itsos-flow-notice-targets { display: grid; grid-template-columns: minmax(130px, .75fr) minmax(190px,1.25fr); gap: 14px; }
+.itsos-flow-history { border-top: 1px solid var(--color-border); margin-top: 17px; padding-top: 15px; }
+.itsos-flow-history h3 { margin: 0 0 10px; font-size: .97rem; }
+.itsos-flow-history-list { max-height: 330px; overflow-y: auto; display: grid; gap: 9px; }
+.itsos-flow-history-row { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-soft); }
+.itsos-flow-history-row strong { font-size: .87rem; }
+.itsos-flow-history-row p { margin: 3px 0; font-size: .84rem; color: var(--color-text-soft); overflow-wrap: anywhere; }
+.itsos-flow-history-row small { color: var(--color-text-soft); }
+.itsos-flow-btn-link { background: none; border: 0; color: var(--primary); padding: 0; cursor: pointer; font-weight: 750; }
+.itsos-flow-help { display: block; color: var(--color-text-soft); font-size: .8rem; margin-top: 6px; }
+.itsos-flow-muted { color: var(--color-text-soft); font-size: .88rem; }
+.itsos-flow-hidden { display: none !important; }
+
+/* Class portal uses the same topbar, cards, fields, and typography as the site. */
+.class-portal-body { min-height: 100vh; background: var(--bg-main); }
+.class-portal-topbar { border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
+.class-portal-topbar-inner { max-width: 1020px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 22px; }
+.class-portal-logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 900; font-size: 1.25rem; color: var(--color-text); text-decoration: none; }
+.class-portal-logo i { color: var(--primary); }
+.class-portal-container { max-width: 1020px; margin: 0 auto; padding: 34px 22px 70px; }
+.class-portal-intro { margin-bottom: 24px; }
+.class-portal-intro h1 { font-size: clamp(1.6rem,3vw,2.3rem); line-height: 1.2; margin: 0 0 10px; font-weight: 900; color: var(--color-text); }
+.class-portal-intro p { color: var(--color-text-soft); margin: 0; max-width: 660px; }
+.class-portal-grid { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr); gap: 18px; }
+.class-portal-grid .card { margin: 0; min-width: 0; }
+.class-portal-grid .card-body { padding: 22px; }
+.class-portal-grid .field { margin-bottom: 14px; }
+.class-portal-grid .field :is(input,select,textarea) { width: 100%; }
+.class-portal-access { max-width: 600px; margin: 0 0 24px; }
+.class-portal-notice { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 13px; margin-bottom: 12px; background: var(--color-surface-soft); }
+.class-portal-notice strong { display: block; color: var(--color-text); }
+.class-portal-notice p { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; margin: 8px 0; }
+.class-portal-notice small { display: block; color: var(--color-text-soft); margin-bottom: 10px; }
+.class-portal-status { margin: 10px 0 0; font-weight: 700; color: var(--primary); }
+.class-portal-status.is-error { color: var(--color-danger); }
+.class-portal-badge { padding: 5px 10px; border: 1px solid var(--color-border); border-radius: 999px; font-size: .8rem; font-weight: 800; background: var(--color-surface-soft); }
+.class-portal-grid[hidden],.class-portal-access[hidden] { display: none !important; }
+@media(max-width: 900px) {
+  .itsos-flow-grid,.class-portal-grid { grid-template-columns: minmax(0,1fr); }
+  .itsos-flow-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width: 640px) {
+  .itsos-flow-card .card-body { padding: 15px; }
+  .itsos-flow-row,.itsos-flow-form-row,.itsos-flow-notice-targets { grid-template-columns: 1fr; }
+  .itsos-flow-actions { justify-content: flex-start; }
+  .itsos-flow-toolbar { align-items: stretch; }
+  .itsos-flow-toolbar button { width: 100%; }
+  .public-notification-admin-grid { grid-template-columns: minmax(0,1fr); }
+  .class-portal-container { padding: 22px 15px 48px; }
+  .class-portal-topbar-inner { padding: 14px 15px; }
+}
+@media print { .itsos-flow-card .itsos-flow-actions, .itsos-flow-card button { display:none!important; } }
