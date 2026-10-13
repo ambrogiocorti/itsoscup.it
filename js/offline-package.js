@@ -50,8 +50,18 @@ export async function createEncryptedPackage({kind='prepared',passphrase}={}){
  checkCrypto();
  if(typeof passphrase!=='string'||passphrase.length<12)throw new Error('La password del pacchetto deve avere almeno 12 caratteri');
  const matches=await listLiveCacheEntries();
+ const index=new Map(matches.map(entry=>[Number(entry.match_id),entry]));
  const all=await listOfflineOperations();
- const operations=kind==='results'?all.filter(o=>o.type==='live_snapshot'&&['queued','conflict'].includes(o.status)):[];
+ const operations=kind==='results'
+  ?all.filter(o=>o.type==='live_snapshot'&&['queued','conflict'].includes(o.status)).map(o=>{
+    const version=Number.isSafeInteger(Number(o.base_version))&&o.base_version!=null
+      ?Number(o.base_version):Number(index.get(Number(o.match_id))?.match?.lock_version);
+    if(!Number.isSafeInteger(version)||version<0)
+      throw new Error('Bozza match '+o.match_id+' senza versione di riferimento: esportazione non sicura. Preparare nuovamente il match.');
+    return {...o,base_version:version};
+  }):[];
+ if(kind==='prepared'&&!matches.length)throw new Error('Non ci sono partite preparate da esportare');
+ if(kind==='results'&&!operations.length)throw new Error('Nessun risultato registrato da esportare');
  const deviceId=await getOfflineDeviceId();
  const payload={schema:FORMAT,version:VERSION,kind,device_id:deviceId,created_at:new Date().toISOString(),matches,operations};
  validateOfflinePayload(payload);
