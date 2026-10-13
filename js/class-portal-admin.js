@@ -26,11 +26,14 @@ export async function listClassRegistrations(sportId){
 export async function decideClassRegistration(id,approve,reason=''){
  return runRpc('decide_class_registration',{p_registration_id:Number(id),p_approve:!!approve,p_reason:reason},'Conferma iscrizione');
 }
-export async function sendClassNotice(sportId,title,body,inviteIds){
- return runRpc('send_class_notice',{p_sport_id:Number(sportId),p_title:title,p_body:body,p_invite_ids:inviteIds},'Invio avviso');
+export async function sendClassNotice(sportId,title,body,inviteIds,{publishToTeam=false}={}){
+ return runRpc('send_team_class_notice',{
+  p_sport_id:Number(sportId),p_title:title,p_body:body,p_invite_ids:inviteIds,
+  p_publish_to_team:Boolean(publishToTeam)
+ },'Invio avviso');
 }
 export async function listClassNoticeHistory(sportId){
- const {data:notices}=await run(db.from('class_notices').select('id,title,body,created_at').eq('sport_id',Number(sportId)).order('created_at',{ascending:false}).limit(100),'Cronologia avvisi');
+ const {data:notices}=await run(db.from('class_notices').select('id,title,body,created_at,published_to_team').eq('sport_id',Number(sportId)).order('created_at',{ascending:false}).limit(100),'Cronologia avvisi');
  const ids=(notices||[]).map(n=>n.id);
  if(!ids.length)return [];
  const {data:receipts}=await run(db.from('class_notice_recipients').select('notice_id,invite_id,read_at').in('notice_id',ids),'Conferme lettura');
