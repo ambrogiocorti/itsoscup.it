@@ -46,3 +46,40 @@ test('USB package encryption, zero-network startup and offline draft persistence
   await expect(page.locator('#offline-operations')).toContainText('9911001');
   await context.setOffline(false);
 });
+
+test('a second independent device imports an encrypted USB package while completely offline',async({browser})=>{
+  const sender=await browser.newContext();
+  const receiver=await browser.newContext();
+  try{
+    const outgoing=await sender.newPage();
+    const incoming=await receiver.newPage();
+    await outgoing.goto('/offline-workspace.html');
+    const data=await outgoing.evaluate(async()=>{
+      const {putLiveCacheEntry}=await import('/js/offline-db.js');
+      const {createEncryptedPackage}=await import('/js/offline-package.js');
+      await putLiveCacheEntry({
+        match_id:9912001,cached_at:'2026-10-14T08:00:00Z',
+        match:{id:9912001,lock_version:1,is_finished:false,
+          home:{name:'3A'},away:{name:'3B'},home_score:0,away_score:0,live_payload:{}},
+        config:{},homePlayers:[],awayPlayers:[],stats:[]
+      });
+      return createEncryptedPackage({kind:'prepared',passphrase:'PasswordUSBScuola1234'});
+    });
+    // Receiver must install shell while connected; after that no LAN or Internet is available.
+    await incoming.goto('/offline-workspace.html');
+    await incoming.waitForFunction(()=>navigator.serviceWorker?.controller!=null);
+    await receiver.setOffline(true);
+    await incoming.locator('#offline-package-password').fill('PasswordUSBScuola1234');
+    await incoming.locator('#offline-package-file').setInputFiles({
+      name:'itsoscup-prepared.json',mimeType:'application/json',buffer:Buffer.from(data,'utf8')
+    });
+    await incoming.locator('#offline-import').click();
+    await expect(incoming.locator('#offline-matches')).toContainText('3A');
+    await expect(incoming.locator('#offline-status')).toContainText('1 partite');
+    await incoming.reload();
+    await expect(incoming.locator('#offline-matches')).toContainText('3B');
+  }finally{
+    await sender.close();
+    await receiver.close();
+  }
+});
