@@ -131,6 +131,7 @@ begin
  return v_team_id;
 end $$;
 revoke all on function public.decide_class_registration(bigint,boolean,text) from public;
+revoke execute on function public.decide_class_registration(bigint,boolean,text) from anon;
 grant execute on function public.decide_class_registration(bigint,boolean,text) to authenticated;
 
 create or replace function public.send_class_notice(p_sport_id bigint,p_title text,p_body text,p_invite_ids uuid[])
@@ -153,6 +154,7 @@ begin
  return v_notice;
 end $$;
 revoke all on function public.send_class_notice(bigint,text,text,uuid[]) from public;
+revoke execute on function public.send_class_notice(bigint,text,text,uuid[]) from anon;
 grant execute on function public.send_class_notice(bigint,text,text,uuid[]) to authenticated;
 
 create or replace function public.class_portal(p_code text)
