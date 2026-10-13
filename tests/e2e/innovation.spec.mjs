@@ -97,11 +97,15 @@ test('class invites, targeted notices and analytics are integrated into existing
       document.getElementById(id).classList.add('active');
     }
   });
+  await expect(page.locator('#class-registration-sport')).toHaveValue('1');
+  await expect(page.locator('#class-notice-sport')).toHaveValue('1');
   await expect(page.locator('#class-invite-list')).toContainText('4A');
   await expect(page.locator('#class-registration-list')).toContainText('Mario Rossi');
   await page.locator('#public-notification-audience').selectOption('classes');
   await expect(page.locator('#public-notification-target-fields')).toBeVisible();
+  await expect(page.locator('#class-notice-recipients option')).toHaveCount(1);
   await page.locator('#class-notice-recipients').selectOption(['11111111-1111-1111-1111-111111111111']);
+  await expect(page.locator('#class-notice-recipient-count')).toContainText('1 classi selezionate');
   await page.locator('#public-notification-title').fill('Nuovo orario');
   await page.locator('#public-notification-body').fill('Controllare il nuovo orario.');
   await page.locator('#form-public-notification button[type="submit"]').click();
