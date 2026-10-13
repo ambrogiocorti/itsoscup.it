@@ -143,6 +143,24 @@ export async function enqueueOfflineOperation({ type, matchId = null, payload = 
   }
 }
 
+/** Preserve a transferred operation UUID; never overwrite the receiver's existing record. */
+export async function addOfflineOperationIfAbsent(operation) {
+  const db=await openOfflineDb();
+  if(!db)throw new Error('IndexedDB non disponibile: impossibile importare senza salvataggio persistente');
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORES.OPERATIONS,'readwrite');
+    const store=tx.objectStore(STORES.OPERATIONS);
+    let inserted=false;
+    const lookup=store.get(operation.id);
+    lookup.onsuccess=()=>{
+      if(lookup.result)return;
+      store.add(operation);inserted=true;
+    };
+    tx.oncomplete=()=>resolve(inserted);
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error);
+  });
+}
 export async function listOfflineOperations({ status = null } = {}) {
   try {
     const request = await withStore(STORES.OPERATIONS, 'readonly', (store) => store.getAll());
