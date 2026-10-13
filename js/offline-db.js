@@ -47,26 +47,26 @@ function openOfflineDb() {
 }
 
 async function withStore(storeName, mode, callback) {
-  const db = await openOfflineDb();
-  if (!db) return null;
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, mode);
-    const store = tx.objectStore(storeName);
-    let callbackResult;
-
-    tx.oncomplete = () => resolve(callbackResult);
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error);
-
-    callbackResult = callback(store);
-  });
-}
-
-function requestToPromise(request) {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+  const db=await openOfflineDb();
+  if(!db)return null;
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(storeName,mode);
+    const store=tx.objectStore(storeName);
+    let output=null;
+    try{
+      const request=callback(store);
+      if(request && typeof request==='object' && 'onsuccess' in request){
+        // IDB events fire BEFORE transaction completion: capture result here.
+        request.onsuccess=()=>{output=request.result;};
+      }else output=request;
+    }catch(error){
+      tx.abort();
+      reject(error);
+      return;
+    }
+    tx.oncomplete=()=>resolve(output);
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error||new Error('Transazione locale annullata'));
   });
 }
 
@@ -82,8 +82,7 @@ export async function putLiveCacheEntry(entry) {
 
 export async function getLiveCacheEntry(matchId) {
   try {
-    const request = await withStore(STORES.LIVE_CACHE, 'readonly', (store) => store.get(Number(matchId)));
-    return request ? await requestToPromise(request) : null;
+    return await withStore(STORES.LIVE_CACHE, 'readonly', (store) => store.get(Number(matchId)));
   } catch (_error) {
     return null;
   }
@@ -91,8 +90,7 @@ export async function getLiveCacheEntry(matchId) {
 
 export async function listLiveCacheEntries() {
   try {
-    const request = await withStore(STORES.LIVE_CACHE, 'readonly', (store) => store.getAll());
-    return request ? await requestToPromise(request) : [];
+    return (await withStore(STORES.LIVE_CACHE, 'readonly', (store) => store.getAll())) ?? [];
   } catch (_error) {
     return [];
   }
@@ -109,8 +107,7 @@ export async function putMeta(key, value) {
 
 export async function getMeta(key, fallback = null) {
   try {
-    const request = await withStore(STORES.META, 'readonly', (store) => store.get(key));
-    const row = request ? await requestToPromise(request) : null;
+    const row = await withStore(STORES.META, 'readonly', (store) => store.get(key));
     return row?.value ?? fallback;
   } catch (_error) {
     return fallback;
@@ -163,8 +160,7 @@ export async function addOfflineOperationIfAbsent(operation) {
 }
 export async function listOfflineOperations({ status = null } = {}) {
   try {
-    const request = await withStore(STORES.OPERATIONS, 'readonly', (store) => store.getAll());
-    const rows = request ? await requestToPromise(request) : [];
+    const rows = (await withStore(STORES.OPERATIONS, 'readonly', (store) => store.getAll())) ?? [];
     return status ? rows.filter((row) => row.status === status) : rows;
   } catch (_error) {
     return [];
