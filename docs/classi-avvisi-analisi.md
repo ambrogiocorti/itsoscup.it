@@ -10,7 +10,7 @@ nel branch `feat/offline-registrations-notices-analytics` fino alla pubblicazion
 
 - **Iscrizioni:** un invito per classe, codice di accesso casuale, roster e
   capitano, proposta in sospeso, approvazione/rifiuto; approvando si crea una
-  squadra con i giocatori. I duplicati di classe/squadra sono bloccati.
+  squadra con i giocatori. I duplicati di classe/squadra sono bloccati.\n  Il codice di invito può essere rigenerato lato server per invalidare un link compromesso.
 - **Avvisi:** un amministratore operativo seleziona le classi destinatarie.
   Le classi visualizzano gli avvisi tramite il portale e confermano la lettura.
   Il trigger del calendario pubblica automaticamente gli aggiornamenti per le
@@ -46,7 +46,7 @@ nel branch `feat/offline-registrations-notices-analytics` fino alla pubblicazion
   `Allow all` e revoca i permessi di scrittura anonimi.
 - `sql/043_admin_directory_policy.sql` — lettura staff autorizzato.
 - `sql/044_automatic_class_schedule_notices.sql` — trigger di calendario.
-- `sql/045_class_notice_sort_order.sql` — ordinamento deterministico.
+- `sql/045_class_notice_sort_order.sql` — ordinamento deterministico.\n- `sql/046_class_code_rotation.sql` — rigenerazione sicura del codice; nel database\n  esistente è stata applicata anche una correzione della posizione dell'estensione `pgcrypto`.
 
 Per nuovi ambienti, applicare tutte queste migrazioni nell'ordine indicato,
 dopo aver ripristinato lo schema storico e le funzioni amministrative esistenti.
@@ -60,7 +60,7 @@ dopo aver ripristinato lo schema storico e le funzioni amministrative esistenti.
   e conferma lettura.
 - Trigger di calendario (stesso metodo): inserimento partita e riprogrammazione
   producono due avvisi della classe.
-- GitHub Actions: controlli sintattici JS e HTML e test unitari delle metriche.
+- GitHub Actions: controlli sintattici JS e HTML, test unitari delle metriche\n  e test browser con Supabase simulato.
 
 **Non verificato:** test manuale browser con utenti reali, notifica fuori dal
 portale, test offline completo e sincronizzazione fra più postazioni. La suite
