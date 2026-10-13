@@ -8,7 +8,7 @@ begin
    raise exception 'Accesso non autorizzato';
  end if;
  update public.class_invites
- set access_code=encode(gen_random_bytes(24),'hex'),is_active=true
+ set access_code=encode(extensions.gen_random_bytes(24),'hex'),is_active=true
  where id=p_invite_id
  returning access_code into new_code;
  if not found then raise exception 'Classe non trovata'; end if;
