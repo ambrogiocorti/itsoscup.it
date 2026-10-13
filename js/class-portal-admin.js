@@ -13,6 +13,9 @@ export async function createClassInvite(sportId,className){
  const {data}=await run(db.from('class_invites').insert({sport_id:Number(sportId),class_name:name}).select().single(),'Creazione invito');
  return data;
 }
+export async function importExistingTeamsAsClasses(sportId){
+ return runRpc('import_existing_teams_as_classes',{p_sport_id:Number(sportId)},'Importa squadre esistenti');
+}
 export async function rotateClassInvite(inviteId){
  return runRpc('rotate_class_invite',{p_invite_id:inviteId},'Rigenerazione codice classe');
 }
