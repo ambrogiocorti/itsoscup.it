@@ -22,3 +22,16 @@ jobs:
         run: npm run check:inline
       - name: Innovation analytics tests
         run: npm run test:innovation
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Class portal and admin smoke tests
+        run: npx playwright test tests/e2e/innovation.spec.mjs --project=desktop
