@@ -13,6 +13,9 @@ export async function createClassInvite(sportId,className){
  const {data}=await run(db.from('class_invites').insert({sport_id:Number(sportId),class_name:name}).select().single(),'Creazione invito');
  return data;
 }
+export async function rotateClassInvite(inviteId){
+ return runRpc('rotate_class_invite',{p_invite_id:inviteId},'Rigenerazione codice classe');
+}
 export async function listClassRegistrations(sportId){
  const {data}=await run(db.from('class_registrations').select('*').eq('sport_id',Number(sportId)).order('submitted_at',{ascending:false}),'Iscrizioni');
  return data||[];
