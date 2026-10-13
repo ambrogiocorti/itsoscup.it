@@ -19,6 +19,8 @@ test('USB package encryption, zero-network startup and offline draft persistence
   });
   expect(prepared.ok).toBe(true);
   expect(prepared.rejected).toBe(true);
+  // Direct IDB test setup does not dispatch a UI event; trigger the same refresh used by the operator.
+  await page.locator('#offline-refresh').click();
   await expect(page.locator('#offline-matches')).toContainText('4A');
   await page.locator('[data-open-match="9911001"]').click();
   await page.locator('#offline-home-score').fill('2');
