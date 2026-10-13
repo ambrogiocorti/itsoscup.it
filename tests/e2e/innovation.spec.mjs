@@ -67,7 +67,7 @@ test('class invites, targeted notices and analytics are integrated into existing
       };
       return q;
     }
-    window.supabase={createClient:()=>({
+    window.__mockSupabase={createClient:()=>({
       from:queryFor,
       rpc:async(name,args)=>{
         if(name==='send_class_notice'){
@@ -87,6 +87,7 @@ test('class invites, targeted notices and analytics are integrated into existing
   });
   await page.goto('/admin/');
   await page.evaluate(async()=>{
+    window.supabase=window.__mockSupabase;
     document.body.classList.remove('auth-pending');
     const report=document.getElementById('report-sport-select');
     report.replaceChildren(new Option('Calcio','1'));
