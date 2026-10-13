@@ -14,7 +14,7 @@ async function refresh(){
  $('registrations').innerHTML=r.map(x=>'<div><strong>'+safeLabel(x.class_name)+'</strong> · '+safeLabel(x.status)+'<p>Capitano: '+safeLabel(x.captain_name)+' · '+(Array.isArray(x.roster)?x.roster.length:0)+' studenti</p>'+(x.status==='pending'?'<button data-decision="'+x.id+'" data-approve="1">Approva</button><button class="in-btn-alt" data-decision="'+x.id+'" data-approve="0">Rifiuta</button>':'')+'</div>').join('')||'<p>Nessuna proposta.</p>';
  $('recipients').innerHTML=i.map(x=>'<label><input type="checkbox" class="class-recipient" value="'+x.id+'"> '+safeLabel(x.class_name)+'</label>').join('')||'<p>Crea prima un invito classe.</p>';
  $('history').innerHTML=h.map(x=>'<div><strong>'+safeLabel(x.title)+'</strong><p class="in-muted">'+safeLabel(new Date(x.created_at).toLocaleString('it-IT'))+' · '+x.recipients.filter(y=>y.read_at).length+'/'+x.recipients.length+' letture confermate</p></div>').join('')||'<p>Nessun avviso inviato.</p>';
- const ms=[['Partite',a.total],['Concluse',a.completed],['Da completare',a.pending],['Inizi monitorati',a.measuredStarts],['Avvii in ritardo',a.lateStarts],['Ritardo medio',a.averageDelay===null?'ND':a.averageDelay+' min'],['Durata media',a.averageDuration===null?'ND':a.averageDuration+' min'],['Riprogrammazioni',a.reschedules]];
+ const ms=[['Partite',a.total],['Concluse',a.completed],['Da completare',a.pending],['Inizi monitorati',a.measuredStarts],['Avvii in ritardo',a.lateStarts],['Ritardo medio',a.averageDelay===null?'ND':a.averageDelay+' min'],['Durata media',a.averageDuration===null?'ND':a.averageDuration+' min'],['Riprogrammazioni',a.reschedules],['Riaperture per correzione',a.corrections]];
  $('metrics').innerHTML=ms.map(([t,v])=>'<div><strong>'+safeLabel(v)+'</strong>'+safeLabel(t)+'</div>').join('');
  }catch(e){status(e.message,true)}}
 document.addEventListener('click',async e=>{
@@ -26,4 +26,4 @@ $('send-notice').onclick=async()=>{try{const ids=[...document.querySelectorAll('
 $('export').onclick=()=>{if(!analytics)return;const blob=new Blob([analyticsCsv(analytics)],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='itsoscup-analisi-'+$('sport').value+'.csv';a.click();URL.revokeObjectURL(url)};
 $('sport').onchange=refresh;
 try{const auth=await requireAdmin();if(!auth.allowed||!canEditMatches(auth.admin?.ruolo))throw new Error('Accesso limitato ai responsabili dei tornei');await sports();await refresh()}catch(e){status(e.message,true);document.querySelectorAll('button').forEach(b=>b.disabled=true)}
-</script></body></html>
+</script><script>if('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('./sw.js').catch(()=>{});</script></body></html>
