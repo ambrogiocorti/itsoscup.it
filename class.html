@@ -29,4 +29,4 @@ async function load(){
 $('open').onclick=load;
 $('registration').onsubmit=async e=>{e.preventDefault();try{await runRpc('submit_class_registration',{p_code:code(),p_roster:names(),p_captain:$('captain').value},'Invio proposta');status('Proposta inviata');await load()}catch(error){status(error.message,true)}};
 const query=new URLSearchParams(location.search).get('code');if(query){$('code').value=query;load()}
-</script></body></html>
+</script><script>if('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('./sw.js').catch(()=>{});</script></body></html>
