@@ -110,7 +110,7 @@ test('class invites, targeted notices and analytics are integrated into existing
   await page.locator('#public-notification-title').fill('Nuovo orario');
   await page.locator('#public-notification-body').fill('Controllare il nuovo orario.');
   await page.locator('#form-public-notification button[type="submit"]').click();
-  await expect(page.locator('#public-notice-feedback')).toContainText('Avviso inviato');
+  await expect(page.locator('#public-notice-feedback')).toContainText('Avviso pubblicato');
   const submitted=await page.evaluate(()=>window.__noticeSent);
   expect(submitted.p_invite_ids).toEqual(['11111111-1111-1111-1111-111111111111']);
   expect(submitted.p_publish_to_team).toBe(true);
