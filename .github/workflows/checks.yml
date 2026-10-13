@@ -34,4 +34,4 @@ jobs:
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Class portal and admin smoke tests
-        run: npx playwright test tests/e2e/innovation.spec.mjs --project=desktop
+        run: npx playwright test tests/e2e/innovation.spec.mjs tests/e2e/offline-workspace.spec.mjs --project=desktop
