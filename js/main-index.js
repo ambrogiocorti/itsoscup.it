@@ -34,6 +34,7 @@ import {
   showToast,
 } from './utils.js';
 import { buildKnockoutBracket, renderKnockoutBracketHtml } from './knockout-bracket.js';
+import { loadPublicTeamNotices } from './team-notices.js';
 
 const DEFAULT_SUBTITLE =
   'Risultati e classifica in tempo reale';
@@ -843,6 +844,13 @@ async function renderTeamProfile({ teamId, teams, matches, standings, config }) 
           }
         </div>
       </section>
+      <section class="team-profile-panel team-profile-announcements">
+        <h3><i class="fa-solid fa-bell"></i> Avvisi per la squadra</h3>
+        <p class="team-announcements-helper">Comunicazioni pubbliche dedicate alla squadra e variazioni del calendario.</p>
+        <div id="team-public-notices-list" class="team-public-notices-list" aria-live="polite">
+          <div class="empty-state">Caricamento avvisi…</div>
+        </div>
+      </section>
       <section class="team-profile-panel team-profile-calendar">
         <h3><i class="fa-solid fa-calendar-days"></i> Calendario squadra</h3>
         <div class="team-match-list">
@@ -867,6 +875,28 @@ async function renderTeamProfile({ teamId, teams, matches, standings, config }) 
       </section>
     </div>
   `;
+
+  const noticeContainer = content.querySelector('#team-public-notices-list');
+  if (noticeContainer) {
+    loadPublicTeamNotices(state.selectedSportId,teamId).then((notices)=>{
+      if(!noticeContainer.isConnected)return;
+      noticeContainer.innerHTML = notices.length
+        ? notices.map((item)=>`
+          <article class="team-public-notice">
+            <div class="team-public-notice-top">
+              <strong>${escapeHtml(item.title)}</strong>
+              <time datetime="${escapeHtml(item.created_at||'')}">${escapeHtml(item.created_at ? formatDateTime(item.created_at) : '')}</time>
+            </div>
+            <p>${escapeHtml(item.body)}</p>
+          </article>`).join('')
+        : '<div class="empty-state">Nessun avviso pubblico per questa squadra.</div>';
+    }).catch((error)=>{
+      if(noticeContainer.isConnected){
+        noticeContainer.innerHTML = '<div class="empty-state">Avvisi temporaneamente non disponibili.</div>';
+        console.warn('Avvisi squadra non disponibili:',error);
+      }
+    });
+  }
 
   content.querySelectorAll('[data-match-id]').forEach((button) => {
     button.addEventListener('click', () => openMatchDetails(button.dataset.matchId));

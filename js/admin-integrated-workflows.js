@@ -216,10 +216,11 @@ async function refreshNoticeHistory() {
       const receipts=n.recipients||[];
       const read=receipts.filter(x=>Boolean(x.read_at));
       const pending=receipts.filter(x=>!x.read_at).map(x=>classesById.get(x.invite_id)||'Classe');
+      const visibility=n.published_to_team?'· Pubblico nelle pagine squadra':'· Solo portale classe';
       return `<article class="itsos-flow-history-row">
         <strong>${safeLabel(n.title)}</strong>
         <p>${safeLabel(n.body)}</p>
-        <small>${safeLabel(formattedDate(n.created_at))} · Letto da ${read.length}/${receipts.length} classi</small>
+        <small>${safeLabel(formattedDate(n.created_at))} · Letto da ${read.length}/${receipts.length} classi ${safeLabel(visibility)}</small>
         ${pending.length?'<small>In attesa: '+pending.map(safeLabel).join(', ')+'</small>':''}
       </article>`;
     }).join(''):empty('Nessun avviso indirizzato alle classi del torneo.');
@@ -241,10 +242,14 @@ async function handleClassNotification(event) {
   if(button)button.disabled=true;
   feedback('public-notice-feedback','Pubblicazione in corso…');
   try {
-    await sendClassNotice(selectedSport('class-notice-sport'),title,body,ids);
+    const publishToTeam=Boolean(el('class-notice-publish-team')?.checked);
+    await sendClassNotice(selectedSport('class-notice-sport'),title,body,ids,{publishToTeam});
     el('public-notification-title').value='';
     el('public-notification-body').value='';
-    feedback('public-notice-feedback','Avviso inviato alle classi selezionate.');
+    if(el('class-notice-publish-team'))el('class-notice-publish-team').checked=false;
+    feedback('public-notice-feedback',publishToTeam
+      ?'Avviso pubblicato nei portali classe e nelle pagine pubbliche delle squadre.'
+      :'Avviso privato inviato ai portali delle classi selezionate.');
     await refreshNoticeHistory();
   } catch(error) { feedback('public-notice-feedback',error.message,true); }
   finally {if(button)button.disabled=false;}
@@ -270,7 +275,11 @@ function prepareNotifications() {
   el('btn-refresh-class-notices')?.addEventListener('click',refreshNoticeHistory);
   el('form-public-notification')?.addEventListener('submit',handleClassNotification,true);
   el('btn-reset-public-notification')?.addEventListener('click',()=>{
-    window.setTimeout(()=>{if(!fullAccess(state.role)) audience.value='classes';updateAudience();feedback('public-notice-feedback','');},0);
+    window.setTimeout(()=>{
+      if(!fullAccess(state.role))audience.value='classes';
+      if(el('class-notice-publish-team'))el('class-notice-publish-team').checked=false;
+      updateAudience();feedback('public-notice-feedback','');
+    },0);
   });
   el('public-notifications-admin-list')?.addEventListener('click',e=>{
     if(e.target.closest('[data-action="edit-public-notification"]')){
