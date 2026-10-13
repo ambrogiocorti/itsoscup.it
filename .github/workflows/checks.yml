@@ -18,5 +18,7 @@ jobs:
       - name: JavaScript syntax
         run: npm run check:js
       # Legacy static checks depend on sql/ and supabase/ files omitted from GitHub.
+      - name: Inline page module syntax
+        run: npm run check:inline
       - name: Innovation analytics tests
         run: npm run test:innovation
