@@ -457,3 +457,19 @@
 #view-operations .regia-grid .card-header { min-height:50px; }
 #view-operations .regia-grid .card-body { min-width:0; }
 @media(max-width:620px){#view-operations .regia-quick-links{display:grid;grid-template-columns:1fr 1fr}#view-operations .regia-quick-links a{justify-content:space-between}#view-operations .regia-quick-links a:nth-child(2){grid-column:span 2}}
+
+/* Centro di controllo: priorità, stato e azioni subito leggibili. */
+#view-operations .top-row { margin-bottom:18px; align-items:center; }
+#view-operations .regia-summary { border:1px solid var(--color-border); border-radius:12px; }
+#view-operations .regia-quick-links a { min-height:42px; }
+#view-operations .regia-stats-grid { margin-bottom:18px; }
+#view-operations .regia-stats-grid .stat-card { border:1px solid var(--color-border); border-radius:12px; }
+#view-operations .regia-stats-grid .stat-value { font-variant-numeric:tabular-nums; }
+#view-operations .regia-grid { align-items:start; }
+#view-operations .regia-grid .regia-wide-card { min-width:0; }
+#view-operations .regia-detail-card > summary:hover { background:var(--bg-main); }
+#view-operations .regia-detail-card > summary:focus-visible { outline:3px solid var(--primary); outline-offset:-3px; }
+@media (max-width: 760px) {
+ #view-operations .regia-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ #view-operations .regia-stats-grid .stat-value { font-size:1.5rem; }
+}
