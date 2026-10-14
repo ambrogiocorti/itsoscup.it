@@ -30,6 +30,10 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
     assert.equal((await page.locator('#'+id).innerText()).trim(),label,'Native platform menu must match site: '+id);
   }
   process.stdout.write('Site view width: ' + await page.evaluate(() => window.innerWidth) + '\n');
+  if (await page.evaluate(() => innerWidth >= 901)) {
+    assert.equal(await page.locator('#btn-mobile-menu').isVisible(), false, 'Full website sidebar must remain visible on ordinary Windows viewport');
+    assert.equal(await page.locator('#admin-sidebar').isVisible(), true);
+  }
   await clickSiteSidebar(page,'link-dashboard');
   assert.equal(await page.locator('#view-dashboard').isVisible(),true);
   await clickSiteSidebar(page,'link-reports');
