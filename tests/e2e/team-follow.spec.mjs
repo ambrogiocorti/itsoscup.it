@@ -190,3 +190,40 @@ test('favorites and read updates survive an actual Chromium process restart on t
     await rm(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 });
+
+test('header star popup and notification read states persist independently', async ({ page, context }) => {
+  await installFixture(context);
+  await context.addInitScript(() => {
+    window.__rows.urgent_announcements = [
+      { id: 41, is_active: true, title: 'Cambio palestra', body: 'Spostata al campo 2', created_at: '2026-10-14T08:00:00Z' },
+      { id: 42, is_active: true, title: 'Nuovo orario', body: 'Ore 11', created_at: '2026-10-14T09:00:00Z' },
+    ];
+  });
+  await page.goto('/');
+  await expect(page.locator('#my-teams-popover')).toBeHidden();
+  await page.locator('#my-teams-toggle').click();
+  await expect(page.locator('#my-teams-popover')).toBeVisible();
+  await expect(page.locator('#my-teams-content')).toContainText('Nessuna squadra seguita');
+  await expect(page.locator('#my-teams-content')).not.toContainText('Scegli un torneo');
+  await page.locator('#my-teams-close').click();
+  await expect(page.locator('#my-teams-popover')).toBeHidden();
+  await page.locator('#public-notifications-btn').click();
+  await expect(page.locator('#public-notifications-list .public-notification-item')).toHaveCount(2);
+  await page.locator('[data-public-notification-read="0"]').click();
+  await expect(page.locator('#public-notifications-list .public-notification-item')).toHaveCount(1);
+  await page.locator('#public-notifications-clear').click();
+  await expect(page.locator('#public-notifications-list')).toContainText('Nessuna nuova notifica');
+  await expect(page.locator('#public-notifications-clear')).toBeDisabled();
+  await expect(page.locator('#public-notifications-btn .notification-dot')).not.toHaveClass(/visible/);
+  await page.reload();
+  await page.locator('#public-notifications-btn').click();
+  await expect(page.locator('#public-notifications-list')).toContainText('Nessuna nuova notifica');
+  await page.evaluate(() => {
+    window.__rows.urgent_announcements.push({ id: 43, is_active: true, title: 'Nuovo campo', body: 'Palestra 3', created_at: '2026-10-14T12:00:00Z' });
+  });
+  await page.locator('#public-notifications-btn').click();
+  await page.locator('#public-notifications-btn').click();
+  await expect(page.locator('#public-notifications-list')).toContainText('Nuovo campo');
+  await expect(page.locator('#public-notifications-list .public-notification-item')).toHaveCount(1);
+});
+
