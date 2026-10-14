@@ -28,7 +28,7 @@
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
 />
     <link rel="stylesheet" href="css/style.css?v=58"/>
-    <link rel="stylesheet" href="css/team-follow.css?v=62" />
+    <link rel="stylesheet" href="css/team-follow.css?v=63" />
     <link rel="stylesheet" href="css/pwa.css?v=1" />
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
@@ -42,6 +42,9 @@
           </a>
           <button class="header-action-btn" id="public-issue-btn" type="button" title="Segnala un problema" aria-label="Segnala un problema">
             <i class="fa-solid fa-circle-exclamation"></i>
+          </button>
+          <button class="header-action-btn" id="my-teams-toggle" type="button" title="Le mie squadre" aria-label="Apri Le mie squadre" aria-expanded="false" aria-controls="my-teams-popover">
+            <i class="fa-solid fa-star" aria-hidden="true"></i><span class="notification-dot my-teams-dot" id="my-teams-dot" aria-hidden="true"></span>
           </button>
         </div>
 
@@ -68,20 +71,23 @@
 
       <div id="public-notifications-popover" class="public-notification-popover" hidden>
         <div class="public-notification-arrow" aria-hidden="true"></div>
-        <div class="public-notification-title">Notifiche</div>
+        <div class="public-notification-title"><span>Notifiche</span><button id="public-notifications-clear" type="button" class="btn btn-ghost btn-compact" aria-label="Segna tutte le notifiche come lette">Cancella tutte</button></div>
         <div id="public-notifications-list" class="public-notification-list">
           <div class="empty-state compact">Caricamento notifiche...</div>
         </div>
       </div>
 
-      <main class="container">
+      <div id="my-teams-popover" class="my-teams-popover" role="dialog" aria-modal="false" aria-labelledby="my-teams-title" hidden>
         <section class="card" id="my-teams-card" aria-labelledby="my-teams-title">
           <div class="card-header team-follow-toolbar">
             <h2 id="my-teams-title"><i class="fa-solid fa-star" aria-hidden="true"></i> Le mie squadre <span class="follow-count" id="my-teams-unread" hidden></span></h2>
-            <div class="team-follow-toolbar-actions"><button class="btn btn-ghost btn-compact" id="my-teams-refresh" type="button">Aggiorna</button><button class="btn btn-ghost btn-compact" id="my-teams-clear" type="button" hidden>Cancella preferiti</button></div>
+            <div class="team-follow-toolbar-actions"><button class="btn btn-ghost btn-compact" id="my-teams-refresh" type="button">Aggiorna</button><button class="btn btn-ghost btn-compact" id="my-teams-clear" type="button" hidden>Cancella preferiti</button><button class="my-teams-close" id="my-teams-close" type="button" aria-label="Chiudi Le mie squadre"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
           </div>
           <div class="card-body"><div id="my-teams-content"><div class="empty-state">Caricamento preferiti…</div></div><p class="follow-helper follow-footer" id="my-teams-sync-status" aria-live="polite"><span id="my-teams-checked"></span></p></div>
         </section>
+      </div>
+
+      <main class="container">
         <section class="sport-selector">
           <label for="sport-select">Scegli il Torneo</label>
           <select id="sport-select">
@@ -188,6 +194,6 @@
     </div>
 
     <script type="module" src="js/pwa-install.js?v=1"></script>
-    <script type="module" src="js/main-index.js?v=62"></script>
+    <script type="module" src="js/main-index.js?v=63"></script>
   </body>
 </html>
