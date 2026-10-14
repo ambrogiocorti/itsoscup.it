@@ -15,8 +15,23 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   application=await _electron.launch(launch); const page=await appPage(application,'platform');page.setDefaultTimeout(20000);
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);process.stderr.write('Platform page error: '+e.message+'\n');});page.on('console',event=>{if(event.type()==='error')process.stderr.write('Platform console: '+event.text()+'\n');});
   await application.context().setOffline(true);assert.equal(await page.evaluate(()=>navigator.onLine),false);
-  await page.locator('#central-password').fill(PASSWORD);await page.locator('#central-name').fill('Responsabile sintetico');await page.locator('#central-email').fill(EMAIL);await page.locator('#central-pin').fill(PIN);await page.locator('#central-submit').click();await page.locator('#central-ready').waitFor();
-  await page.getByRole('link',{name:'Apri gestione'}).click();await page.locator('#link-sports').waitFor();await finishWelcome(page);await page.locator('#link-sports').click();await page.locator('#btn-new-sport').click();
+  await page.locator('#central-password').fill(PASSWORD);await page.locator('#central-name').fill('Responsabile sintetico');await page.locator('#central-email').fill(EMAIL);await page.locator('#central-pin').fill(PIN);await page.locator('#central-submit').click();await page.locator('#link-sports').waitFor();
+  assert.match(page.url(), /^platform:\/\/app\/admin\//, 'Unlock must open original administration, not a desktop duplicate');
+  const initialShell=await appPage(application,'shell');
+  assert.equal(await initialShell.locator('#desktop-print').count(),0,'No unsafe global print button');
+  assert.equal(await initialShell.locator('#open-site').count(),1,'Public ITSOSCup entry is present');
+  for(const [id,label] of [['link-dashboard','Dashboard'],['link-operations','Centro di controllo'],['link-reports','Report'],['link-matches','Calendario'],['link-venues','Campi'],['link-archive','Albo'],['link-telegram','Telegram'],['link-sports','Tornei'],['link-teams','Squadre'],['link-events','Atletica'],['link-settings','Impostazioni']]) {
+    assert.equal((await page.locator('#'+id).innerText()).trim(),label,'Native platform menu must match site: '+id);
+  }
+  await page.locator('#link-dashboard').click();
+  assert.equal(await page.locator('#view-dashboard').isVisible(),true);
+  await page.locator('#link-reports').click();
+  assert.equal(await page.locator('#view-reports').isVisible(),true);
+  await page.locator('#link-matches').click();
+  assert.equal(await page.locator('#view-matches').isVisible(),true);
+  await page.locator('#link-sports').click();
+  assert.equal(await page.locator('#view-sports').isVisible(),true);
+  await finishWelcome(page);await finishWelcome(page);await page.locator('#link-sports').click();await page.locator('#btn-new-sport').click();
   await page.locator('#input-sport-name').fill('Torneo desktop sintetico');await page.locator('#input-sport-year').fill('3');await page.locator('#input-sport-type').selectOption('basket');await page.locator('#form-sport button[type=submit]').click();await page.locator('#modal-sport').waitFor({state:'hidden'});
   await page.locator('#link-teams').click();
   for(const [name,players,captain]of [['3A Sintetica','Capitano Alfa\nGiocatore Alfa Uno\nGiocatore Alfa Due\nGiocatore Alfa Tre\nGiocatore Alfa Quattro','Capitano Alfa'],['3B Sintetica','Capitano Beta\nGiocatore Beta Uno\nGiocatore Beta Due\nGiocatore Beta Tre\nGiocatore Beta Quattro','Capitano Beta']]){
@@ -38,10 +53,16 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   assert.equal(errors.length,0,errors.join('\n'));
   await application.close();application=null;
   const ciphertext=fs.readFileSync(path.join(central,'archive.keyvault'),'utf8');assert.ok(ciphertext.includes('itsoscup-key-vault'));assert.equal(ciphertext.includes('Capitano Alfa'),false);
-  application=await _electron.launch(launch);const reopened=await appPage(application,'platform');await application.context().setOffline(true);await reopened.locator('#central-password').fill(PASSWORD);await reopened.locator('#central-submit').click();await reopened.locator('#central-ready').waitFor();await reopened.getByRole('link',{name:'Consulta tornei e squadre'}).click();await finishWelcome(reopened);await reopened.locator('#admin-access-btn').click();await reopened.locator('#login-email').fill(EMAIL);await reopened.locator('#login-pass').fill(PIN);await reopened.locator('#login-submit-btn').click();await reopened.locator('#link-reports').waitFor();await finishWelcome(reopened);
+  application=await _electron.launch(launch);const reopened=await appPage(application,'platform');await application.context().setOffline(true);await reopened.locator('#central-password').fill(PASSWORD);await reopened.locator('#central-submit').click();
+  const shell=await appPage(application,'shell');
+  await shell.locator('#open-site').click();
+  await reopened.locator('#admin-access-btn').waitFor();await finishWelcome(reopened);await reopened.locator('#admin-access-btn').click();await reopened.locator('#login-email').fill(EMAIL);await reopened.locator('#login-pass').fill(PIN);await reopened.locator('#login-submit-btn').click();await reopened.locator('#link-reports').waitFor();await finishWelcome(reopened);
   const persisted=await reopened.evaluate(async()=>({matches:await window.itsoscupPlatform.call({type:'query',table:'matches',calls:[{method:'select',args:['*']}] }),signatures:await window.itsoscupPlatform.call({type:'query',table:'match_captain_signatures',calls:[{method:'select',args:['*']}]})}));assert.equal(persisted.matches.data[0].home_score,2);assert.equal(persisted.matches.data[0].is_finished,true);assert.equal(persisted.signatures.data.length,2);
   assert.equal(await reopened.evaluate(async()=>{const {teamFollowStore}=await import('/js/team-follow-store.js');return teamFollowStore.read().favorites.length;}),1);
-  const shell=await appPage(application,'shell');await shell.locator('#open-key').click();const key=await appPage(application,'key');assert.equal(await key.locator('#unlock-panel').isVisible(),true);await shell.locator('#open-platform').click();assert.equal(await reopened.locator('#link-reports').isVisible(),true);
+  await shell.locator('#open-key').click();const key=await appPage(application,'key');assert.equal(await key.locator('#unlock-panel').isVisible(),true);await shell.locator('#open-platform').click();assert.equal(await reopened.locator('#link-reports').isVisible(),true);
+  await shell.locator('#open-site').click();await reopened.locator('#admin-access-btn').waitFor();
+  await shell.locator('#open-platform').click();await reopened.locator('#link-dashboard').waitFor();
+  assert.equal(await reopened.locator('#view-dashboard').isVisible(),true);
   process.stdout.write('Native whole-platform offline flow passed: first setup, tournament, two teams/captains, calendar, live score, two drawn signatures, reports, encrypted persistence after restart, local PIN login and Key switching.\n');
  }catch(error){if(application){const page=application.context().pages().find(p=>p.url().startsWith('platform://'));if(page){process.stderr.write('Failure view '+page.url()+'\n'+await page.locator('body').innerText()+'\n');const output=path.resolve(__dirname,'../../../tmp');fs.mkdirSync(output,{recursive:true});await page.screenshot({path:path.join(output,'platform-ui-error.png')});}}throw error;}finally{if(application)await application.close();if(packaged&&fs.existsSync(central)){assert.equal(path.resolve(central),path.join(path.dirname(executable),'ITSOSCup-Platform-data'));fs.rmSync(central,{recursive:true,force:true});}fs.rmSync(root,{recursive:true,force:true});}
 })().catch(error=>{process.stderr.write(error.stack+'\n');process.exitCode=1;});
