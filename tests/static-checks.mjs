@@ -153,28 +153,16 @@ assert(Array.isArray(manifest.icons) && manifest.icons.length > 0, 'manifest mus
 });
 
 const sw = read('sw.js');
-assert(sw.includes('./manifest.webmanifest'), 'service worker must cache manifest.webmanifest');
-assert(!sw.includes('vendor/supabase'), 'service worker must not cache missing local Supabase SDK');
-assert(!sw.includes('vendor/fontawesome'), 'service worker must not cache missing local Font Awesome');
-assert(!sw.includes('./https://'), 'service worker must not turn CDN URLs into local paths');
-assert(/tornei-scuola-offline-v[0-9]+/.test(sw), 'service worker cache must have a version');
+assert(sw.includes("PWA_VERSION = 'itsoscup-pwa-online-"), 'online PWA worker must be versioned');
+assert(sw.includes("request.mode !== 'navigate'"), 'PWA worker must handle only navigation requests');
+assert(sw.includes("cache: 'no-store'"), 'online PWA navigation must always use the network');
+assert(sw.includes("tornei-scuola-offline-"), 'old offline caches must be removed during activation');
+assert(sw.includes("caches.delete(key)"), 'old service-worker caches must be purged');
+assert(!sw.includes('const APP_SHELL ='), 'online PWA must not pre-cache private admin or match screens');
+assert(!sw.includes('cache.addAll('), 'online PWA must never seed offline app shell');
 assert(read('js/main-admin.js').includes("from './platform-ops.js?v=51'"), 'admin must cache-bust platform ops module imports');
 assert(!read('js/main-index.js').includes('loadTeamFavorite'), 'public favorites must avoid anonymous cloud device records');
 assert(read('js/main-live.js').includes("from './platform-ops.js?v=51'"), 'live page must cache-bust platform ops module imports');
-assert(sw.includes('./css/admin-modules.css'), 'service worker must cache admin module CSS');
-assert(sw.includes('./js/offline-db.js'), 'service worker must cache IndexedDB offline module');
-assert(sw.includes('./js/admin-system.js'), 'service worker must cache system module');
-assert(sw.includes('./js/admin-users.js'), 'service worker must cache admin users module');
-assert(sw.includes('./js/admin-users-panel.js'), 'service worker must cache admin users panel module');
-assert(sw.includes('CACHE_NAME'), 'service worker must declare a cache name');
-const appShellMatch = sw.match(/const APP_SHELL = \[([\s\S]*?)\];/);
-assert(appShellMatch, 'service worker must declare APP_SHELL');
-const appShellAssets = [...appShellMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
-appShellAssets.forEach((asset) => {
-  const normalized = asset.replace(/^\.\//, '').split('?')[0];
-  const target = normalized || '.';
-  assert(existsSync(join(root, target)), `APP_SHELL asset does not exist: ${asset}`);
-});
 
 const css = read('css/style.css');
 assert(
