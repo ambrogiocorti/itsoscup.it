@@ -1334,11 +1334,6 @@ async function init() {
       text: 'Clicca una partita per aprire il dettaglio con squadre, orario, campo, stato e risultato.',
     },
     {
-      selector: '#my-teams-card',
-      title: 'Le mie squadre',
-      text: 'Apri una squadra dalla classifica e seguila per ritrovare partite, risultati e nuovi avvisi.',
-    },
-    {
       selector: '#public-archive-btn',
       title: 'Archivio',
       text: 'Da qui apri Albo d Oro e storico delle edizioni precedenti.',

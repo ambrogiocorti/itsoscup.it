@@ -1,9 +1,9 @@
-.team-page-brand { color: var(--white); text-decoration: none; font-size: 1.7rem; font-weight: 900; }
-.team-page-brand i { color: var(--warning); }
+.team-page-brand { color: inherit; text-decoration: none; font: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 0.42em; }
+.team-page-brand i { color: var(--warning); font-size: .9em; }
 .team-page-nav { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 0 18px; }
 .team-page-nav a, .favorite-team-heading a, .my-teams-empty a, .public-team-link { color: var(--primary); font-weight: 800; text-decoration: none; }
 .team-page-nav a:hover, .favorite-team-heading a:hover, .public-team-link:hover { text-decoration: underline; }
-.team-page h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
+.team-page .team-summary-card h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
 .team-page h2 { margin: 0 0 14px; font-size: 1.05rem; display: flex; gap: 8px; align-items: center; }
 .team-page .team-profile-metrics { margin-top: 16px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .team-page-sections { margin-bottom: 26px; }
@@ -50,3 +50,22 @@
   .favorite-team-heading .team-follow-btn { min-height: 44px; padding: 8px 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .team-page *, #my-teams-card * { transition: none !important; } }
+
+/* Profilo squadra: intestazione condivisa con il sito pubblico, senza una seconda tipografia. */
+.team-page .team-page-header { isolation: isolate; }
+.team-page .team-page-header .public-title-wrap { max-width: 850px; margin-inline: auto; }
+.team-page .team-page-header .public-title { margin: 0; color: #fff; line-height: 1.2; font-weight: 800; font-size: clamp(1.9rem,3.2vw,2.3rem); }
+.team-page .team-page-header .team-page-brand { font: inherit; color: inherit; text-decoration: none; white-space: nowrap; }
+.team-page .team-page-header .team-page-brand:hover { color: #dbeafe; }
+.team-page .team-page-header .team-page-brand:focus-visible { outline: 3px solid #93c5fd; outline-offset: 6px; border-radius: 4px; }
+.team-page .team-page-header .public-subtitle { margin: 8px 0 0; color: #94a3b8; font-size: 1rem; font-weight: 500; line-height: 1.5; }
+.team-page .team-page-nav { margin-top: 4px; padding-bottom: 4px; }
+.team-page .team-page-nav .btn { min-height: 40px; }
+.team-page .team-summary-card { border-color: var(--color-border); }
+.team-page .team-profile-panel { min-width: 0; }
+@media (max-width: 680px) {
+ .team-page .team-page-header .public-title { font-size: clamp(1.7rem,5vw,2.1rem); }
+ .team-page .team-page-header .public-subtitle { font-size: .92rem; }
+ .team-page .team-page-nav { align-items: center; row-gap: 12px; }
+ .team-page .team-page-nav a { display: inline-flex; min-height: 40px; align-items: center; }
+}
