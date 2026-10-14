@@ -605,40 +605,67 @@ function renderPublicNotificationItemsLegacy({ announcements = [], matches = [],
   });
 }
 
+const PUBLIC_READ_NOTIFICATIONS_KEY = 'itsoscup_public_notifications_read_v1';
+let latestPublicAnnouncements = [];
+let readPublicNotifications = new Set();
+try {
+  const saved = JSON.parse(window.localStorage.getItem(PUBLIC_READ_NOTIFICATIONS_KEY) || '[]');
+  if (Array.isArray(saved)) readPublicNotifications = new Set(saved.filter((item) => typeof item === 'string').slice(-400));
+} catch (_error) {
+  // Local preferences are optional: the public feed remains usable without storage.
+}
+
+function publicNotificationKey(item) {
+  // Content is included so corrections to a published notice become unread again.
+  return JSON.stringify([item.id ?? null, item.created_at ?? null, item.updated_at ?? null, item.title ?? '', item.body ?? '', item.severity ?? '']);
+}
+
+function rememberReadNotifications(items) {
+  for (const item of items) readPublicNotifications.add(publicNotificationKey(item));
+  if (readPublicNotifications.size > 400) {
+    readPublicNotifications = new Set([...readPublicNotifications].slice(-400));
+  }
+  try {
+    window.localStorage.setItem(PUBLIC_READ_NOTIFICATIONS_KEY, JSON.stringify([...readPublicNotifications]));
+  } catch (_error) {
+    // Reading stays functional for this session even when storage is disabled.
+  }
+  renderPublicNotificationItems({ announcements: latestPublicAnnouncements });
+}
+
 function renderPublicNotificationItems({ announcements = [] } = {}) {
-  const items = announcements.map((item) => ({
+  latestPublicAnnouncements = Array.isArray(announcements) ? announcements : [];
+  const unread = latestPublicAnnouncements.filter((item) => !readPublicNotifications.has(publicNotificationKey(item)));
+  const items = unread.map((item) => ({
     icon: item.severity === 'danger' ? 'fa-triangle-exclamation' : item.severity === 'warning' ? 'fa-circle-exclamation' : 'fa-bullhorn',
     title: item.title,
     body: item.body || 'Comunicazione della scuola',
     meta: item.created_at ? formatPublicNotificationTime(item.created_at) : 'Comunicazione',
     tone: item.severity ?? 'info',
-    imageIcon: 'fa-bullhorn',
   }));
 
   const target = document.getElementById('public-notifications-list');
   const dot = document.querySelector('#public-notifications-btn .notification-dot');
+  const clear = document.getElementById('public-notifications-clear');
   if (dot) dot.classList.toggle('visible', items.length > 0);
+  if (clear) clear.disabled = items.length === 0;
   if (!target) return;
 
   target.innerHTML = items.length
-    ? items
-        .slice(0, 12)
-        .map(
-          (item) => `
-            <article class="public-notification-item tone-${escapeHtml(item.tone)}">
-              <span class="public-notification-avatar"><i class="fa-solid ${escapeHtml(item.icon)}"></i></span>
-              <span class="public-notification-copy">
-                <strong>${escapeHtml(item.title)}</strong>
-                <span>${escapeHtml(item.body)}</span>
-                <small>${escapeHtml(item.meta)}</small>
-              </span>
-              <span class="public-notification-thumb"><i class="fa-solid ${escapeHtml(item.imageIcon)}"></i></span>
-            </article>
-          `
-        )
-        .join('')
-    : '<div class="empty-state compact">Nessuna notifica disponibile.</div>';
+    ? items.slice(0, 12).map((item, index) => `
+        <article class="public-notification-item tone-${escapeHtml(item.tone)}">
+          <span class="public-notification-avatar"><i class="fa-solid ${escapeHtml(item.icon)}" aria-hidden="true"></i></span>
+          <span class="public-notification-copy">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${escapeHtml(item.body)}</span>
+            <small>${escapeHtml(item.meta)}</small>
+          </span>
+          <button class="public-notification-read" data-public-notification-read="${index}" type="button" title="Segna come letta" aria-label="Segna come letta: ${escapeHtml(item.title)}"><i class="fa-solid fa-check" aria-hidden="true"></i></button>
+        </article>
+      `).join('')
+    : '<div class="empty-state compact">Nessuna nuova notifica.</div>';
 }
+
 
 async function refreshPublicNotifications() {
   const target = document.getElementById('public-notifications-list');
@@ -664,15 +691,29 @@ async function refreshPublicNotifications() {
 function bindPublicNotifications() {
   const button = document.getElementById('public-notifications-btn');
   const popover = document.getElementById('public-notifications-popover');
-  if (!button || !popover) return;
+  const clear = document.getElementById('public-notifications-clear');
+  const list = document.getElementById('public-notifications-list');
+  if (!button || !popover || !list) return;
 
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     const open = button.getAttribute('aria-expanded') !== 'true';
     if (open) {
+      setMyTeamsPopoverOpen(false);
       refreshPublicNotifications().catch((error) => showToast(error.message, 'error'));
     }
     setPublicNotificationOpen(open);
+  });
+
+  clear?.addEventListener('click', () => {
+    rememberReadNotifications(latestPublicAnnouncements);
+  });
+  list.addEventListener('click', (event) => {
+    const read = event.target.closest('[data-public-notification-read]');
+    if (!read) return;
+    const index = Number(read.dataset.publicNotificationRead);
+    const unread = latestPublicAnnouncements.filter((item) => !readPublicNotifications.has(publicNotificationKey(item)));
+    if (Number.isInteger(index) && unread[index]) rememberReadNotifications([unread[index]]);
   });
 
   popover.addEventListener('click', (event) => event.stopPropagation());
@@ -680,8 +721,40 @@ function bindPublicNotifications() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') setPublicNotificationOpen(false);
   });
-
 }
+
+function setMyTeamsPopoverOpen(open, { restoreFocus = false } = {}) {
+  const button = document.getElementById('my-teams-toggle');
+  const popup = document.getElementById('my-teams-popover');
+  if (!button || !popup) return;
+  button.setAttribute('aria-expanded', String(Boolean(open)));
+  popup.hidden = !open;
+  if (open) {
+    setPublicNotificationOpen(false);
+    popup.querySelector('#my-teams-refresh')?.focus();
+  } else if (restoreFocus) button.focus();
+}
+
+function bindMyTeamsPopover(myTeams) {
+  const button = document.getElementById('my-teams-toggle');
+  const popup = document.getElementById('my-teams-popover');
+  const close = document.getElementById('my-teams-close');
+  if (!button || !popup) return;
+
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = button.getAttribute('aria-expanded') !== 'true';
+    setMyTeamsPopoverOpen(open);
+    if (open) myTeams?.refresh?.().catch((error) => showToast(error.message, 'error'));
+  });
+  close?.addEventListener('click', () => setMyTeamsPopoverOpen(false, { restoreFocus: true }));
+  popup.addEventListener('click', (event) => event.stopPropagation());
+  document.addEventListener('click', () => setMyTeamsPopoverOpen(false));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !popup.hidden) setMyTeamsPopoverOpen(false, { restoreFocus: true });
+  });
+}
+
 
 async function renderAthletics(sportId) {
   const eventsContainer = document.getElementById('athletics-events-container');
@@ -1256,7 +1329,8 @@ function bindIssueReport() {
 
 async function init() {
   state.venueSlug = getVenueSlugFromQuery();
-  initMyTeams();
+  const myTeams = initMyTeams();
+  bindMyTeamsPopover(myTeams);
   state.audienceFromQuery = getAudienceFromQuery();
   bindLogin();
   bindHonorRollModal();
