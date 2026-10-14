@@ -135,3 +135,34 @@
 .offline-workspace .offline-feedback { margin-block:12px; }
 .offline-workspace .offline-workspace-footer { border-top:1px solid var(--color-border); padding-top:16px; font-size:.76rem; color:var(--text-light); }
 @media(max-width:800px){.offline-overview{align-items:flex-start;flex-wrap:wrap}.offline-overview>a{margin-left:50px}.offline-workspace .offline-workspace-header{align-items:flex-start;flex-direction:column}.offline-workspace .offline-workflow{grid-template-columns:1fr}.offline-workspace .offline-workflow-step{min-height:65px}}
+
+/* UX coerente con le pagine amministrative: stessi colori, sidebar, spaziature e focus. */
+.offline-workspace-page .offline-skip-link {
+ position:fixed; z-index:2000; top:8px; left:8px; transform:translateY(-180%);
+ background:#fff; color:var(--primary); border:2px solid var(--primary);
+ border-radius:9px; padding:11px 16px; font-weight:800; text-decoration:none;
+}
+.offline-workspace-page .offline-skip-link:focus { transform:translateY(0); }
+.offline-workspace-page .admin-shell { background:var(--bg-main); }
+.offline-workspace-page .sidebar { background:var(--bg-sidebar); }
+.offline-workspace-page .sidebar-menu .sidebar-link { display:flex; align-items:center; gap:10px; min-height:40px; line-height:1.35; }
+.offline-workspace-page .sidebar-menu .sidebar-link[aria-current=page] { background:rgba(37,99,235,.2); color:#fff; font-weight:750; }
+.offline-workspace-page .sidebar-menu .sidebar-link i { width:18px; text-align:center; flex-shrink:0; }
+.offline-workspace-page .main-pane { min-width:0; }
+.offline-workspace-page .offline-workspace-header { padding-bottom:17px; border-bottom:1px solid var(--color-border); }
+.offline-workspace-page .offline-intro { max-width:660px; line-height:1.6; }
+.offline-workspace-page .offline-workflow-step { position:relative; border-radius:12px; box-shadow:0 1px 4px rgb(15 23 42 / 4%); }
+.offline-workspace-page .offline-workflow-step:hover { color:var(--text-dark); border-color:#93c5fd; background:#eff6ff; }
+.offline-workspace-page .offline-workflow-step:focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+.offline-workspace-page .offline-primary { border-color:#bfdbfe; }
+.offline-workspace-page .offline-workspace .card-header { gap:10px; }
+.offline-workspace-page .offline-workspace .card-header h2 { overflow-wrap:anywhere; }
+.offline-workspace-page .offline-workspace .card-body { max-width:100%; }
+.offline-workspace-page .offline-workspace a:not(.sidebar-link):focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+.offline-workspace-page .offline-feedback { max-width:100%; }
+@media (max-width: 680px) {
+ .offline-workspace-page .offline-workspace { padding-inline:16px; }
+ .offline-workspace-page .offline-workflow-step { padding:13px; }
+ .offline-workspace-page .offline-workspace .card-body { padding:18px; }
+ .offline-workspace-page .offline-environment { white-space:normal; }
+}
