@@ -69,3 +69,43 @@
  .team-page .team-page-nav { align-items: center; row-gap: 12px; }
  .team-page .team-page-nav a { display: inline-flex; min-height: 40px; align-items: center; }
 }
+
+/* Home pubblica: scheda squadre ancorata alla stella, non nel flusso della homepage. */
+.public-page .public-quick-actions { max-width: min(250px, calc(100% - 145px)); }
+.my-teams-popover {
+  position: fixed; z-index: 76001; top: 76px; left: 18px;
+  width: min(475px, calc(100vw - 36px));
+  max-height: min(74vh, 740px); overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 14px; background: var(--white, #fff);
+  box-shadow: 0 20px 54px rgba(15,23,42,.22);
+  border: 1px solid #dbe3ec;
+  text-align: left;
+}
+.my-teams-popover[hidden] { display: none !important; }
+.my-teams-popover #my-teams-card { border: 0; margin: 0; box-shadow: none; }
+.my-teams-popover #my-teams-card .card-header { padding: 16px; }
+.my-teams-popover #my-teams-card .card-body { padding: 16px; }
+.my-teams-popover .team-follow-toolbar-actions { align-items: center; }
+.my-teams-close { width: 35px; height: 35px; flex: 0 0 35px; border-radius: 9px; border: 0; background: #f1f5f9; color: #475569; cursor: pointer; }
+.my-teams-close:hover { background: #e2e8f0; color: #0f172a; }
+.my-teams-popover button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.public-notification-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; }
+.public-notification-title #public-notifications-clear { font-size: .79rem; font-weight: 700; white-space: nowrap; }
+.public-notification-title #public-notifications-clear[disabled] { opacity: .45; cursor: default; }
+.public-notification-read {
+  display: inline-flex; justify-content: center; align-items: center;
+  width: 34px; height: 34px; flex-shrink: 0; border-radius: 8px;
+  border: 1px solid #cbd5e1; background: #f8fafc; color: #334155;
+  cursor: pointer;
+}
+.public-notification-read:hover { background: #dbeafe; color: #1d4ed8; }
+.public-notification-read:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.public-notification-item { grid-template-columns: 46px minmax(0,1fr) 34px; }
+@media (max-width: 560px) {
+  .public-page .public-quick-actions { max-width: calc(100% - 110px); gap: 6px; }
+  .public-page .public-quick-actions .header-action-btn { width: 39px; height: 39px; flex-shrink: 0; }
+  .my-teams-popover { top: 64px; left: 10px; width: calc(100vw - 20px); max-height: calc(100dvh - 80px); }
+  .my-teams-popover #my-teams-card .card-header { align-items: flex-start; }
+  .my-teams-popover .team-follow-toolbar-actions { width: 100%; }
+  .public-notification-title { padding: 12px; }
+}

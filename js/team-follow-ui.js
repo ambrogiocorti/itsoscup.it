@@ -60,7 +60,8 @@ export function initMyTeams() {
       const count = document.getElementById('my-teams-unread');
       if (!data.favorites.length) {
         if (count) count.hidden = true;
-        target.innerHTML = `<div class="my-teams-empty"><span class="my-teams-empty-star" aria-hidden="true">☆</span><div><strong>Nessuna squadra seguita</strong>${!data.available ? '<p>Preferenze locali non disponibili. Puoi comunque consultare tutte le squadre.</p>' : ''}<a href="#sport-select">Scegli un torneo</a></div></div>`;
+        document.getElementById('my-teams-dot')?.classList.remove('visible');
+        target.innerHTML = `<div class="my-teams-empty"><span class="my-teams-empty-star" aria-hidden="true">☆</span><div><strong>Nessuna squadra seguita</strong>${!data.available ? '<p>Preferenze locali non disponibili. Puoi comunque consultare tutte le squadre.</p>' : ''}</div></div>`;
         document.getElementById('my-teams-clear').hidden = !data.consentAt && !data.corrupt;
         return;
       }
@@ -84,6 +85,7 @@ export function initMyTeams() {
         return `<article class="favorite-team-card" data-favorite-key="${teamFollowId(f.sportId, f.teamId)}"><div class="favorite-team-heading"><div><span class="team-profile-kicker">${escapeHtml(bundle.sport.name)}</span><h3><a href="${escapeHtml(teamPageUrl(f.sportId, f.teamId))}">${escapeHtml(formatPublicTeamName(bundle.team.name, bundle.privacy))}</a></h3></div><button type="button" class="team-follow-btn is-following" data-unfollow aria-label="Smetti di seguire ${escapeHtml(formatPublicTeamName(bundle.team.name, bundle.privacy))}">★ <span>Seguita</span></button></div>${favoriteMatch(bundle.overview.next, 'Prossima partita', bundle)}${favoriteMatch(bundle.overview.latest, 'Ultimo risultato', bundle)}<p class="favorite-notice-summary">${bundle.notices === null ? 'Avvisi non disponibili' : `${bundle.notices.length} avvisi pubblici`}${bundle.notices?.[0] ? ` · ${escapeHtml(bundle.notices[0].title)}` : ''}</p>${bundle.storageFailed ? '<p class="follow-helper" role="status">Aggiornamenti non salvati: controlla l’archiviazione del browser.</p>' : ''}${renderFollowUpdates(bundle, record)}</article>`;
       }).join('')}</div>`;
       if (count) { count.textContent = `${totalUnread} ${totalUnread === 1 ? 'nuovo' : 'nuovi'}`; count.hidden = totalUnread === 0; }
+      document.getElementById('my-teams-dot')?.classList.toggle('visible', totalUnread > 0);
       results.forEach((result, i) => {
         const f = data.favorites[i], card = target.querySelector(`[data-favorite-key="${teamFollowId(f.sportId, f.teamId)}"]`);
         if (!card) return;
