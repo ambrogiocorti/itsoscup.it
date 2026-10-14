@@ -5,6 +5,115 @@
   align-items: start;
 }
 
+/* Reports: controlli brevi, densità dati esplicita, accessibile. */
+#view-reports .report-density-toggle { width:42px; height:42px; flex:0 0 42px; border:1px solid var(--color-border); background:#fff; color:var(--color-text-soft); }
+#view-reports .report-density-toggle[aria-pressed="true"] { color:var(--primary); border-color:var(--primary); background:#eff6ff; }
+#view-reports .report-density-toggle:focus-visible,.regia-detail-card > summary:focus-visible,.regia-more-actions > summary:focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+#view-reports.report-compact :is(#report-table-students,#report-table-teams,#report-table-athletics,#report-ath-ranking-body) :is(th,td) { padding:5px 8px; line-height:1.25; }
+#view-reports.report-compact .card-header { padding-block:10px; }
+#view-reports.report-compact .table-wrap { max-height:70vh; }
+
+/* Control center: status, primary metrics and actions before supporting detail. */
+#view-operations .regia-summary { margin: 0 0 16px; padding: 16px 20px; box-shadow: none; }
+#view-operations .regia-summary .regia-hero-meta { margin-top: 0; font-size: .8rem; }
+#view-operations .regia-summary p { margin-top: 8px; font-size: .88rem; }
+#view-operations .regia-readiness {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  width: auto;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+#view-operations .regia-readiness span { font-size: 1.45rem; }
+#view-operations .regia-readiness small { max-width: none; text-transform: none; font-size: .8rem; }
+#view-operations .regia-stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+#view-operations .stat-card { padding: 16px 18px; box-shadow: none; }
+#view-operations .stat-label { display: flex; align-items: center; gap: 7px; text-transform: none; }
+#view-operations .stat-label i { color: var(--primary); }
+#view-operations .stat-value { margin-top: 8px; font-size: 1.8rem; }
+#view-operations .regia-stat-attention .stat-label i { color: #b45309; }
+#view-operations .card-header { display: flex; align-items: center; gap: 8px; }
+#view-operations .regia-panel-count {
+  margin-left: auto;
+  color: var(--color-text-soft);
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#view-operations .regia-action-item { box-shadow: none; padding: 12px; font-family: inherit; }
+#view-operations .regia-action-item:hover { transform: none; }
+#view-operations .regia-action-item strong { font-size: .86rem; font-weight: 750; }
+#view-operations .regia-action-item small { font-size: .78rem; }
+#view-operations .regia-venue-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#view-operations .regia-venue-row { padding: 12px; }
+#view-operations .regia-venue-actions { max-width: 52%; }
+#view-operations .regia-venue-actions select { width: 100%; }
+#view-operations .regia-detail-card { min-width: 0; box-shadow: none; }
+#view-operations .regia-detail-card > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 16px 20px;
+  cursor: pointer;
+  list-style: none;
+  font-size: .9rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+#view-operations .regia-detail-card > summary::-webkit-details-marker { display: none; }
+#view-operations .regia-detail-card > summary > i { color: var(--primary); width: 20px; text-align: center; }
+#view-operations .regia-detail-card > summary > span:first-of-type { min-width: 0; }
+#view-operations .regia-detail-card > summary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #64748b;
+  border-bottom: 2px solid #64748b;
+  transform: rotate(45deg);
+  margin-left: auto;
+  flex: 0 0 7px;
+  transition: transform .16s ease;
+}
+#view-operations .regia-detail-card[open] > summary::after { transform: rotate(225deg); }
+#view-operations .regia-detail-card[open] > summary { border-bottom: 1px solid var(--color-border); }
+#view-operations .regia-detail-hint { display: block; margin-top: 4px; color: var(--color-text-soft); font-size: .75rem; font-weight: 500; }
+#view-operations .regia-secondary-metrics { display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 20px 0; }
+#view-operations .regia-secondary-metrics div { display: flex; align-items: center; gap: 10px; font-size: .85rem; }
+#view-operations .regia-secondary-metrics span { color: var(--color-text-soft); }
+#view-operations .regia-secondary-metrics strong { color: var(--color-text); }
+#view-operations .regia-more-actions > summary { padding: 14px 0 0; color: var(--primary); font-weight: 750; font-size: .85rem; cursor: pointer; }
+#view-operations .regia-more-actions[open] > summary { margin-bottom: 12px; }
+
+@media (max-width: 760px) {
+  #view-operations .regia-summary { grid-template-columns: 1fr; gap: 12px; padding: 14px; }
+  #view-operations .regia-readiness { justify-content: flex-start; }
+  #view-operations .regia-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #view-operations .stat-card { padding: 12px; }
+  #view-operations .stat-value { font-size: 1.5rem; }
+  #view-operations .regia-venue-list { grid-template-columns: 1fr; }
+  #view-operations .regia-detail-card > summary { padding: 14px; gap: 9px; flex-wrap: wrap; }
+  #view-operations .regia-detail-hint { line-height: 1.4; }
+  #view-operations .regia-detail-card > summary .regia-panel-count { margin-left: 29px; }
+  #view-reports .top-row-actions { gap: 8px; }
+  #view-reports #report-sport-select { width: 100%; }
+  #view-reports #btn-toggle-report-columns,
+  #view-reports #btn-print-report { width: auto; flex: 1 1 0; padding-inline: 10px; justify-content: center; }
+  #view-operations > .top-row { flex-direction: row; align-items: center; gap: 12px; }
+  #view-operations > .top-row .page-title { font-size: 1.4rem; }
+  #view-operations > .top-row .top-row-actions { width: auto; }
+  #view-operations #btn-refresh-regia-ops { width: 42px; min-width: 42px; height: 42px; padding: 0; justify-content: center; }
+}
+
+@media print {
+  #view-reports.report-compact :is(table th,table td) { padding:initial; }
+}
+
 .admin-users-actions {
   display: flex;
   flex-wrap: wrap;
@@ -339,3 +448,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+#view-operations .regia-quick-links { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+#view-operations .regia-quick-links a { display:inline-flex; align-items:center; gap:9px; min-height:39px; padding:8px 12px; border-radius:9px; border:1px solid var(--color-border); background:var(--white,#fff); color:var(--primary); text-decoration:none; font-size:.81rem; font-weight:750; }
+#view-operations .regia-quick-links a:hover { background:#eff6ff; border-color:#93c5fd; }
+#view-operations .regia-quick-links a:focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+#view-operations .regia-quick-links a i:last-child { font-size:.62rem; opacity:.6; }
+#view-operations .regia-grid .card-header { min-height:50px; }
+#view-operations .regia-grid .card-body { min-width:0; }
+@media(max-width:620px){#view-operations .regia-quick-links{display:grid;grid-template-columns:1fr 1fr}#view-operations .regia-quick-links a{justify-content:space-between}#view-operations .regia-quick-links a:nth-child(2){grid-column:span 2}}
