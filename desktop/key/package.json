@@ -1,6 +1,6 @@
 {
   "name": "itsoscup-platform",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ITSOSCup — piattaforma completa con postazione Key offline integrata",
   "private": true,
   "main": "main.cjs",
