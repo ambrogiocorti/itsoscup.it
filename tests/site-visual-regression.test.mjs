@@ -59,8 +59,8 @@ test('match reports retain sport-specific columns, captain styling, X and MVP st
   const js=read('js/match-report.js');
   const css=read('css/match-report.css');
   assert.match(js, /label: 'Falli'/);
-  assert.match(js, /label: 'Gialli'/);
-  assert.match(js, /label: 'Rossi'/);
+  assert.match(js, /yellow_cards', 'Gialli'/);
+  assert.match(js, /red_cards', 'Rossi'/);
   assert.match(js, /report-captain/);
   assert.match(js, /row\.played \? 'X' : ''/);
   assert.match(js, /&#9733;/);
