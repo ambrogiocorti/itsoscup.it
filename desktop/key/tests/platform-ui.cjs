@@ -3,6 +3,11 @@ const { _electron }=require('../../../node_modules/playwright-core');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
 const { appPage }=require('./electron-pages.cjs');
 const PASSWORD='Synthetic central archive password 2026',PIN='22334455',EMAIL='central-synthetic@school.test';
+async function clickSiteSidebar(page, id) {
+  const mobile = page.locator('#btn-mobile-menu');
+  if (await mobile.isVisible() && await mobile.getAttribute('aria-expanded') !== 'true') await mobile.click();
+  await page.locator('#' + id).click();
+}
 async function finishWelcome(page) { if(await page.evaluate(()=>document.getElementById('app-dialog-title')?.textContent==='Nome postazione')) { await page.locator('#app-dialog-input').fill('Centrale sintetica');await page.locator('[data-app-dialog-confirm]').click(); } try { await page.locator('[data-tour-skip]').waitFor({timeout:5000});await page.locator('[data-tour-skip]').click(); }catch{} }
 (async()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'itsoscup-platform-ui-'));let application;
@@ -24,13 +29,14 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   for(const [id,label] of [['link-dashboard','Dashboard'],['link-operations','Centro di controllo'],['link-reports','Report'],['link-matches','Calendario'],['link-venues','Campi'],['link-archive','Albo'],['link-telegram','Telegram'],['link-sports','Tornei'],['link-teams','Squadre'],['link-events','Atletica'],['link-settings','Impostazioni']]) {
     assert.equal((await page.locator('#'+id).innerText()).trim(),label,'Native platform menu must match site: '+id);
   }
-  await page.locator('#link-dashboard').click();
+  process.stdout.write('Site view width: ' + await page.evaluate(() => window.innerWidth) + '\n');
+  await clickSiteSidebar(page,'link-dashboard');
   assert.equal(await page.locator('#view-dashboard').isVisible(),true);
-  await page.locator('#link-reports').click();
+  await clickSiteSidebar(page,'link-reports');
   assert.equal(await page.locator('#view-reports').isVisible(),true);
-  await page.locator('#link-matches').click();
+  await clickSiteSidebar(page,'link-matches');
   assert.equal(await page.locator('#view-matches').isVisible(),true);
-  await page.locator('#link-sports').click();
+  await clickSiteSidebar(page,'link-sports');
   assert.equal(await page.locator('#view-sports').isVisible(),true);await finishWelcome(page);await page.locator('#link-sports').click();await page.locator('#btn-new-sport').click();
   await page.locator('#input-sport-name').fill('Torneo desktop sintetico');await page.locator('#input-sport-year').fill('3');await page.locator('#input-sport-type').selectOption('basket');await page.locator('#form-sport button[type=submit]').click();await page.locator('#modal-sport').waitFor({state:'hidden'});
   await page.locator('#link-teams').click();
