@@ -121,7 +121,7 @@ assert(!adminIndexHtml.includes('btn-regia-resume-emergency'), 'Centro Operativo
 assert(!adminIndexHtml.includes('regia-audit-panel'), 'global activity log must not be visible in the platform');
 assert(!adminIndexHtml.includes('Registro attivita globale'), 'global activity log title must not be visible in the platform');
 assert(!read('js/main-admin.js').includes('Da monitorare'), 'Centro Operativo must not show the Da monitorare badge');
-assert(adminIndexHtml.includes('Ritardi e slittamenti automatici'), 'Centro Operativo must explain automatic delay handling');
+assert(adminIndexHtml.includes('id="regia-delays-details"') && adminIndexHtml.includes('Calendario e ritardi'), 'Centro Operativo must retain an accessible calendar and delay panel');
 
 assert(!read('js/admin-users.js').includes('SUPABASE_SERVICE_ROLE_KEY'), 'frontend admin user module must not contain service role key');
 assert(!read('js/admin-users-panel.js').includes('SUPABASE_SERVICE_ROLE_KEY'), 'frontend admin user panel must not contain service role key');
