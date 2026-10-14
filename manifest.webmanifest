@@ -3,7 +3,7 @@
   "short_name": "ITSOSCup",
   "id": "/",
   "description": "La piattaforma unica per tornei scolastici: organizzazione, partite live, referti firmati e classifiche in tempo reale.",
-  "start_url": "/?source=pwa",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
