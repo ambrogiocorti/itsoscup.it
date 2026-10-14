@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tornei-scuola-offline-v63';
+const CACHE_NAME = 'tornei-scuola-offline-v64';
 
 const APP_SHELL = [
   './',
@@ -11,10 +11,12 @@ const APP_SHELL = [
   './css/team-follow.css',
   './css/team-follow.css?v=59',
   './css/team-follow.css?v=60',
+  './css/team-follow.css?v=62',
   './js/main-team.js?v=59',
   './js/main-team.js?v=60',
   './js/main-team.js?v=61',
   './js/main-index.js?v=59',
+  './js/main-index.js?v=62',
   './css/style.css?v=56',
   './css/integrated-workflows.css?v=56',
   './js/key-control.js',
@@ -35,6 +37,7 @@ const APP_SHELL = [
   './js/offline-workspace-shell.js',
   './css/offline-workspace.css',
   './css/offline-workspace.css?v=60',
+  './css/offline-workspace.css?v=62',
   './js/offline-package.js',
   './admin/innovation.html',
   './js/class-portal-admin.js',
@@ -51,6 +54,7 @@ const APP_SHELL = [
   './css/admin-modules.css',
   './css/admin-modules.css?v=51',
   './css/admin-modules.css?v=60',
+  './css/admin-modules.css?v=62',
   './js/app-config.js',
   './js/admin-system.js',
   './js/admin-users.js',
