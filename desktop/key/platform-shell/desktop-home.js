@@ -17,7 +17,10 @@ form.addEventListener('submit', async event => {
   event.preventDefault(); const button = document.getElementById('central-submit'); button.disabled = true; message.textContent = 'Apertura archivio locale…';
   try {
     const result = await window.itsoscupPlatform.call({ type: 'unlock', password: document.getElementById('central-password').value, create: form.dataset.create === 'true', name: document.getElementById('central-name').value, email: document.getElementById('central-email').value, pin: document.getElementById('central-pin').value });
-    if (result.error) throw new Error(result.error.message); form.reset(); await refresh();
+    if (result.error) throw new Error(result.error.message);
+    form.reset(); await refresh();
+    // Never strand an unlocked user in the archive utility: the actual web dashboard is the application.
+    window.location.replace('/admin/');
   } catch (error) { message.textContent = error.message; } finally { button.disabled = false; }
 });
 document.getElementById('central-lock').addEventListener('click', async () => { const result = await window.itsoscupPlatform.call({ type: 'lock' }); if (result.error) message.textContent = result.error.message; else await refresh(); });
