@@ -11,7 +11,10 @@ test('USB package encryption, zero-network startup and offline draft persistence
     if(!(await putLiveCacheEntry(entry)))throw Error('indexedDB not available');
     const {createEncryptedPackage,decryptPackage}=await import('/js/offline-package.js');
     const encrypted=await createEncryptedPackage({kind:'prepared',passphrase:'ProvaOfflineLunga123'});
-    if(encrypted.includes('4A'))throw Error('Encrypted package leaks readable team labels');
+    const envelope=JSON.parse(encrypted);
+    // A two-character label can occur by chance inside Base64 ciphertext.
+    // Check that no plaintext match/roster fields are present in the envelope.
+    if('matches' in envelope || 'operations' in envelope || encrypted.includes('"name"'))throw Error('Encrypted package leaks plaintext match data');
     const decoded=await decryptPackage(encrypted,'ProvaOfflineLunga123');
     let rejected=false;
     try{await decryptPackage(encrypted,'UnaPasswordSbagliata')}catch{rejected=true}

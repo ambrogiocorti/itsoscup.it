@@ -1,7 +1,7 @@
 name: ITSOSCup checks
 on:
   push:
-    branches: [main, feat/offline-registrations-notices-analytics]
+    branches: [main, codex/team-pages-follows]
   pull_request:
     branches: [main]
 jobs:
@@ -17,11 +17,14 @@ jobs:
         run: npm ci
       - name: JavaScript syntax
         run: npm run check:js
-      # Legacy static checks depend on sql/ and supabase/ files omitted from GitHub.
+      - name: Current static regression checks
+        run: npm test
       - name: Inline page module syntax
         run: npm run check:inline
       - name: Innovation analytics tests
         run: npm run test:innovation
+      - name: Team preferences and deduplicated updates
+        run: npm run test:teams
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -34,4 +37,4 @@ jobs:
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Class portal and admin smoke tests
-        run: npx playwright test tests/e2e/innovation.spec.mjs tests/e2e/offline-workspace.spec.mjs tests/e2e/team-notices.spec.mjs --project=desktop
+        run: npm run test:e2e
