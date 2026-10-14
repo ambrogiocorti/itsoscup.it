@@ -60,7 +60,7 @@ export function initMyTeams() {
       const count = document.getElementById('my-teams-unread');
       if (!data.favorites.length) {
         if (count) count.hidden = true;
-        target.innerHTML = `<div class="my-teams-empty"><span class="my-teams-empty-star" aria-hidden="true">☆</span><div><strong>Il tuo torneo, a colpo d’occhio</strong><p>${data.available ? 'Apri una squadra dalla classifica e scegli Segui squadra. Qui troverai prossime partite, risultati e avvisi.' : 'Il browser non permette di leggere le preferenze locali. Puoi comunque consultare tutte le squadre.'}</p><a href="#sport-select">Scegli un torneo</a></div></div>`;
+        target.innerHTML = `<div class="my-teams-empty"><span class="my-teams-empty-star" aria-hidden="true">☆</span><div><strong>Nessuna squadra seguita</strong>${!data.available ? '<p>Preferenze locali non disponibili. Puoi comunque consultare tutte le squadre.</p>' : ''}<a href="#sport-select">Scegli un torneo</a></div></div>`;
         document.getElementById('my-teams-clear').hidden = !data.consentAt && !data.corrupt;
         return;
       }
