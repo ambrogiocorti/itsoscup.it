@@ -22,6 +22,9 @@ for (const name of files) {
     if (name === 'admin/index.html') html = html.replace('</head>', '<script src="/vendor/qr.js"></script></head>');
     // No desktop cache worker: the installed app is already self-contained.
     html = html.replace('</head>', '<script src="/desktop-context.js"></script></head>');
+    if (name === 'admin/index.html' || name === 'offline-workspace.html') {
+      html = html.replace('</head>', '<link rel="stylesheet" href="/desktop-nav.css"></head>');
+    }
     if (name === 'index.html') html = html.replace('<label for="login-pass">Password</label>', '<label for="login-pass">PIN locale</label>').replace('id="login-pass" placeholder="Password"', 'id="login-pass" placeholder="PIN di 8–20 cifre"');
     if (name === 'live.html') html = html.replace('fa-solid fa-cloud', 'fa-solid fa-database').replace('Sincronizzazione in attesa', 'Archivio centrale pronto');
     data = Buffer.from(html);
@@ -39,6 +42,7 @@ write('vendor/fontawesome/css/all.min.css', fs.readFileSync(path.join(fa, 'css/a
 for (const name of fs.readdirSync(path.join(fa, 'webfonts'))) if (/\.(woff2?|ttf)$/.test(name)) write('vendor/fontawesome/webfonts/' + name, fs.readFileSync(path.join(fa, 'webfonts', name)));
 write('vendor/qr.js', esbuild.buildSync({ stdin: { contents: `const {create}=require('qrcode/lib/core/qrcode'); window.itsoscupQrUrl=text=>{const q=create(String(text),{errorCorrectionLevel:'M'}),s=q.modules.size;let d='';for(let y=0;y<s;y++)for(let x=0;x<s;x++)if(q.modules.get(y,x))d+='M'+(x+4)+' '+(y+4)+'h1v1h-1z';return 'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+(s+8)+' '+(s+8)+'" shape-rendering="crispEdges"><path fill="white" d="M0 0h'+(s+8)+'v'+(s+8)+'H0z"/><path fill="black" d="'+d+'"/></svg>');};`, resolveDir: __dirname }, bundle: true, platform: 'browser', minify: true, write: false }).outputFiles[0].contents);
 write('desktop-context.js', "'use strict';Object.defineProperty(window,'ITSOSCUP_DESKTOP',{value:true,writable:false});");
+write('desktop-nav.css', "@media (min-width: 901px) and (max-width: 1024px) {\n  .admin-shell { display:grid!important; grid-template-columns:232px minmax(0,1fr)!important; }\n  .admin-shell .sidebar { width:232px!important; min-width:0; position:static!important; inset:auto!important; transform:none!important; transition:none!important; box-shadow:none!important; height:100vh; overflow:hidden; z-index:auto; }\n  .admin-shell .sidebar-menu { display:grid; overflow-y:auto; gap:4px; align-content:start; padding:12px 10px; }\n  .admin-shell .sidebar-menu li { margin:0; }\n  .admin-shell .sidebar-link { padding:9px 10px; white-space:normal; }\n  .admin-shell .sidebar-logout { margin-top:auto; }\n  .admin-shell .mobile-sidebar-toggle, .admin-shell .sidebar-backdrop { display:none!important; }\n  .admin-shell .main-pane { padding:28px 22px!important; }\n  .offline-sidebar-nav { flex:1 1 auto; overflow-y:auto; }\n}\n");
 for (const name of ['desktop-home.html', 'desktop-home.css', 'desktop-home.js', 'platform-client.js']) write(name, fs.readFileSync(path.join(__dirname, 'platform-shell', name)));
 const manifest = {};
 function inventory(folder, prefix = '') {
