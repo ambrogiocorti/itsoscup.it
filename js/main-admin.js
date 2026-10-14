@@ -1094,13 +1094,8 @@ function startAdminTour() {
     },
     {
       selector: null,
-      title: 'Prepara offline',
-      text: 'Prima dell evento salva su questo dispositivo i dati necessari per usare il live senza connessione.',
-    },
-    {
-      selector: null,
-      title: 'Flusso consigliato',
-      text: 'Online prepara calendario e dati offline; durante le partite usa il live anche senza rete; quando torna Internet sincronizza le bozze locali.',
+      title: 'ITSOSCup installabile',
+      text: 'Dal pulsante Installa ITSOSCup puoi utilizzare questa stessa piattaforma online come app Windows. Le partite vengono salvate sul server.',
     },
   ]);
 }
@@ -1834,8 +1829,10 @@ function formatRegiaStatusLabel(status) {
 function formatDeviceStatus(device) {
   if (device?.is_revoked) return { label: 'Revocato', badge: 'badge-danger' };
   if (device?.is_blocked) return { label: 'Bloccato', badge: 'badge-danger' };
-  if (device?.is_offline_ready) return { label: 'Offline pronto', badge: 'badge-success' };
-  return { label: 'Attivo', badge: 'badge-info' };
+  const lastSeen = device?.last_seen_at || device?.last_sync_at;
+  const ageMinutes = lastSeen ? (Date.now() - new Date(lastSeen).getTime()) / 60000 : Infinity;
+  if (!Number.isFinite(ageMinutes) || ageMinutes > 30) return { label: 'Da verificare', badge: 'badge-warning' };
+  return { label: 'Attivo', badge: 'badge-success' };
 }
 
 function renderRegiaMetric(id, value) {
@@ -1846,7 +1843,6 @@ function renderRegiaMetric(id, value) {
 function isDeviceCritical(device) {
   if (!device) return false;
   if (device.is_revoked || device.is_blocked) return true;
-  if (!device.is_offline_ready) return true;
   const lastSeen = device.last_sync_at || device.last_seen_at;
   if (!lastSeen) return true;
   const ageMinutes = (Date.now() - new Date(lastSeen).getTime()) / 60000;
@@ -2073,7 +2069,7 @@ function renderRegiaDevices(devices = []) {
 
   target.innerHTML = `
     <table class="regia-device-table">
-      <thead><tr><th>Postazione</th><th>Campo</th><th>Operatore</th><th>Offline</th><th>Ultimo sync</th><th>Stato</th><th>Azioni</th></tr></thead>
+      <thead><tr><th>Postazione</th><th>Campo</th><th>Operatore</th><th>Ultimo accesso</th><th>Stato</th><th>Azioni</th></tr></thead>
       <tbody>
         ${devices
           .map((device) => {
@@ -2090,7 +2086,6 @@ function renderRegiaDevices(devices = []) {
                 </td>
                 <td><select data-device-field="venue" aria-label="Campo di ${escapeHtml(device.label || 'postazione')}">${venueOptions}</select></td>
                 <td><input data-device-field="operator" type="text" value="${escapeHtml(device.operator_name ?? '')}" placeholder="Operatore" aria-label="Operatore di ${escapeHtml(device.label || 'postazione')}" /></td>
-                <td>${device.is_offline_ready ? 'Pronto' : 'Da preparare'} · ${Number(device.offline_match_count ?? 0)} match</td>
                 <td>${escapeHtml(formatReportDateTime(device.last_sync_at ?? device.last_seen_at))}</td>
                 <td><span class="badge ${status.badge}">${escapeHtml(status.label)}</span></td>
                 <td>
@@ -2170,7 +2165,7 @@ function renderRegiaAnalytics(snapshot) {
       <div><span>Match totali</span><strong>${formatDashboardNumber(matches.total)}</strong></div>
       <div><span>Ufficiali</span><strong>${formatDashboardNumber(matches.official)}</strong></div>
       <div><span>Campi attivi</span><strong>${formatDashboardNumber(venues.filter((venue) => venue.active !== false).length)}</strong></div>
-      <div><span>Dispositivi offline pronti</span><strong>${formatDashboardNumber(devices.filter((device) => device.is_offline_ready && !device.is_revoked && !device.is_blocked).length)}</strong></div>
+      <div><span>Dispositivi attivi</span><strong>${formatDashboardNumber(devices.filter((device) => !device.is_revoked && !device.is_blocked).length)}</strong></div>
       <div><span>Problemi aperti</span><strong>${formatDashboardNumber((snapshot?.issues ?? []).length)}</strong></div>
       <div><span>Match sospesi</span><strong>${formatDashboardNumber(matches.paused)}</strong></div>
       <div><span>Avanzamento evento</span><strong>${completion}%</strong></div>
@@ -5390,9 +5385,6 @@ function bindCoreActions() {
     state.matchesViewMode = state.matchesViewMode === 'calendar' ? 'table' : 'calendar';
     renderMatchesViews();
   });
-  getEl('btn-prepare-offline')?.addEventListener('click', () => {
-    prepareMatchesForOffline().catch((error) => showToast(error.message, 'error'));
-  });
   getEl('btn-download-finished-match-reports')?.addEventListener('click', () => {
     try {
       const printWindow = openMatchReportPrintWindow();
@@ -6134,6 +6126,7 @@ init().catch((error) => {
   if (role) role.textContent = 'Errore connessione DB';
   const name = getEl('admin-name');
   if (name) name.textContent = 'Accesso non verificato';
+  // Keep the recovery controls visible: a temporary outage must not sign out
+  // the user or send them into a login redirect loop.
   setAdminAuthStatus(error.message, true);
-  window.setTimeout(() => redirectHomeWithAdminError(error.message), 1800);
 });

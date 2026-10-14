@@ -29,12 +29,14 @@
 />
     <link rel="stylesheet" href="css/style.css?v=58"/>
     <link rel="stylesheet" href="css/team-follow.css?v=62" />
+    <link rel="stylesheet" href="css/pwa.css?v=1" />
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
   <body class="public-page">
     <div class="page-shell">
       <header class="public-header">
         <div class="public-quick-actions">
+          <button class="header-action-btn pwa-header-install" type="button" data-install-pwa title="Installa ITSOSCup come applicazione" aria-label="Installa ITSOSCup sul dispositivo"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
           <a class="header-action-btn" href="gym.html" title="Schermo palestra" aria-label="Apri schermo palestra">
             <i class="fa-solid fa-tv"></i>
           </a>
@@ -185,6 +187,7 @@
       </div>
     </div>
 
+    <script type="module" src="js/pwa-install.js?v=1"></script>
     <script type="module" src="js/main-index.js?v=62"></script>
   </body>
 </html>

@@ -1,15 +1,7 @@
-name: ITSOSCup Platform Windows
+# Legacy desktop distribution is retained for archive recovery only.
+# The supported installation method is now ITSOSCup PWA on itsoscup.it.
+name: ITSOSCup Legacy Windows (manual only)
 on:
-  pull_request:
-    paths:
-      - 'desktop/key/**'
-      - 'admin/**'
-      - 'css/**'
-      - 'js/**'
-      - 'tests/**'
-      - 'offline-workspace.html'
-      - 'team.html'
-      - '.github/workflows/platform-windows.yml'
   workflow_dispatch:
 jobs:
   verify-and-build:

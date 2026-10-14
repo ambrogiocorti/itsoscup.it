@@ -1,52 +1,6 @@
 ﻿import { db, run } from './db.js';
 import { ROLES } from './app-config.js';
 
-const ADMIN_OFFLINE_CACHE_KEY = 'tornei_admin_offline_profile';
-const ADMIN_OFFLINE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-
-function isNetworkLikeError(error) {
-  const message = String(error?.cause?.message ?? error?.message ?? '').toLowerCase();
-  return /failed to fetch|networkerror|load failed|non raggiungibile|sdk non raggiungibile|verifica connessione/.test(message);
-}
-
-function cacheAdminSession(user, admin) {
-  try {
-    window.localStorage.setItem(
-      ADMIN_OFFLINE_CACHE_KEY,
-      JSON.stringify({
-        user: user ? { id: user.id, email: user.email ?? admin?.email ?? null } : null,
-        admin,
-        cached_at: new Date().toISOString(),
-      })
-    );
-  } catch (_error) {
-    // Offline auth cache is best-effort.
-  }
-}
-
-function loadCachedAdminSession() {
-  try {
-    const raw = window.localStorage.getItem(ADMIN_OFFLINE_CACHE_KEY);
-    const cached = raw ? JSON.parse(raw) : null;
-    const cachedAt = cached?.cached_at ? new Date(cached.cached_at).getTime() : 0;
-    if (!cachedAt || Date.now() - cachedAt > ADMIN_OFFLINE_CACHE_TTL_MS) {
-      window.localStorage.removeItem(ADMIN_OFFLINE_CACHE_KEY);
-      return null;
-    }
-    return cached;
-  } catch (_error) {
-    return null;
-  }
-}
-
-function clearCachedAdminSession() {
-  try {
-    window.localStorage.removeItem(ADMIN_OFFLINE_CACHE_KEY);
-  } catch (_error) {
-    // Best-effort cleanup.
-  }
-}
-
 export async function getSession() {
   const {
     data: { session },
@@ -82,7 +36,8 @@ export async function getAdminProfile(userId) {
     );
     if (data) return data;
   } catch (error) {
-    if (!isNetworkLikeError(error)) throw error;
+    // Never treat a network failure as a missing role: the database is authoritative.
+    throw error;
   }
   return null;
 }
@@ -115,22 +70,11 @@ export async function requireAdmin({
       return { user, admin, allowed: false };
     }
 
-    cacheAdminSession(user, admin);
     return { user, admin, allowed: true, offline: false };
   } catch (error) {
-    if (!isNetworkLikeError(error)) throw error;
-    const cached = loadCachedAdminSession();
-    const allowed = Boolean(cached?.admin && allowedRoles.includes(cached.admin.ruolo));
-    if (!allowed) {
-      window.location.href = redirectTo;
-      return { user: null, admin: null, allowed: false, offline: true };
-    }
-    return {
-      user: cached.user ?? { id: cached.admin.id, email: cached.admin.email },
-      admin: cached.admin,
-      allowed: true,
-      offline: true,
-    };
+    // The online PWA must never authorize an administrator using stale local data.
+    // Leave the active Supabase session intact so retry works when connectivity returns.
+    throw new Error('ITSOSCup richiede Internet per verificare accesso e permessi. Controlla la connessione e riprova.', { cause: error });
   }
 }
 
@@ -151,13 +95,11 @@ export async function signInAdmin(email, password) {
     throw new Error('Accesso negato: il tuo UUID Auth non e assegnato a un ruolo admin.');
   }
 
-  cacheAdminSession(user, admin);
   return { user, admin };
 }
 
 export async function signOutAdmin() {
   const { error } = await db.auth.signOut();
-  clearCachedAdminSession();
   if (error) {
     throw new Error(error.message);
   }

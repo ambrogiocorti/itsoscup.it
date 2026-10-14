@@ -1,8 +1,22 @@
 # Tornei Scuola
 
-Piattaforma web statica per gestire tornei scolastici con Supabase: tornei, squadre, calendario, live match, firme capitani, report, atletica, QR campo, Telegram, archivio e modalita offline.
+ITSOSCup è un'unica piattaforma online per i tornei scolastici, installabile come PWA dal sito: tornei, squadre, calendario, live match, firme capitani, report, atletica, QR campo, Telegram e archivio.
 
 Il frontend e HTML/CSS/JavaScript vanilla. Supabase gestisce Auth, PostgreSQL, RLS, RPC, trigger, Edge Functions e dati realtime.
+
+## Installazione come app Windows (PWA)
+
+La distribuzione consigliata è **https://itsoscup.it**, non il vecchio `.exe`.
+
+1. Da **Microsoft Edge o Google Chrome** visita `https://itsoscup.it` con Internet attivo.
+2. Premi **Installa ITSOSCup** (icona di download nell'intestazione pubblica o nella barra della dashboard). Se il browser non propone l'installazione, usa il menu browser → **App → Installa questo sito come app**.
+3. Avvia l'app dal desktop o dal menu Start. Aprirà lo stesso sito in una finestra dedicata e si aggiornerà con i normali deploy, senza installare nuove versioni `.exe`.
+4. Usa **lo stesso account Supabase Auth della piattaforma**. Il ruolo `super_admin` apre la dashboard completa, `match_manager` apre di norma il Calendario e la diretta, `report_viewer` consulta i report.
+5. **Serve Internet per autenticarsi, registrare le partite e salvare i risultati.** Il service worker non conserva in cache pagine admin/live o dati delle partite. Un'interruzione mostra un messaggio e richiede il ripristino della connessione.
+
+Non si crea un nuovo account, PIN USB, password archivio o database PWA: la PWA utilizza quello online. I due ruoli vedono schermate appropriate **dentro la stessa applicazione**. Per sicurezza, continuare a usare RLS e RPC Supabase: nascondere un pulsante non conferisce né revoca permessi.
+
+Le precedenti funzioni di trasferimento USB/Key non compaiono più nel Calendario o nel Centro di controllo. Il vecchio sorgente Windows e la pagina offline legacy restano temporaneamente nel repository solo per il recupero di eventuali archivi e dati preesistenti: **non eliminare le cartelle dati Windows prima di averli verificati**. La compilazione Windows è attivabile soltanto manualmente, senza build automatiche.
 
 ## Funzionalita principali
 
@@ -14,7 +28,7 @@ Il frontend e HTML/CSS/JavaScript vanilla. Supabase gestisce Auth, PostgreSQL, R
 - Formati torneo disponibili nell'interfaccia: gironi ed eliminazione diretta.
 - Live match con lock, snapshot, timer, punteggio, roster, presenze, falli, MVP, cartellini e cronologia opzionale.
 - Chiusura match con referto finale, staff gara e doppia firma elettronica dei capitani.
-- Offline professionale: Service Worker, IndexedDB, cache match, bozze locali, coda operazioni e gestione conflitti.
+- PWA online-first: installazione da browser, aggiornamenti del sito, un solo database e pagina chiara quando la rete non è disponibile.
 - Registro modifiche con utente/postazione, valori precedenti, nuovi valori, data/ora e motivazione.
 - Backup/ripristino, privacy pubblica configurabile, squalifiche da confermare, rinvii e controlli conflitti.
 - Atletica con eventi, risultati, tentativi, ranking, batterie/corsie, qualificazioni/finali, record d'istituto, staffette e stati atleta.
