@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Squadra — ITSOSCup</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="shortcut icon" href="favicon.svg" type="image/x-icon" />
+    <link rel="canonical" id="team-canonical" href="team.html" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css?v=58" />
+    <link rel="stylesheet" href="css/team-follow.css?v=59" />
+  </head>
+  <body class="public-page team-page">
+    <div class="page-shell">
+      <header class="public-header team-page-header">
+        <div class="public-title-wrap">
+          <a class="team-page-brand" href="./"><i class="fa-solid fa-trophy" aria-hidden="true"></i> ITSOSCup</a>
+          <p class="public-subtitle">La tua squadra, dentro e fuori dal campo</p>
+        </div>
+      </header>
+      <main class="container">
+        <nav class="team-page-nav" aria-label="Navigazione squadra"><a id="team-tournament-link" href="./">← Torna al torneo</a><a href="./#my-teams-card">Le mie squadre</a><button id="team-refresh" class="btn btn-ghost btn-compact" type="button">Aggiorna</button></nav>
+        <div id="team-page-status" class="card" role="status"><div class="empty-state">Caricamento squadra…</div></div>
+        <div id="team-page-content" hidden></div>
+        <noscript><p class="empty-state">Abilita JavaScript per consultare calendario e risultati.</p></noscript>
+      </main>
+    </div>
+    <script type="module" src="js/main-team.js?v=60"></script>
+  </body>
+</html>

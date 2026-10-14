@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 
 const root = process.cwd();
-const ignoredDirs = new Set(['.git', 'node_modules', 'vendor', '.agents']);
+const ignoredDirs = new Set(['.git', 'node_modules', 'vendor', '.agents', 'dist', 'test-results', 'playwright-report']);
 
 function walk(dir) {
   const entries = readdirSync(dir);

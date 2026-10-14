@@ -2,10 +2,11 @@
 <html lang="it"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Postazione senza rete | ITSOSCup</title>
+<title>ITSOSCup Key e postazioni offline</title>
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./css/style.css?v=56">
 <link rel="stylesheet" href="./css/integrated-workflows.css?v=56">
+<link rel="stylesheet" href="./css/key-control.css">
 <style>
 .offline-workspace {max-width:1100px;margin:24px auto 80px;padding:0 17px;}
 .offline-workspace-header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 22px}
@@ -32,11 +33,35 @@
 </style></head><body>
 <main class="offline-workspace">
 <header class="offline-workspace-header"><div>
-  <p class="itsos-flow-muted">ITSOSCup · Modalità di emergenza senza rete</p><h1>Postazione autonoma</h1>
+  <p class="itsos-flow-muted">ITSOSCup · Calendario e trasferimenti USB</p><h1>Chiavette e postazioni offline</h1>
 </div><a class="btn btn-ghost" href="./admin/"><span aria-hidden="true">←</span> Dashboard</a></header>
-<p class="offline-banner">Questa postazione salva i dati <strong>solo su questo dispositivo</strong>. Non deve essere collegata ad altri dispositivi. Per scambiare le partite e recuperare i risultati, usa un <strong>file cifrato trasferito tramite USB</strong>. Le partite vanno preparate in anticipo oppure importate da un pacchetto.</p>
+<p class="offline-banner"><strong>ITSOSCup Key</strong> salva l’archivio nell’app Windows sulla chiavetta e trasferisce i referti con file cifrati. La modalità browser qui sotto conserva le bozze su questo dispositivo. Prepara le partite prima della giornata e conserva i pacchetti fino alla conferma dell’importazione.</p>
 <p id="offline-status" role="status" aria-live="polite"></p>
 <div class="offline-grid">
+<section class="card" id="key-central-panel"><div class="card-header">ITSOSCup Key · Chiavette Windows</div><div class="card-body">
+<p>Prepara le postazioni dal calendario e raccogli i referti cifrati dei campi. La chiavetta usa l’app Windows portatile; questa schermata gestisce il trasferimento centrale.</p>
+<p id="key-central-status" role="status" aria-live="polite"></p>
+<div class="field"><label for="key-password">Password del trasferimento (almeno 12 caratteri)</label><input id="key-password" type="password" minlength="12" autocomplete="off"></div>
+<div class="offline-actions"><button type="button" class="btn btn-ghost" id="key-connect">Collega calendario</button><button type="button" class="btn btn-ghost" id="key-lock">Rimuovi password e PIN</button><a class="btn btn-ghost" href="./admin/">Accedi alla dashboard</a></div>
+<details><summary>Prepara una chiavetta</summary>
+<div id="key-preparation-fields" hidden>
+<div class="field"><label for="key-sport">Torneo</label><select id="key-sport"></select></div>
+<div class="field"><label for="key-venue">Campo</label><select id="key-venue"></select></div>
+<div class="field"><label for="key-station">Postazione</label><select id="key-station"></select></div>
+<div class="field"><label for="key-label">Nome postazione</label><input id="key-label" type="text" maxlength="80" placeholder="Es. Campo 1"></div>
+<fieldset><legend>Partite assegnate</legend><div id="key-match-list"></div></fieldset>
+<div class="field"><label for="key-operator-name">Nome operatore</label><input id="key-operator-name" type="text" maxlength="80" autocomplete="off"></div>
+<div class="field"><label for="key-operator-pin">PIN operatore (8–20 cifre)</label><input id="key-operator-pin" type="password" inputmode="numeric" minlength="8" maxlength="20" autocomplete="off"></div>
+<div class="field"><label for="key-supervisor-name">Nome supervisore delle correzioni</label><input id="key-supervisor-name" type="text" maxlength="80" autocomplete="off"></div>
+<div class="field"><label for="key-supervisor-pin">PIN supervisore (8–20 cifre, diverso dall’operatore)</label><input id="key-supervisor-pin" type="password" inputmode="numeric" minlength="8" maxlength="20" autocomplete="off"></div>
+<button type="button" class="btn btn-primary" id="key-prepare">Scarica preparazione cifrata</button>
+<p class="offline-note">Comunica password e PIN separatamente dalla chiavetta. Verifica apertura, importazione e salvataggio nell’app Windows prima di andare ai campi.</p>
+</div></details>
+<hr><div class="field"><label for="key-result-file">Risultati della chiavetta (.json / .keypack)</label><input type="file" id="key-result-file" accept=".json,.keypack,application/json"></div>
+<button type="button" class="btn btn-primary" id="key-stage">Conserva pacchetto cifrato</button>
+<p class="offline-note">Puoi raccogliere i file anche senza rete. Quando Internet torna disponibile, verifica i referti e scarica la ricevuta da riportare alla postazione.</p>
+<div id="key-inbox" aria-live="polite"></div>
+</div></section>
 <section class="card"><div class="card-header">1 · Preparazione e trasferimento</div><div class="card-body">
 <p class="offline-note">Esporta la preparazione prima del torneo o importa il pacchetto sulla postazione destinata a segnare i risultati. La password non viene memorizzata.</p>
 <div class="field"><label for="offline-package-password">Password del pacchetto (almeno 12 caratteri)</label><input id="offline-package-password" type="password" minlength="12" autocomplete="off" placeholder="Password comunicata agli operatori"></div>

@@ -23,10 +23,12 @@ Il frontend e HTML/CSS/JavaScript vanilla. Supabase gestisce Auth, PostgreSQL, R
 ## Pagine
 
 - `/` o `index.html`: pagina pubblica studenti/docenti.
+- `team.html?sport=<id>&team=<id>`: pagina squadra autonoma; i vecchi collegamenti della home reindirizzano qui. Preferiti locali e aggiornamenti sono descritti in [Pagine squadra e preferiti](docs/team-pages-and-follows.md).
 - `/admin/`: dashboard amministrativa canonica.
 - `admin.html` e `admin/admin.html`: redirect verso `/admin/`.
 - `live.html?match=<id>`: gestione live del match.
 - `gym.html`: schermo palestra/proiettore.
+- `offline-workspace.html`: preparazione e raccolta dei pacchetti cifrati ITSOSCup Key nel flusso calendario esistente; mantiene anche le precedenti bozze browser.
 - `bracket-demo.html`: demo quadro eliminazione con dati realistici.
 
 ## Ruoli
@@ -120,6 +122,8 @@ supabase secrets set SUPABASE_URL="https://nalxfsbjeinptjflvndp.supabase.co" SUP
 ```
 
 ## Uso online/offline
+
+ITSOSCup Key aggiunge una distribuzione Windows 10/11 x64 eseguibile da USB senza installazione, con SQLite cifrato sulla chiavetta e trasferimento dei referti mediante file. Build e verifiche: [istruzioni Key](desktop/key/README.md). Le nuove RPC richiedono la migrazione `sql/050_key_station_import.sql` oppure la copia sotto `supabase/migrations/`, da applicare una sola volta dopo il collaudo. Il [rapporto di sicurezza](docs/key-security-review.md) distingue test automatici, criticità ereditate e prove fisiche ancora richieste.
 
 ### Preparazione online
 

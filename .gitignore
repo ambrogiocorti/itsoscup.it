@@ -5,3 +5,10 @@ torneiScuola_080426/
 node_modules/
 .DS_Store
 Thumbs.db
+test-results/
+playwright-report/
+desktop/key/dist/
+desktop/key/KeyData/
+*.keyvault
+*.keyvault.bak
+*.keyvault.pending

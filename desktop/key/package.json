@@ -1,0 +1,34 @@
+{
+  "name": "itsoscup-key",
+  "version": "0.1.0",
+  "description": "ITSOSCup Key — postazione segnapunti offline portatile",
+  "private": true,
+  "main": "main.cjs",
+  "author": "ITSOSCup",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "test:smoke": "node tests/electron-smoke.cjs",
+    "test:ui": "node tests/renderer-smoke.cjs",
+    "test:packaged": "node tests/packaged-smoke.cjs",
+    "build:win": "electron build-icon.cjs && electron-builder --win portable zip --x64",
+    "build:dir": "electron build-icon.cjs && electron-builder --win --dir --x64"
+  },
+  "dependencies": { "sql.js": "1.14.2" },
+  "devDependencies": { "electron": "44.7.2", "electron-builder": "26.15.3" },
+  "build": {
+    "appId": "it.itsoscup.key",
+    "productName": "ITSOSCup Key",
+    "asar": true,
+    "compression": "normal",
+    "directories": { "output": "dist" },
+    "files": ["*.cjs", "renderer/**/*", "node_modules/sql.js/dist/sql-wasm.js", "node_modules/sql.js/dist/sql-wasm.wasm", "package.json"],
+    "extraResources": [
+      { "from": "../../css/style.css", "to": "site-style.css" },
+      { "from": "../../favicon.svg", "to": "favicon.svg" }
+    ],
+    "win": { "target": ["portable", "zip"], "icon": "assets/icon.ico", "signExecutable": false, "artifactName": "ITSOSCup-Key-${version}-${arch}.${ext}" },
+    "portable": { "requestExecutionLevel": "user" }
+  }
+}

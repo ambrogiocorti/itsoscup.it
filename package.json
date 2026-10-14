@@ -8,9 +8,18 @@
     "check:js": "node tests/js-syntax-check.mjs",
     "test:e2e": "playwright test",
     "test:innovation": "node --test tests/innovation.test.mjs",
-    "check:inline": "node tests/inline-module-check.mjs"
+    "check:inline": "node tests/inline-module-check.mjs",
+    "test:teams": "node --test tests/team-follow.test.mjs",
+    "test:key:transfer": "node --test tests/key-transfer.test.mjs",
+    "test:key:sql": "node --test tests/key-sql.test.mjs",
+    "key:test": "npm --prefix desktop/key test",
+    "key:smoke": "npm --prefix desktop/key run test:smoke",
+    "key:build": "npm --prefix desktop/key run build:win",
+    "key:packaged": "npm --prefix desktop/key run test:packaged",
+    "key:ui": "npm --prefix desktop/key run test:ui"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.9",
     "@playwright/test": "^1.54.2"
   }
 }
