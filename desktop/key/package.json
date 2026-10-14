@@ -1,0 +1,39 @@
+{
+  "name": "itsoscup-platform",
+  "version": "0.2.0",
+  "description": "ITSOSCup — piattaforma completa con postazione Key offline integrata",
+  "private": true,
+  "main": "main.cjs",
+  "author": "ITSOSCup",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node build-platform.cjs && electron .",
+    "test": "node --test tests/*.test.cjs",
+    "test:smoke": "node build-platform.cjs && node tests/electron-smoke.cjs",
+    "test:ui": "node build-platform.cjs && node tests/renderer-smoke.cjs",
+    "test:packaged": "node tests/packaged-smoke.cjs",
+    "test:platform": "node build-platform.cjs && node tests/platform-smoke.cjs",
+    "test:platform:ui": "node build-platform.cjs && node tests/platform-ui.cjs",
+    "build:win": "node build-platform.cjs && electron build-icon.cjs && electron-builder --win portable zip --x64",
+    "build:dir": "node build-platform.cjs && electron build-icon.cjs && electron-builder --win --dir --x64"
+  },
+  "dependencies": { "sql.js": "1.14.2" },
+  "devDependencies": { "@supabase/supabase-js": "2.117.3", "@fortawesome/fontawesome-free": "6.4.0", "qrcode": "1.5.4", "esbuild": "0.28.2", "electron": "44.7.2", "electron-builder": "26.15.3" },
+  "build": {
+    "appId": "it.itsoscup.platform",
+    "productName": "ITSOSCup Platform",
+    "asar": true,
+    "compression": "normal",
+    "directories": { "output": "dist" },
+    "files": ["main.cjs", "preload.cjs", "shell-preload.cjs", "platform-*.cjs", "crypto.cjs", "engine.cjs", "vault.cjs", "renderer/**/*", "platform-shell/**/*", "node_modules/sql.js/dist/sql-wasm.js", "node_modules/sql.js/dist/sql-wasm.wasm", "package.json"],
+    "extraResources": [
+      { "from": "../../css/style.css", "to": "site-style.css" },
+      { "from": "../../favicon.svg", "to": "favicon.svg" },
+      { "from": "../../js/match-report.js", "to": "match-report.js" },
+      { "from": "../../css/match-report.css", "to": "match-report.css" },
+      { "from": "platform-bundle", "to": "platform" }
+    ],
+    "win": { "target": ["portable", "zip"], "icon": "assets/icon.ico", "signExecutable": false, "artifactName": "ITSOSCup-Platform-${version}-${arch}.${ext}" },
+    "portable": { "requestExecutionLevel": "user", "useZip": true }
+  }
+}
