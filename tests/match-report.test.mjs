@@ -72,5 +72,5 @@ test('emergency paper keeps the same two-page format with blank score/stat cells
 });
 
 test('standalone CSS delivered to the packaged desktop matches the shared print stylesheet', () => {
-  assert.equal(readFileSync(new URL('../css/match-report.css', import.meta.url), 'utf8'), MATCH_REPORT_CSS.trimStart());
+  assert.equal(readFileSync(new URL('../css/match-report.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n'), MATCH_REPORT_CSS.trimStart().replace(/\r\n/g, '\n'));
 });
