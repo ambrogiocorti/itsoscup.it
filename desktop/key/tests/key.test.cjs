@@ -57,6 +57,8 @@ test('removed/wrong USB blocks success, retains pending RAM and retry saves same
   const { root,vault,engine }=await setup(t);engine.importPrepared(prepared());const detached=path.join(root,'detached');fs.renameSync(vault.directory,detached);
   assert.throws(()=>update(engine,'score',{side:'home',points:3}),/Chiavetta assente/);assert.equal(vault.dirty,true);assert.equal(fs.existsSync(vault.directory),false);
   assert.equal(vault.read().matches[17].payload.home_score,3);assert.throws(()=>update(engine,'score',{side:'home',points:1}),/sospeso/);assert.throws(()=>vault.lock(),/non salvati/);
+  fs.mkdirSync(vault.directory);fs.writeFileSync(path.join(vault.directory,'volume.id'),require('node:crypto').randomUUID());assert.throws(()=>vault.persist(),/Chiavetta assente/);
+  assert.equal(fs.existsSync(vault.filename),false);fs.rmSync(vault.directory,{recursive:true});
   fs.renameSync(detached,vault.directory);vault.persist();assert.equal(vault.dirty,false);vault.lock();await vault.unlock(PASSWORD);assert.equal(vault.read().matches[17].payload.home_score,3);
 });
 test('abrupt atomic rename failure recovers highest encrypted SQLite generation', async t => {

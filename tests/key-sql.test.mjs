@@ -135,6 +135,21 @@ test('revocation and assignment changes reject results; receipt cannot confirm n
  await assert.rejects(rpc('create_key_receipt',[preparation.preparation_id,randomUUID(),[randomUUID()]]),/non registrate/);
 });
 
+test('near-limit canonical wire operation is accepted despite JSONB presentation whitespace',async()=>{
+ const op=operation(14);op.audit_log=[];let previous=null;
+ for(let i=1;i<=4000;i++){
+  const entry={action:i===4000?'finalize':'note',local_revision:i,previous_hash:previous,after_hash:hash(op.payload)};
+  entry.hash=hash(entry);previous=entry.hash;op.audit_log.push(entry);
+ }
+ delete op.auth_tag;op.auth_tag=sign(op,preparation.authorization_secret);
+ const remaining=2*1024*1024-1000-Buffer.byteLength(JSON.stringify(op));
+ op.payload.offline_notes='x'.repeat(remaining);
+ bindPayload(op);delete op.auth_tag;op.auth_tag=sign(op,preparation.authorization_secret);
+ assert(Buffer.byteLength(JSON.stringify(op))<2*1024*1024);
+ assert((await pg.query('select octet_length($1::jsonb::text) bytes',[op])).rows[0].bytes>2*1024*1024);
+ assert.equal((await rpc('import_key_operation',[op])).status,'imported');
+});
+
 test('actual portable SQLite engine, browser encryption and PostgreSQL complete a signed two-device round trip',async()=>{
  const temporary=mkdtempSync(join(tmpdir(),'itsoscup-key-integration-'));
  const directory=join(temporary,'KeyData');

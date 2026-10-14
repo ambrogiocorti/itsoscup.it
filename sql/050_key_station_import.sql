@@ -131,7 +131,8 @@ declare
   result record; status text:='imported'; message text:='Referto importato'; remote_version integer;
 begin
   if auth.uid() is null or not coalesce(public.can_manage_matches(),false) then raise exception 'Accesso non autorizzato'; end if;
-  if jsonb_typeof(p_operation) is distinct from 'object' or octet_length(p_operation::text)>2097152
+  -- JSONB's display text adds whitespace; the logical wire limit uses canonical JSON.
+  if jsonb_typeof(p_operation) is distinct from 'object' or octet_length(p_operation::text)>3145728
     or p_operation->>'type' is distinct from 'key_report'
     or jsonb_typeof(p_operation->'match_id') is distinct from 'number'
     or jsonb_typeof(p_operation->'base_version') is distinct from 'number'
@@ -143,6 +144,7 @@ begin
   select p.* into preparation from itsoscup_key.preparations p where p.id=(p_operation->>'preparation_id')::uuid for update;
   if not found or preparation.station_id is distinct from p_operation->>'station_id' then raise exception 'Preparazione non riconosciuta'; end if;
   content:=itsoscup_key.canonical_json(p_operation-'auth_tag');
+  if octet_length(itsoscup_key.canonical_json(p_operation))>2097152 then raise exception 'Operazione troppo grande'; end if;
   if decode(coalesce(p_operation->>'auth_tag',''),'base64') is distinct from extensions.hmac(convert_to(content,'UTF8'),preparation.authorization_secret,'sha256') then
     raise exception 'Autenticazione del pacchetto non valida';
   end if;

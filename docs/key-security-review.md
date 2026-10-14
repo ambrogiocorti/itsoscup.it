@@ -40,6 +40,8 @@ L'operazione contiene `id`, `type=key_report`, `match_id`, `base_version`, `prep
 - Lo storico è una catena di hash con revisioni consecutive; l'ultima voce `finalize` deve riferirsi al payload finale. L'intera operazione firmata, lo storico e gli hash vengono conservati nello schema privato.
 - La canonicalizzazione ordina le chiavi ASCII e ammette solo numeri interi sicuri JavaScript. Le stringhe, compresi nomi e note Unicode, sono supportate.
 
+L'archivio SQLite cifrato ha un limite separato di 256 MiB, controllato prima di registrare una nuova modifica: un limite permanente di capienza annulla la modifica proposta e lascia disponibili i dati precedenti, l'esportazione e il backup. I pacchetti di trasferimento mantengono il limite di 12 MiB e il desktop prepara lotti inferiori a 10 MiB senza dividere o tagliare un'operazione. L'identità del pacchetto esportato e il blocco del referto vengono salvati prima di rendere disponibile il file trasferibile. La copia cifrata si può rigenerare conservando gli identificativi delle operazioni.
+
 La cifratura protegge i file della chiavetta smarrita quando la password è custodita separatamente. Il segreto di preparazione vincola i risultati alle partite assegnate e permette una verifica centralizzata; **non costituisce una firma hardware**. Una persona che conosce la password dell'archivio e ne estrae il segreto può costruire un altro pacchetto per le partite assegnate. PIN, ruoli, revisione dei capitani e storico regolano il flusso dell'applicazione; la verifica umana dei referti rimane necessaria. Le firme raccolte sono attestazioni grafiche del processo, non firme digitali qualificate.
 
 ## Criticità preesistenti rilevate

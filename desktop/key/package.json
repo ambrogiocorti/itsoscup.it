@@ -29,6 +29,6 @@
       { "from": "../../favicon.svg", "to": "favicon.svg" }
     ],
     "win": { "target": ["portable", "zip"], "icon": "assets/icon.ico", "signExecutable": false, "artifactName": "ITSOSCup-Key-${version}-${arch}.${ext}" },
-    "portable": { "requestExecutionLevel": "user" }
+    "portable": { "requestExecutionLevel": "user", "useZip": true }
   }
 }
