@@ -24,7 +24,7 @@ import { registerOfflineSupport } from './offline.js';
 import { registerClientErrorLogger } from './error-logger.js';
 import { startTourIfNeeded } from './onboarding.js';
 import { formatPublicTeamName, teamPageUrl } from './public-team.js';
-import { initMyTeams } from './team-follow-ui.js';
+import { initMyTeams } from './team-follow-ui.js?v=63';
 import {
   escapeHtml,
   formatDateTime,
