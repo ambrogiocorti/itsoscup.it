@@ -15,7 +15,7 @@ Applicazione per segnapunti Windows 10/11 **x64**, con Electron, dipendenze e in
 ## Preparare la postazione
 
 1. Aprire la centrale locale nella stessa app, oppure il centro web dopo aver applicato la migrazione SQL 050. Preparare una postazione Key v2 scegliendo torneo, campo, partite, operatori, supervisore e PIN.
-2. Copiare `ITSOSCup-Platform-0.2.0-x64.exe` e il pacchetto di preparazione cifrato sulla chiavetta. In alternativa estrarre tutto lo ZIP sulla chiavetta. Aprire **Postazione Key** dalla barra dell’app.
+2. Copiare `ITSOSCup-Platform-0.2.1-x64.exe` e il pacchetto di preparazione cifrato sulla chiavetta. In alternativa estrarre tutto lo ZIP sulla chiavetta. Aprire **Postazione Key** dalla barra dell’app.
 3. Avviare l'eseguibile. Creare l'archivio con una password di almeno 12 caratteri; conservarla separatamente dalla chiavetta. Configurare il primo supervisore locale e il suo PIN di 8–20 cifre.
 4. Accedere come supervisore e importare la preparazione con la password del pacchetto. Ogni segnapunti accederà con il proprio PIN e vedrà le partite assegnate.
 5. Verificare rose, capitani, orari e regolamenti prima di scollegare tutte le reti. L'eseguibile contiene già tutto ciò che serve al primo avvio offline.
@@ -61,7 +61,7 @@ npm run test:platform
 npm run test:platform:ui
 npm run build:win
 npm run test:packaged
-node tests/packaged-smoke.cjs dist/ITSOSCup-Platform-0.2.0-x64.exe
+node tests/packaged-smoke.cjs dist/ITSOSCup-Platform-0.2.1-x64.exe
 node tests/renderer-smoke.cjs "dist/win-unpacked/ITSOSCup Platform.exe"
 node tests/platform-ui.cjs "dist/win-unpacked/ITSOSCup Platform.exe"
 ```
