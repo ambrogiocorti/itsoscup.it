@@ -1,21 +1,45 @@
 {
-  "name": "ITSOS Cup - Tornei Scolastici",
-  "short_name": "ITSOS Cup",
-  "description": "Piattaforma per gestione tornei scolastici, live match, report e schermo palestra.",
-  "start_url": "/",
+  "name": "ITSOSCup — Tornei scolastici",
+  "short_name": "ITSOSCup",
+  "id": "/",
+  "description": "La piattaforma unica per tornei scolastici: organizzazione, partite live, referti firmati e classifiche in tempo reale.",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
+  "lang": "it",
   "orientation": "any",
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
-  "categories": ["education", "sports", "productivity"],
-  "lang": "it"
+  "shortcuts": [
+    {
+      "name": "Pannello di gestione",
+      "short_name": "Gestione",
+      "description": "Apri la dashboard ITSOSCup",
+      "url": "/admin/"
+    },
+    {
+      "name": "Calendario partite",
+      "short_name": "Calendario",
+      "description": "Consulta e gestisci le partite assegnate",
+      "url": "/admin/?view=matches"
+    },
+    {
+      "name": "Risultati",
+      "short_name": "Risultati",
+      "url": "/"
+    }
+  ],
+  "categories": [
+    "education",
+    "sports",
+    "productivity"
+  ]
 }
