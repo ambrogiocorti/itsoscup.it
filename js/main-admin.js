@@ -6126,6 +6126,7 @@ init().catch((error) => {
   if (role) role.textContent = 'Errore connessione DB';
   const name = getEl('admin-name');
   if (name) name.textContent = 'Accesso non verificato';
+  // Keep the recovery controls visible: a temporary outage must not sign out
+  // the user or send them into a login redirect loop.
   setAdminAuthStatus(error.message, true);
-  window.setTimeout(() => redirectHomeWithAdminError(error.message), 1800);
 });
