@@ -20,6 +20,7 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   const initialShell=await appPage(application,'shell');
   assert.equal(await initialShell.locator('#desktop-print').count(),0,'No unsafe global print button');
   assert.equal(await initialShell.locator('#open-site').count(),1,'Public ITSOSCup entry is present');
+  await finishWelcome(page);
   for(const [id,label] of [['link-dashboard','Dashboard'],['link-operations','Centro di controllo'],['link-reports','Report'],['link-matches','Calendario'],['link-venues','Campi'],['link-archive','Albo'],['link-telegram','Telegram'],['link-sports','Tornei'],['link-teams','Squadre'],['link-events','Atletica'],['link-settings','Impostazioni']]) {
     assert.equal((await page.locator('#'+id).innerText()).trim(),label,'Native platform menu must match site: '+id);
   }
@@ -30,8 +31,7 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   await page.locator('#link-matches').click();
   assert.equal(await page.locator('#view-matches').isVisible(),true);
   await page.locator('#link-sports').click();
-  assert.equal(await page.locator('#view-sports').isVisible(),true);
-  await finishWelcome(page);await finishWelcome(page);await page.locator('#link-sports').click();await page.locator('#btn-new-sport').click();
+  assert.equal(await page.locator('#view-sports').isVisible(),true);await finishWelcome(page);await page.locator('#link-sports').click();await page.locator('#btn-new-sport').click();
   await page.locator('#input-sport-name').fill('Torneo desktop sintetico');await page.locator('#input-sport-year').fill('3');await page.locator('#input-sport-type').selectOption('basket');await page.locator('#form-sport button[type=submit]').click();await page.locator('#modal-sport').waitFor({state:'hidden'});
   await page.locator('#link-teams').click();
   for(const [name,players,captain]of [['3A Sintetica','Capitano Alfa\nGiocatore Alfa Uno\nGiocatore Alfa Due\nGiocatore Alfa Tre\nGiocatore Alfa Quattro','Capitano Alfa'],['3B Sintetica','Capitano Beta\nGiocatore Beta Uno\nGiocatore Beta Due\nGiocatore Beta Tre\nGiocatore Beta Quattro','Capitano Beta']]){
