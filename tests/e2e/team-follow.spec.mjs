@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 test.use({ serviceWorkers: 'block' });
 
-function syntheticSdk({ privacy = 'full', denyStorage = false, showClass = true } = {}) {
+function syntheticSdk({ privacy = 'full', denyStorage = false, showClass = true, announcements = [] } = {}) {
   const data = {
     sports: [{ id: 37, name: 'Torneo di prova', sport_type: 'calcio', format: 'gironi', year: 4, is_active: true }],
     teams: [{ id: 124, sport_id: 37, name: '4A' }, { id: 125, sport_id: 37, name: '4B' }],
@@ -15,7 +15,7 @@ function syntheticSdk({ privacy = 'full', denyStorage = false, showClass = true 
       { id: 11, sport_id: 37, home_team_id: 124, away_team_id: 125, home: { name: '4A' }, away: { name: '4B' }, home_score: 2, away_score: 1, is_finished: true, status: 'finished', scheduled_start: '2026-10-10T10:00:00Z', finished_at: '2026-10-10T11:00:00Z', venue_id: 2, venue: { id: 2, name: 'Campo 2' } },
       { id: 12, sport_id: 37, home_team_id: 124, away_team_id: 125, home: { name: '4A' }, away: { name: '4B' }, home_score: 0, away_score: 0, is_finished: false, status: 'scheduled', scheduled_start: '2099-11-14T10:00:00Z', scheduled_end: '2099-11-14T11:00:00Z', venue_id: 1, venue: { id: 1, name: 'Palestra' } },
     ],
-    urgent_announcements: [],
+    urgent_announcements: announcements,
   };
   window.__rows = data;
   window.__queries = [];
@@ -192,13 +192,10 @@ test('favorites and read updates survive an actual Chromium process restart on t
 });
 
 test('header star popup and notification read states persist independently', async ({ page, context }) => {
-  await installFixture(context);
-  await context.addInitScript(() => {
-    window.__rows.urgent_announcements = [
-      { id: 41, is_active: true, title: 'Cambio palestra', body: 'Spostata al campo 2', created_at: '2026-10-14T08:00:00Z' },
-      { id: 42, is_active: true, title: 'Nuovo orario', body: 'Ore 11', created_at: '2026-10-14T09:00:00Z' },
-    ];
-  });
+  await installFixture(context, { announcements: [
+    { id: 41, is_active: true, title: 'Cambio palestra', body: 'Spostata al campo 2', created_at: '2026-10-14T08:00:00Z' },
+    { id: 42, is_active: true, title: 'Nuovo orario', body: 'Ore 11', created_at: '2026-10-14T09:00:00Z' },
+  ] });
   await page.goto('/');
   await expect(page.locator('#my-teams-popover')).toBeHidden();
   await page.locator('#my-teams-toggle').click();
