@@ -107,6 +107,9 @@ test('local follow survives navigation, shows home next/latest/notices, coalesce
   await page.getByRole('button', { name: 'Segna tutti come letti' }).click();
   await expect(page.locator('#team-follow-updates')).toContainText('Tutti letti');
   await page.goto('/');
+  await expect(page.locator('#my-teams-popover')).toBeHidden();
+  await page.locator('#my-teams-toggle').click();
+  await expect(page.locator('#my-teams-popover')).toBeVisible();
   await expect(page.locator('#my-teams-content')).toContainText('4A');
   await expect(page.locator('#my-teams-content')).toContainText('Prossima partita');
   await expect(page.locator('#my-teams-content')).toContainText('Ultimo risultato');
@@ -115,6 +118,7 @@ test('local follow survives navigation, shows home next/latest/notices, coalesce
   const allRead = page.getByRole('button', { name: 'Segna tutti come letti' });
   if (await allRead.count()) { await page.locator('.follow-updates summary').click(); await allRead.click(); }
   await page.reload();
+  await page.locator('#my-teams-toggle').click();
   await expect(page.locator('#my-teams-content .favorite-team-heading')).toContainText('4A');
   await page.locator('[data-unfollow]').click();
   await expect(page.locator('#my-teams-content')).toContainText('Nessuna squadra seguita');
