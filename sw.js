@@ -1,148 +1,44 @@
-const CACHE_NAME = 'tornei-scuola-offline-v64';
-
-const APP_SHELL = [
-  './',
-  './index.html',
-  './team.html',
-  './js/main-team.js',
-  './js/public-team.js',
-  './js/team-follow-store.js',
-  './js/team-follow-ui.js',
-  './css/team-follow.css',
-  './css/team-follow.css?v=59',
-  './css/team-follow.css?v=60',
-  './css/team-follow.css?v=62',
-  './js/main-team.js?v=59',
-  './js/main-team.js?v=60',
-  './js/main-team.js?v=61',
-  './js/main-index.js?v=59',
-  './js/main-index.js?v=62',
-  './css/style.css?v=56',
-  './css/integrated-workflows.css?v=56',
-  './js/key-control.js',
-  './js/key-transfer.js',
-  './css/key-control.css',
-  './js/match-report.js',
-  './css/match-report.css',
-  './admin.html',
-  './admin/',
-  './admin/index.html',
-  './admin/admin.html',
-  './live.html',
-  './gym.html',
-  './bracket-demo.html',
-  './class.html',
-  './offline-workspace.html',
-  './js/offline-workspace.js',
-  './js/offline-workspace-shell.js',
-  './css/offline-workspace.css',
-  './css/offline-workspace.css?v=60',
-  './css/offline-workspace.css?v=62',
-  './js/offline-package.js',
-  './admin/innovation.html',
-  './js/class-portal-admin.js',
-  './js/event-analytics.js',
-  './js/admin-integrated-workflows.js',
-  './css/integrated-workflows.css',
-  './css/integrated-workflows.css?v=54',
-  './manifest.webmanifest',
-  './favicon.svg',
-  './image.png',
-  './css/style.css',
-  './css/style.css?v=51',
-  './css/style.css?v=58',
-  './css/admin-modules.css',
-  './css/admin-modules.css?v=51',
-  './css/admin-modules.css?v=60',
-  './css/admin-modules.css?v=62',
-  './js/app-config.js',
-  './js/admin-system.js',
-  './js/admin-users.js',
-  './js/admin-users-panel.js',
-  './js/archive.js',
-  './js/auth.js',
-  './js/bracket-demo.js',
-  './js/csv-import.js',
-  './js/db.js',
-  './js/device.js',
-  './js/error-logger.js',
-  './js/events.js',
-  './js/gym-screen.js',
-  './js/gym-screen.js?v=51',
-  './js/knockout-bracket.js',
-  './js/live.js',
-  './js/main-admin.js',
-  './js/main-admin.js?v=51',
-  './js/main-admin.js?v=54',
-  './js/main-admin.js?v=60',
-  './js/platform-ops.js?v=51',
-  './js/main-index.js',
-  './js/main-index.js?v=51',
-  './js/main-index.js?v=58',
-  './js/team-notices.js',
-  './js/main-live.js',
-  './js/main-live.js?v=51',
-  './js/matches.js',
-  './js/offline.js',
-  './js/offline-db.js',
-  './js/offline-store.js',
-  './js/onboarding.js',
-  './js/reports.js',
-  './js/schedule.js',
-  './js/teams.js',
-  './js/telegram.js',
-  './js/utils.js',
-];
+/* ITSOSCup PWA: ONLINE-ONLY navigation. Supabase remains the single data source.
+ * The former service worker pre-cached private admin/live pages and offered stale
+ * offline content. Do not cache HTML, authentication, API requests or match state.
+ */
+const PWA_VERSION = 'itsoscup-pwa-online-v1';
+const OLD_CACHE_PREFIXES = ['tornei-scuola-offline-', 'itsoscup-pwa-online-'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => undefined)
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-      )
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) =>
+      OLD_CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))
+    ).map((key) => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') return;
-
-  const requestUrl = new URL(request.url);
-  if (requestUrl.origin !== self.location.origin) return;
-
-  event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(request);
-      const networkPromise = fetch(request)
-        .then((response) => {
-          if (response && response.ok) cache.put(request, response.clone());
-          return response;
-        })
-        .catch(async () => {
-          if (cached) return cached;
-          if (request.mode === 'navigate' || request.destination === 'document') {
-            return cache.match('./index.html');
-          }
-          return new Response('', { status: 504, statusText: 'Offline asset unavailable' });
-        });
-
-      if (request.mode === 'navigate' || request.destination === 'document') {
-        return networkPromise;
-      }
-
-      return cached || networkPromise;
-    })
-  );
+  if (request.method !== 'GET' || request.mode !== 'navigate') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  event.respondWith((async () => {
+    try {
+      // Always request the current site, including role authorization and live state.
+      return await fetch(request, { cache: 'no-store' });
+    } catch (_error) {
+      // A useful explanation, never an outdated admin/scorekeeper screen.
+      return new Response(`<!doctype html><html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ITSOSCup · Connessione necessaria</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f8fafc;color:#0f172a;font:16px system-ui,sans-serif}
+main{max-width:440px;margin:20px;padding:30px;border-radius:14px;border:1px solid #e2e8f0;background:#fff}
+h1{font-size:1.45rem}p{line-height:1.6;color:#475569}button{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:12px 17px;font:inherit;cursor:pointer}</style></head>
+<body><main><h1>Connessione Internet necessaria</h1>
+<p>ITSOSCup salva le partite sul server. Controlla la connessione prima di continuare: non registrare punteggi su questa schermata.</p>
+<button type="button" onclick="location.reload()">Riprova</button></main></body></html>`,
+        { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
+  })());
 });
