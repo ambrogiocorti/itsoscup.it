@@ -149,9 +149,15 @@ function showSection(section) {
   activeSection = section; resizeViews(); window.webContents.send('itsoscup-platform:section', section); next.webContents.focus();
 }
 ipcMain.handle('itsoscup-platform:open', async (event, section) => {
-  if (!trustedShell(event) || !['home', 'platform', 'key'].includes(section)) return false;
-  showSection(section === 'key' ? 'key' : 'platform');
-  if (section === 'home') await platformView.webContents.loadURL('platform://app/desktop-home.html');
+  if (!trustedShell(event) || !['home', 'platform', 'key', 'archive'].includes(section)) return false;
+  if (section === 'key') { showSection('key'); return true; }
+  const wasKey = activeSection === 'key';
+  showSection('platform');
+  if (section === 'archive') await platformView.webContents.loadURL('platform://app/desktop-home.html');
+  else if (section === 'home') await platformView.webContents.loadURL(centralUnlocked ? 'platform://app/index.html' : 'platform://app/desktop-home.html');
+  else if (!wasKey || new URL(platformView.webContents.getURL()).pathname === '/desktop-home.html') {
+    await platformView.webContents.loadURL(centralUnlocked ? 'platform://app/admin/' : 'platform://app/desktop-home.html');
+  }
   return true;
 });
 ipcMain.handle('itsoscup-platform:key-open', event => { if (!trustedPlatform(event) || new URL(event.senderFrame.url).pathname !== '/desktop-home.html') return false; showSection('key'); return true; });
@@ -160,7 +166,6 @@ ipcMain.handle('itsoscup-platform:retry', event => {
   const action = platformQueue.then(async () => { const result = await platformApi.call({ type: 'persist' }); window.webContents.send('itsoscup-platform:pending', { dirty: platformApi.vault.dirty, message: result.error?.message || '' }); return result; });
   platformQueue = action.then(() => {}, () => {}); return action;
 });
-ipcMain.handle('itsoscup-platform:print', event => { if (!trustedShell(event) || activeSection !== 'platform') return false; platformView.webContents.print({ silent: false, printBackground: true }); return true; });
 function denyPermissions(ses) {
   ses.setPermissionRequestHandler((_contents, _permission, callback) => callback(false)); ses.setPermissionCheckHandler(() => false);
   ses.setDevicePermissionHandler(() => false);

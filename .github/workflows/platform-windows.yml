@@ -30,6 +30,10 @@ jobs:
         run: npm --prefix desktop/key test
       - name: Test unified platform smoke
         run: npm --prefix desktop/key run test:platform
+      - name: Install browser automation for native navigation tests
+        run: npm ci
+      - name: Test real site menus and offline desktop navigation
+        run: npm --prefix desktop/key run test:platform:ui
       - name: Build Windows portable executable
         run: npm --prefix desktop/key run build:win
       - name: Verify packaged application
