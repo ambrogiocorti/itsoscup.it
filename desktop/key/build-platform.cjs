@@ -22,9 +22,8 @@ for (const name of files) {
     if (name === 'admin/index.html') html = html.replace('</head>', '<script src="/vendor/qr.js"></script></head>');
     // No desktop cache worker: the installed app is already self-contained.
     html = html.replace('</head>', '<script src="/desktop-context.js"></script></head>');
-    if (name === 'admin/index.html' || name === 'offline-workspace.html') {
-      html = html.replace('</head>', '<link rel="stylesheet" href="/desktop-nav.css"></head>');
-    }
+    // Native-only interaction fixes apply to every bundled page, including live match editing.
+    html = html.replace('</head>', '<link rel="stylesheet" href="/desktop-nav.css"></head>');
     if (name === 'index.html') html = html.replace('<label for="login-pass">Password</label>', '<label for="login-pass">PIN locale</label>').replace('id="login-pass" placeholder="Password"', 'id="login-pass" placeholder="PIN di 8–20 cifre"');
     if (name === 'live.html') html = html.replace('fa-solid fa-cloud', 'fa-solid fa-database').replace('Sincronizzazione in attesa', 'Archivio centrale pronto');
     data = Buffer.from(html);
