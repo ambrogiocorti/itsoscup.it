@@ -1,0 +1,52 @@
+.team-page-brand { color: var(--white); text-decoration: none; font-size: 1.7rem; font-weight: 900; }
+.team-page-brand i { color: var(--warning); }
+.team-page-nav { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 0 18px; }
+.team-page-nav a, .favorite-team-heading a, .my-teams-empty a, .public-team-link { color: var(--primary); font-weight: 800; text-decoration: none; }
+.team-page-nav a:hover, .favorite-team-heading a:hover, .public-team-link:hover { text-decoration: underline; }
+.team-page h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); }
+.team-page h2 { margin: 0 0 14px; font-size: 1.05rem; display: flex; gap: 8px; align-items: center; }
+.team-page .team-profile-metrics { margin-top: 16px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.team-page-sections { margin-bottom: 26px; }
+.team-page .team-match-row { cursor: default; }
+.team-page .team-match-row strong, .team-page .team-match-row small { white-space: normal; overflow-wrap: anywhere; }
+.team-page .team-profile-hero p, .favorite-team-card, .follow-update { overflow-wrap: anywhere; }
+.team-follow-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.team-follow-toolbar h2 { font-size: 1.05rem; margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.team-follow-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.follow-count { font-size: .75rem; border-radius: 99px; background: #dbeafe; color: #1e40af; padding: 4px 8px; font-weight: 800; }
+.follow-count[hidden], [hidden] { display: none !important; }
+.my-teams-empty { display: flex; gap: 16px; align-items: center; }
+.my-teams-empty-star { color: var(--primary); font-size: 2.6rem; }
+.my-teams-empty strong { color: var(--text-dark); }
+.my-teams-empty p, .follow-helper { color: var(--text-light); font-size: .85rem; line-height: 1.6; margin: 6px 0; }
+.my-teams-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.favorite-team-card { min-width: 0; border: 1px solid var(--color-border); border-radius: 14px; padding: 16px; background: var(--white); }
+.favorite-team-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.favorite-team-heading h3 { margin: 2px 0; font-size: 1.25rem; }
+.favorite-match { display: grid; gap: 3px; padding: 12px; margin-top: 8px; border-radius: 10px; background: var(--bg-main); }
+.favorite-match > span { font-size: .72rem; font-weight: 850; color: var(--primary); text-transform: uppercase; }
+.favorite-match small { color: var(--text-light); font-weight: 650; line-height: 1.5; }
+.favorite-notice-summary { color: var(--text-light); font-size: .82rem; line-height: 1.5; }
+.follow-updates { border-top: 1px solid var(--color-border); padding-top: 12px; margin-top: 12px; }
+.follow-updates summary { cursor: pointer; font-size: .88rem; font-weight: 800; color: var(--text-dark); }
+.follow-updates summary .follow-count { margin-left: 5px; }
+.follow-update-list { display: grid; gap: 8px; margin: 12px 0; }
+.follow-update { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg-main); border-left: 3px solid var(--color-border); }
+.follow-update > div { min-width: 0; flex: 1; }
+.follow-update.is-unread { background: #eff6ff; border-left-color: var(--primary); }
+.follow-update strong { font-size: .88rem; }
+.follow-update p { margin: 5px 0; white-space: pre-wrap; color: #475569; font-size: .84rem; line-height: 1.5; }
+.follow-update small { font-size: .74rem; color: var(--text-light); }
+.follow-update button { flex-shrink: 0; }
+.follow-footer { margin: 14px 0 0; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
+.team-page-nav a:focus-visible, .public-team-link:focus-visible, .favorite-team-heading a:focus-visible, .follow-updates summary:focus-visible, .team-follow-btn:focus-visible, .team-follow-toolbar button:focus-visible { outline: 3px solid var(--primary); outline-offset: 4px; }
+@media (max-width: 680px) {
+  .team-page .team-profile-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .team-page .team-profile-hero { grid-template-columns: 1fr; }
+  .team-page .team-profile-actions { justify-content: flex-start; }
+  .team-page-nav { gap: 12px; font-size: .85rem; }
+  .team-follow-toolbar-actions .btn { padding: 8px; }
+  .follow-update { flex-wrap: wrap; }
+  .favorite-team-heading .team-follow-btn { min-height: 44px; padding: 8px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .team-page *, #my-teams-card * { transition: none !important; } }

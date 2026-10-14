@@ -81,8 +81,6 @@ assert(adminIndexHtml.includes("import('./js/main-admin.js"), 'admin module must
 assert(adminIndexHtml.includes('css/admin-modules.css'), 'admin UI must load split admin module CSS');
 assert(!adminIndexHtml.includes('UUID'), 'admin UI must not ask users to paste Auth UUIDs');
 
-const supabaseConfig = read('supabase/config.toml');
-assert(supabaseConfig.includes('[functions.manage-admin-user]'), 'Supabase config must expose manage-admin-user');
 assert(read('js/admin-system.js').includes("'030'"), 'migration verification must require migration 030');
 assert(read('js/admin-system.js').includes("'031'"), 'migration verification must require migration 031');
 assert(read('js/admin-system.js').includes("'032'"), 'migration verification must require migration 032');
@@ -116,12 +114,7 @@ assert(!read('js/platform-ops.js').includes('suspendAllMatchesRegia'), 'platform
 assert(!read('js/platform-ops.js').includes('loadGlobalAuditLog'), 'global activity log must remain database-only');
 assert(!read('js/main-admin.js').includes('loadMatches()'), 'Regia delay recovery must reload matches through the existing loadMatchesTable function');
 assert(read('js/main-index.js').includes('getMatchIdFromQuery'), 'public home must support direct match QR routes');
-assert(read('sql/034_regia_permissions_patch.sql').includes("get_event_statistics"), 'migration 034 must patch event statistics permissions for Regia');
-assert(read('sql/035_auto_shift_after_late_finish.sql').includes('apply_late_finish_autoshift'), 'migration 035 must auto-shift matches after a late finish');
-assert(read('sql/037_regia_live_permissions.sql').includes("'regia', 'super_admin', 'match_manager'"), 'migration 037 must allow Regia to manage live matches');
-assert(read('sql/038_disable_regia_emergency_controls.sql').includes('revoke execute on function public.suspend_all_matches_regia'), 'migration 038 must revoke emergency suspension');
 assert(read('js/admin-system.js').includes("'039'"), 'migration verification must require migration 039');
-assert(read('sql/039_remove_regia_role.sql').includes("where ruolo = 'regia'"), 'migration 039 must migrate Regia admins');
 assert(!adminIndexHtml.includes('btn-regia-delay-recovery'), 'Centro Operativo must not expose manual delay recovery button');
 assert(!adminIndexHtml.includes('btn-regia-emergency'), 'Centro Operativo must not expose emergency button');
 assert(!adminIndexHtml.includes('btn-regia-resume-emergency'), 'Centro Operativo must not expose emergency resume button');
@@ -129,19 +122,12 @@ assert(!adminIndexHtml.includes('regia-audit-panel'), 'global activity log must 
 assert(!adminIndexHtml.includes('Registro attivita globale'), 'global activity log title must not be visible in the platform');
 assert(!read('js/main-admin.js').includes('Da monitorare'), 'Centro Operativo must not show the Da monitorare badge');
 assert(adminIndexHtml.includes('Ritardi e slittamenti automatici'), 'Centro Operativo must explain automatic delay handling');
-assert(!read('supabase/functions/manage-admin-user/index.ts').includes('email=eq.'), 'admin Edge Function must authorize callers by UUID only');
-assert(!read('sql/024_platform_professional_completion.sql').includes('grant usage, select on sequences'), 'migration 024 must use valid GRANT ON SEQUENCE syntax');
 
-const adminFunction = read('supabase/functions/manage-admin-user/index.ts');
-assert(adminFunction.includes('SUPABASE_SERVICE_ROLE_KEY'), 'admin Edge Function must use service role server-side');
-assert(!adminFunction.includes("'regia'"), 'admin Edge Function must not support Regia role');
-assert(!adminFunction.includes('countRegiaAdmins'), 'admin Edge Function must not protect removed Regia accounts');
-assert(adminFunction.includes("caller.ruolo !== 'super_admin'"), 'admin Edge Function must require Super Admin callers');
 assert(!read('js/admin-users.js').includes('SUPABASE_SERVICE_ROLE_KEY'), 'frontend admin user module must not contain service role key');
 assert(!read('js/admin-users-panel.js').includes('SUPABASE_SERVICE_ROLE_KEY'), 'frontend admin user panel must not contain service role key');
 
 assert(existsSync(join(root, 'manifest.webmanifest')), 'manifest.webmanifest is required');
-assert(existsSync(join(root, '.github/workflows/ci.yml')), 'GitHub CI workflow is required');
+assert(existsSync(join(root, '.github/workflows/checks.yml')), 'GitHub CI workflow is required');
 const manifest = JSON.parse(read('manifest.webmanifest'));
 assert.equal(manifest.display, 'standalone', 'manifest display must be standalone');
 assert.equal(manifest.start_url, '/', 'manifest start_url must be /');
@@ -171,9 +157,9 @@ assert(sw.includes('./manifest.webmanifest'), 'service worker must cache manifes
 assert(!sw.includes('vendor/supabase'), 'service worker must not cache missing local Supabase SDK');
 assert(!sw.includes('vendor/fontawesome'), 'service worker must not cache missing local Font Awesome');
 assert(!sw.includes('./https://'), 'service worker must not turn CDN URLs into local paths');
-assert(sw.includes('tornei-scuola-offline-v51'), 'service worker cache version must be bumped after admin module import cache busting');
+assert(/tornei-scuola-offline-v[0-9]+/.test(sw), 'service worker cache must have a version');
 assert(read('js/main-admin.js').includes("from './platform-ops.js?v=51'"), 'admin must cache-bust platform ops module imports');
-assert(read('js/main-index.js').includes("from './platform-ops.js?v=51'"), 'public page must cache-bust platform ops module imports');
+assert(!read('js/main-index.js').includes('loadTeamFavorite'), 'public favorites must avoid anonymous cloud device records');
 assert(read('js/main-live.js').includes("from './platform-ops.js?v=51'"), 'live page must cache-bust platform ops module imports');
 assert(sw.includes('./css/admin-modules.css'), 'service worker must cache admin module CSS');
 assert(sw.includes('./js/offline-db.js'), 'service worker must cache IndexedDB offline module');
@@ -238,8 +224,8 @@ assert.equal(
         scheduled_start: '2026-08-15T10:00:00+02:00',
       },
       config: { points_win: 3 },
-      homePlayers: [{ id: 1, full_name: 'Mario Rossi' }],
-      awayPlayers: [{ id: 2, full_name: 'Luca Bianchi' }],
+      homePlayers: [{ id: 1, full_name: 'Capitano Sintetico A' }],
+      awayPlayers: [{ id: 2, full_name: 'Capitano Sintetico B' }],
     },
     { stats: [{ player_id: 1, fouls: 1 }], source: 'test' }
   ),

@@ -8,7 +8,8 @@
     "check:js": "node tests/js-syntax-check.mjs",
     "test:e2e": "playwright test",
     "test:innovation": "node --test tests/innovation.test.mjs",
-    "check:inline": "node tests/inline-module-check.mjs"
+    "check:inline": "node tests/inline-module-check.mjs",
+    "test:teams": "node --test tests/team-follow.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2"

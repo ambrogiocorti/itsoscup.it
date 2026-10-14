@@ -23,8 +23,8 @@ import { formatScheduleRange, loadVenueScheduleBySlug } from './schedule.js';
 import { registerOfflineSupport } from './offline.js';
 import { registerClientErrorLogger } from './error-logger.js';
 import { startTourIfNeeded } from './onboarding.js';
-import { getDeviceInfo } from './device.js';
-import { loadTeamFavorite, setTeamFavorite } from './platform-ops.js?v=51';
+import { formatPublicTeamName, teamPageUrl } from './public-team.js';
+import { initMyTeams } from './team-follow-ui.js';
 import {
   escapeHtml,
   formatDateTime,
@@ -34,7 +34,6 @@ import {
   showToast,
 } from './utils.js';
 import { buildKnockoutBracket, renderKnockoutBracketHtml } from './knockout-bracket.js';
-import { loadPublicTeamNotices } from './team-notices.js';
 
 const DEFAULT_SUBTITLE =
   'Risultati e classifica in tempo reale';
@@ -61,7 +60,6 @@ const state = {
   unsubscribe: null,
   venueSlug: null,
   venue: null,
-  teamIdFromQuery: null,
   matchIdFromQuery: null,
   audienceFromQuery: 'student',
   currentMatches: [],
@@ -85,44 +83,6 @@ function getSportTypeLabel(type) {
 
 function getFormatLabel(format) {
   return FORMAT_LABELS[format] ?? 'Formato libero';
-}
-
-function isPublicIdentityHidden(privacy = getPrivacySettings()) {
-  return privacy.player_name === 'hidden';
-}
-
-function formatPublicTeamName(name, privacy = getPrivacySettings()) {
-  const clean = String(name ?? '').trim();
-  if (!clean) return 'Da definire';
-  if (isPublicIdentityHidden(privacy) || privacy.show_class === false) return 'Classe';
-  return clean;
-}
-
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard?.writeText && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return true;
-  }
-
-  const input = document.createElement('textarea');
-  input.value = text;
-  input.setAttribute('readonly', '');
-  input.style.position = 'fixed';
-  input.style.top = '-1000px';
-  document.body.appendChild(input);
-  input.select();
-  const copied = document.execCommand('copy');
-  input.remove();
-  return copied;
-}
-
-function getTeamProfileUrl(sportId, teamId) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('sport', String(sportId));
-  url.searchParams.set('team', String(teamId));
-  url.searchParams.delete('venue');
-  url.searchParams.delete('audience');
-  return url.toString();
 }
 
 function sanitizePublicMatch(match, privacy = getPrivacySettings()) {
@@ -281,7 +241,7 @@ function renderStandingsTable(standings, privacy = getPrivacySettings()) {
               (row, index) => `
             <tr>
               <td>${medalByRank(index)}</td>
-              <td class="team-td"><strong>${escapeHtml(formatPublicTeamName(row.name, privacy))}</strong></td>
+              <td class="team-td"><a class="public-team-link" href="${escapeHtml(teamPageUrl(state.selectedSportId, row.id))}">${escapeHtml(formatPublicTeamName(row.name, privacy))}</a></td>
               <td class="text-center">${row.played}</td>
               <td class="text-center">${row.wins}</td>
               <td class="text-center">${row.draws}</td>
@@ -723,203 +683,6 @@ function bindPublicNotifications() {
 
 }
 
-async function renderTeamProfile({ teamId, teams, matches, standings, config }) {
-  const card = document.getElementById('team-profile-card');
-  const content = document.getElementById('team-profile-content');
-  if (!card || !content) return;
-
-  if (!teamId) {
-    setHidden(card, true);
-    return;
-  }
-
-  const team = (teams ?? []).find((item) => Number(item.id) === Number(teamId));
-  if (!team) {
-    setHidden(card, false);
-    content.innerHTML = '<div class="empty-state">Squadra non trovata in questo torneo.</div>';
-    return;
-  }
-
-  setHidden(card, false);
-  const privacy = getPrivacySettings(config);
-  const publicTeamName = formatPublicTeamName(team.name, privacy);
-  const showPublicRoster = !isPublicIdentityHidden(privacy);
-  const teamMatches = (matches ?? [])
-    .filter((match) => Number(match.home_team_id) === Number(teamId) || Number(match.away_team_id) === Number(teamId))
-    .sort((a, b) => {
-      const aTime = a.scheduled_start ? new Date(a.scheduled_start).getTime() : Number.MAX_SAFE_INTEGER;
-      const bTime = b.scheduled_start ? new Date(b.scheduled_start).getTime() : Number.MAX_SAFE_INTEGER;
-      return aTime - bTime || Number(a.id) - Number(b.id);
-    });
-  const nextMatch = teamMatches.find((match) => !match.is_finished && match.status !== 'cancelled') ?? null;
-  const lastMatch = [...teamMatches]
-    .reverse()
-    .find((match) => match.is_finished && match.status !== 'cancelled') ?? null;
-  const position = standings.findIndex((row) => Number(row.id) === Number(teamId)) + 1;
-  const standingRow = standings.find((row) => Number(row.id) === Number(teamId)) ?? {};
-  const device = getDeviceInfo();
-  const favorite = await loadTeamFavorite(teamId, device.id);
-  const isFavorite = Boolean(favorite);
-  const teamUrl = getTeamProfileUrl(state.selectedSportId, teamId);
-  const sportLabel = state.selectedSport?.name ?? getSportSelect()?.selectedOptions?.[0]?.textContent ?? 'Torneo';
-  const opponentLabel = (match) => {
-    if (!match) return '-';
-    const isHome = Number(match.home_team_id) === Number(teamId);
-    return formatPublicTeamName(isHome ? match.away?.name : match.home?.name, privacy);
-  };
-  const matchResultLabel = (match) =>
-    match?.is_finished ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : formatScheduleRange(match);
-  const matchStatusLabel = (match) => {
-    if (match?.is_finished) return 'Conclusa';
-    if (match?.status === 'live') return 'In corso';
-    if (!match?.scheduled_start) return 'Da programmare';
-    return 'Programmata';
-  };
-
-  let players = [];
-  try {
-    const { data } = await run(
-      db.from('players').select('id, full_name, is_captain').eq('team_id', Number(teamId)).order('full_name', { ascending: true }),
-      'Caricamento rosa squadra'
-    );
-    players = data ?? [];
-  } catch (_error) {
-    players = [];
-  }
-
-  content.innerHTML = `
-    <div class="team-profile-grid">
-      <section class="team-profile-main">
-        <div class="team-profile-hero">
-          <div>
-            <span class="team-profile-kicker">${escapeHtml(sportLabel)}</span>
-            <h2>${escapeHtml(publicTeamName)}</h2>
-            <p>Calendario, risultati, rosa e posizione della squadra in un unico punto.</p>
-          </div>
-          <div class="team-profile-actions">
-            <button class="team-follow-btn ${isFavorite ? 'is-following' : ''}" id="btn-toggle-team-favorite" type="button" aria-pressed="${String(isFavorite)}">
-              <i class="fa-${isFavorite ? 'solid' : 'regular'} fa-star"></i>
-              <span>${isFavorite ? 'Squadra seguita' : 'Segui squadra'}</span>
-            </button>
-            <button class="btn btn-ghost btn-compact" id="btn-copy-team-link" type="button">
-              <i class="fa-solid fa-link"></i> Copia link
-            </button>
-          </div>
-        </div>
-        ${
-          nextMatch
-            ? `<div class="team-next-match">
-                <span>Prossima partita</span>
-                <strong>${escapeHtml(opponentLabel(nextMatch))}</strong>
-                <small>${escapeHtml(formatScheduleRange(nextMatch))} · ${escapeHtml(nextMatch.venue?.name ?? 'Campo da definire')}</small>
-              </div>`
-            : `<div class="team-next-match is-empty">
-                <span>Prossima partita</span>
-                <strong>Nessuna partita programmata</strong>
-                <small>${lastMatch ? `Ultimo risultato: ${escapeHtml(matchResultLabel(lastMatch))}` : 'In attesa del calendario.'}</small>
-              </div>`
-        }
-        <div class="team-profile-metrics">
-          <span>Posizione <strong>${position > 0 ? position : '-'}</strong></span>
-          <span>Punti <strong>${Number(standingRow.points ?? 0)}</strong></span>
-          <span>Giocate <strong>${Number(standingRow.played ?? 0)}</strong></span>
-          <span>Diff. punti/reti <strong>${Number(standingRow.goalDiff ?? 0)}</strong></span>
-        </div>
-      </section>
-      <section class="team-profile-panel">
-        <h3><i class="fa-solid fa-clipboard-user"></i> Rosa</h3>
-        <div class="team-roster-list">
-          ${
-            !showPublicRoster
-              ? '<span>Rosa non pubblica.</span>'
-              : players.length
-              ? players
-                  .map(
-                    (player) => `
-                <span>${escapeHtml(formatPublicPlayerName(player.full_name, privacy))}${player.is_captain ? ' · Capitano' : ''}</span>
-              `
-                  )
-                  .join('')
-              : '<span>Nessuna rosa pubblicata.</span>'
-          }
-        </div>
-      </section>
-      <section class="team-profile-panel team-profile-announcements">
-        <h3><i class="fa-solid fa-bell"></i> Avvisi per la squadra</h3>
-        <p class="team-announcements-helper">Comunicazioni pubbliche dedicate alla squadra e variazioni del calendario.</p>
-        <div id="team-public-notices-list" class="team-public-notices-list" aria-live="polite">
-          <div class="empty-state">Caricamento avvisi…</div>
-        </div>
-      </section>
-      <section class="team-profile-panel team-profile-calendar">
-        <h3><i class="fa-solid fa-calendar-days"></i> Calendario squadra</h3>
-        <div class="team-match-list">
-          ${
-            teamMatches.length
-              ? teamMatches
-                  .map(
-                    (match) => `
-                <button class="team-match-row" data-match-id="${match.id}" type="button">
-                  <span>
-                    <strong>${escapeHtml(formatPublicTeamName(match.home?.name, privacy))} vs ${escapeHtml(formatPublicTeamName(match.away?.name, privacy))}</strong>
-                    <small>${escapeHtml(matchStatusLabel(match))} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</small>
-                  </span>
-                  <span class="team-match-result">${escapeHtml(matchResultLabel(match))}</span>
-                </button>
-              `
-                  )
-                  .join('')
-              : '<div class="empty-state">Nessuna partita per questa squadra.</div>'
-          }
-        </div>
-      </section>
-    </div>
-  `;
-
-  const noticeContainer = content.querySelector('#team-public-notices-list');
-  if (noticeContainer) {
-    loadPublicTeamNotices(state.selectedSportId,teamId).then((notices)=>{
-      if(!noticeContainer.isConnected)return;
-      noticeContainer.innerHTML = notices.length
-        ? notices.map((item)=>`
-          <article class="team-public-notice">
-            <div class="team-public-notice-top">
-              <strong>${escapeHtml(item.title)}</strong>
-              <time datetime="${escapeHtml(item.created_at||'')}">${escapeHtml(item.created_at ? formatDateTime(item.created_at) : '')}</time>
-            </div>
-            <p>${escapeHtml(item.body)}</p>
-          </article>`).join('')
-        : '<div class="empty-state">Nessun avviso pubblico per questa squadra.</div>';
-    }).catch((error)=>{
-      if(noticeContainer.isConnected){
-        noticeContainer.innerHTML = '<div class="empty-state">Avvisi temporaneamente non disponibili.</div>';
-        console.warn('Avvisi squadra non disponibili:',error);
-      }
-    });
-  }
-
-  content.querySelectorAll('[data-match-id]').forEach((button) => {
-    button.addEventListener('click', () => openMatchDetails(button.dataset.matchId));
-  });
-  document.getElementById('btn-toggle-team-favorite')?.addEventListener('click', async () => {
-    try {
-      await setTeamFavorite(teamId, device.id, !isFavorite);
-      showToast(!isFavorite ? 'Squadra aggiunta ai preferiti.' : 'Squadra rimossa dai preferiti.', 'success');
-      await renderTeamProfile({ teamId, teams, matches, standings, config });
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
-  });
-  document.getElementById('btn-copy-team-link')?.addEventListener('click', async () => {
-    try {
-      const copied = await copyTextToClipboard(teamUrl);
-      showToast(copied ? 'Link squadra copiato.' : 'Non riesco a copiare il link.', copied ? 'success' : 'error');
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
-  });
-}
-
 async function renderAthletics(sportId) {
   const eventsContainer = document.getElementById('athletics-events-container');
   const rankingContainer = document.getElementById('athletics-ranking-container');
@@ -1027,11 +790,6 @@ function getVenueSlugFromQuery() {
 function getSportIdFromQuery() {
   const params = new URLSearchParams(window.location.search);
   return Number(params.get('sport') || 0);
-}
-
-function getTeamIdFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  return Number(params.get('team') || 0) || null;
 }
 
 function getMatchIdFromQuery() {
@@ -1312,9 +1070,7 @@ async function openMatchDetails(matchId) {
     content.innerHTML = `
       <div class="match-details-summary">
         <h2 class="match-details-score">${match.home_score ?? 0} - ${match.away_score ?? 0}</h2>
-        <div class="muted">${escapeHtml(formatPublicTeamName(match.home?.name, privacy))} vs ${escapeHtml(
-      formatPublicTeamName(match.away?.name, privacy)
-    )}</div>
+        <div class="muted"><a class="public-team-link" href="${escapeHtml(teamPageUrl(match.sport_id, match.home_team_id))}">${escapeHtml(formatPublicTeamName(match.home?.name, privacy))}</a> vs <a class="public-team-link" href="${escapeHtml(teamPageUrl(match.sport_id, match.away_team_id))}">${escapeHtml(formatPublicTeamName(match.away?.name, privacy))}</a></div>
         <div class="muted">${escapeHtml(formatScheduleRange(match))} · ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</div>
         <div class="match-details-updated muted">Aggiornato: ${formatDateTime(match.updated_at)}</div>
       </div>
@@ -1364,7 +1120,6 @@ async function loadTournamentData() {
       '<div class="empty-state">In attesa di selezione torneo.</div>';
     document.getElementById('upcoming-content').innerHTML =
       '<div class="empty-state">Seleziona un torneo.</div>';
-    setHidden(document.getElementById('team-profile-card'), true);
     setHidden(athleticsCard, true);
     setHidden(standingsCard, false);
     setHidden(matchesCard, false);
@@ -1393,7 +1148,6 @@ async function loadTournamentData() {
   setHidden(athleticsCard, !isAthletics);
   setHidden(standingsCard, isAthletics);
   setHidden(matchesCard, isAthletics || hideKnockoutGroupMatchesCard);
-  await renderTeamProfile({ teamId: state.teamIdFromQuery, teams, matches, standings, config });
 
   if (isAthletics) {
     await renderAthletics(sportId);
@@ -1502,7 +1256,7 @@ function bindIssueReport() {
 
 async function init() {
   state.venueSlug = getVenueSlugFromQuery();
-  state.teamIdFromQuery = getTeamIdFromQuery();
+  initMyTeams();
   state.audienceFromQuery = getAudienceFromQuery();
   bindLogin();
   bindHonorRollModal();
@@ -1580,9 +1334,9 @@ async function init() {
       text: 'Clicca una partita per aprire il dettaglio con squadre, orario, campo, stato e risultato.',
     },
     {
-      selector: '#team-profile-card',
-      title: 'Pagina squadra',
-      text: 'Quando apri un link squadra trovi calendario, rosa, risultati e posizione della classe.',
+      selector: '#my-teams-card',
+      title: 'Le mie squadre',
+      text: 'Apri una squadra dalla classifica e seguila per ritrovare partite, risultati e nuovi avvisi.',
     },
     {
       selector: '#public-archive-btn',

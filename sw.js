@@ -1,8 +1,17 @@
-const CACHE_NAME = 'tornei-scuola-offline-v58';
+const CACHE_NAME = 'tornei-scuola-offline-v59';
 
 const APP_SHELL = [
   './',
   './index.html',
+  './team.html',
+  './js/main-team.js',
+  './js/main-team.js?v=59',
+  './js/public-team.js',
+  './js/team-follow-store.js',
+  './js/team-follow-ui.js',
+  './css/team-follow.css',
+  './css/team-follow.css?v=59',
+  './js/main-index.js?v=59',
   './admin.html',
   './admin/',
   './admin/index.html',
