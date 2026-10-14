@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
@@ -41,7 +41,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ITSOS Cup" />
     <link rel="stylesheet" href="css/style.css?v=50"/>
-    <link rel="stylesheet" href="css/admin-modules.css?v=50"/>
+    <link rel="stylesheet" href="css/admin-modules.css?v=60"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
@@ -139,81 +139,86 @@
             </div>
           </div>
 
-          <section class="regia-hero">
+          <section class="regia-hero regia-summary" aria-label="Stato dell’evento">
             <div>
-              <span class="regia-kicker">Supervisione evento</span>
-              <h2>Controllo completo della giornata</h2>
               <div class="regia-hero-meta">
-                <span class="regia-status-chip" id="regia-mode-badge"><i class="fa-solid fa-circle-check"></i> Operativo</span>
-                <span id="regia-last-refresh">Aggiornamento non ancora eseguito</span>
+                <span class="regia-status-chip" id="regia-mode-badge" role="status"><i class="fa-solid fa-clock" aria-hidden="true"></i> In attesa dei dati</span>
+                <span id="regia-last-refresh">Caricamento in corso…</span>
               </div>
+              <p>Interventi prioritari, partite e disponibilità dei campi.</p>
             </div>
             <div class="regia-readiness">
-              <span id="regia-readiness-value">0%</span>
-              <small>preparazione giornata</small>
+              <span id="regia-readiness-value">—</span>
+              <small>preparazione</small>
             </div>
           </section>
 
+          <nav class="regia-quick-links" aria-label="Accessi rapidi del Centro di controllo">
+            <a href="./admin/?view=matches"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Calendario <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+            <a href="./offline-workspace.html"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Postazioni offline <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+            <a href="./admin/?view=reports"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Report <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+          </nav>
+
           <div class="stats-grid regia-stats-grid">
-            <article class="stat-card"><div class="stat-label">Conclusi</div><div class="stat-value" id="regia-count-finished">0</div></article>
-            <article class="stat-card"><div class="stat-label">In corso</div><div class="stat-value" id="regia-count-live">0</div></article>
-            <article class="stat-card"><div class="stat-label">Da iniziare</div><div class="stat-value" id="regia-count-scheduled">0</div></article>
-            <article class="stat-card"><div class="stat-label">In ritardo</div><div class="stat-value" id="regia-count-delayed">0</div></article>
-            <article class="stat-card"><div class="stat-label">Da programmare</div><div class="stat-value" id="regia-count-unscheduled">0</div></article>
-            <article class="stat-card"><div class="stat-label">Sospesi</div><div class="stat-value" id="regia-count-paused">0</div></article>
-            <article class="stat-card"><div class="stat-label">Postazioni critiche</div><div class="stat-value" id="regia-count-device-alerts">0</div></article>
-            <article class="stat-card"><div class="stat-label">Problemi aperti</div><div class="stat-value" id="regia-count-issues">0</div></article>
+            <article class="stat-card"><div class="stat-label"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> In corso</div><div class="stat-value" id="regia-count-live">—</div></article>
+            <article class="stat-card"><div class="stat-label"><i class="fa-solid fa-calendar" aria-hidden="true"></i> Da iniziare</div><div class="stat-value" id="regia-count-scheduled">—</div></article>
+            <article class="stat-card"><div class="stat-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Concluse</div><div class="stat-value" id="regia-count-finished">—</div></article>
+            <article class="stat-card regia-stat-attention"><div class="stat-label"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i> In ritardo</div><div class="stat-value" id="regia-count-delayed">—</div></article>
           </div>
 
           <div class="regia-grid">
             <section class="card regia-wide-card">
-              <div class="card-header"><i class="fa-solid fa-list-check"></i> Coda interventi</div>
+              <div class="card-header"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Da gestire <span class="regia-panel-count" id="regia-action-count"></span></div>
               <div class="card-body" id="regia-action-queue-panel">
-                <div class="empty-state">Caricamento priorita...</div>
+                <div class="empty-state">Caricamento priorità…</div>
               </div>
             </section>
 
-            <section class="card">
-              <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Checklist pre-giornata</div>
-              <div class="card-body" id="regia-checklist-panel">
-                <div class="empty-state">Caricamento checklist...</div>
-              </div>
-            </section>
-
-            <section class="card">
-              <div class="card-header"><i class="fa-solid fa-location-dot"></i> Stato campi</div>
+            <section class="card regia-wide-card">
+              <div class="card-header"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Campi <span class="regia-panel-count" id="regia-venues-count"></span></div>
               <div class="card-body" id="regia-venues-panel">
-                <div class="empty-state">Caricamento campi...</div>
+                <div class="empty-state">Caricamento campi…</div>
               </div>
             </section>
 
-            <section class="card regia-wide-card">
-              <div class="card-header"><i class="fa-solid fa-laptop"></i> Postazioni e dispositivi</div>
-              <div class="card-body table-wrap" id="regia-devices-panel">
-                <div class="empty-state">Caricamento dispositivi...</div>
+            <details class="card regia-detail-card" id="regia-preparation-details">
+              <summary><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i><span>Preparazione<span class="regia-detail-hint">Configurazione e controlli prima delle gare</span></span><span class="regia-panel-count" id="regia-preparation-count"></span></summary>
+              <div class="card-body" id="regia-checklist-panel">
+                <div class="empty-state">Caricamento controlli…</div>
               </div>
-            </section>
+            </details>
 
-            <section class="card">
-              <div class="card-header"><i class="fa-solid fa-stopwatch"></i> Ritardi e slittamenti automatici</div>
+            <details class="card regia-detail-card" id="regia-delays-details">
+              <summary><i class="fa-solid fa-stopwatch" aria-hidden="true"></i><span>Calendario e ritardi<span class="regia-detail-hint">Partite sospese, da programmare e slittamenti</span></span></summary>
+              <div class="regia-secondary-metrics">
+                <div><span>Da programmare</span><strong id="regia-count-unscheduled">—</strong></div>
+                <div><span>Sospese</span><strong id="regia-count-paused">—</strong></div>
+              </div>
               <div class="card-body" id="regia-delays-panel">
-                <div class="empty-state">Caricamento ritardi...</div>
+                <div class="empty-state">Caricamento ritardi…</div>
               </div>
-            </section>
+            </details>
 
-            <section class="card regia-wide-card">
-              <div class="card-header"><i class="fa-solid fa-chart-pie"></i> Analytics post-evento</div>
-              <div class="card-body" id="regia-analytics-panel">
-                <div class="empty-state">Caricamento analytics...</div>
+            <details class="card regia-detail-card regia-wide-card" id="regia-devices-details">
+              <summary><i class="fa-solid fa-laptop" aria-hidden="true"></i><span>Postazioni e dispositivi<span class="regia-detail-hint">Assegnazioni, disponibilità offline e autorizzazioni</span></span><span class="regia-panel-count"><span id="regia-count-device-alerts">—</span> da verificare</span></summary>
+              <div class="card-body table-wrap" id="regia-devices-panel">
+                <div class="empty-state">Caricamento dispositivi…</div>
               </div>
-            </section>
+            </details>
 
-            <section class="card regia-wide-card">
-              <div class="card-header"><i class="fa-solid fa-circle-exclamation"></i> Problemi operativi</div>
+            <details class="card regia-detail-card regia-wide-card" id="regia-issues-details">
+              <summary><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>Segnalazioni<span class="regia-detail-hint">Problemi aperti comunicati dagli operatori</span></span><span class="regia-panel-count"><span id="regia-count-issues">—</span> aperte</span></summary>
               <div class="card-body" id="regia-issues-panel">
-                <div class="empty-state">Caricamento problemi...</div>
+                <div class="empty-state">Caricamento segnalazioni…</div>
               </div>
-            </section>
+            </details>
+
+            <details class="card regia-detail-card regia-wide-card" id="regia-event-details">
+              <summary><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>Riepilogo evento<span class="regia-detail-hint">Avanzamento, risultati ufficiali e risorse</span></span></summary>
+              <div class="card-body" id="regia-analytics-panel">
+                <div class="empty-state">Caricamento riepilogo…</div>
+              </div>
+            </details>
           </div>
         </section>
 
@@ -221,27 +226,19 @@
           <div class="top-row">
             <h1 class="page-title">Report Generale</h1>
             <div class="top-row-actions">
-              <select id="report-sport-select"></select>
+              <select id="report-sport-select" aria-label="Torneo del report"></select>
               <button class="btn btn-ghost" id="btn-toggle-report-columns" type="button" aria-expanded="false" aria-controls="report-columns-panel">
                 <i class="fa-solid fa-table-columns"></i> Colonne
               </button>
               <button class="icon-btn filter-toggle" id="btn-toggle-report-filters" type="button" aria-label="Mostra filtri report" aria-expanded="false" aria-controls="report-team-filters report-athletics-filters">
-                <i class="fa-solid fa-filter"></i>
+                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+              </button>
+              <button class="icon-btn report-density-toggle" id="btn-report-density" type="button" title="Attiva la visualizzazione compatta" aria-label="Attiva la visualizzazione compatta delle tabelle" aria-pressed="false">
+                <i class="fa-solid fa-compress" aria-hidden="true"></i>
               </button>
               <button class="btn btn-primary" id="btn-print-report"><i class="fa-solid fa-print"></i> Stampa</button>
             </div>
           </div>
-          <section class="card itsos-flow-card" id="event-analytics-panel">
-            <div class="card-header"><i class="fa-solid fa-chart-simple"></i> Analisi post-evento</div>
-            <div class="card-body">
-              <p class="itsos-flow-lead">Indicatori organizzativi calcolati dai dati registrati. I valori mancanti non vengono stimati.</p>
-              <div id="event-analytics-kpis" class="itsos-flow-metrics"><div class="empty-state">Seleziona un torneo.</div></div>
-              <div class="itsos-flow-toolbar" style="margin-top:16px;margin-bottom:0">
-                <button type="button" id="btn-export-event-analytics" class="btn btn-ghost"><i class="fa-solid fa-file-csv"></i> Esporta analisi CSV</button>
-              </div>
-              <div id="event-analytics-feedback" class="itsos-flow-feedback" role="status"></div>
-            </div>
-          </section>
           <div class="report-columns-toolbar">
             <div class="report-columns-panel hidden" id="report-columns-panel"></div>
           </div>
@@ -340,7 +337,7 @@
             <div class="top-row-actions">
               <button class="btn btn-primary icon-only-action" id="btn-generate-matches" data-requires-match-write title="Genera automatico" aria-label="Genera automatico"><i class="fa-solid fa-bolt"></i></button>
               <button class="btn btn-ghost icon-only-action" id="btn-prepare-offline" type="button" data-requires-match-write title="Prepara offline" aria-label="Prepara offline"><i class="fa-solid fa-cloud-arrow-down"></i></button>
-              <a class="btn btn-ghost" href="offline-workspace.html" data-requires-match-write title="Pacchetti USB e registrazione autonoma senza rete"><i class="fa-solid fa-hard-drive"></i> Postazione offline</a>
+              <a class="btn btn-ghost" href="offline-workspace.html#key-central-panel" data-requires-match-write title="Prepara chiavette Windows e importa referti USB"><i class="fa-solid fa-hard-drive"></i> ITSOSCup Key</a>
               <button class="btn btn-ghost" id="btn-download-finished-match-reports" type="button"><i class="fa-solid fa-file-pdf"></i> Tutti i referti</button>
               <button class="btn btn-ghost icon-only-action" id="btn-toggle-matches-view" type="button" aria-pressed="false" title="Vista calendario" aria-label="Vista calendario">
                 <i class="fa-solid fa-calendar-days"></i>
@@ -1094,7 +1091,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=54').catch((error) => {
+      import('./js/main-admin.js?v=60').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(
