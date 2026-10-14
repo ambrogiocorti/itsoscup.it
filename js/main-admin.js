@@ -1,4 +1,4 @@
-﻿import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
+import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import {
   createManualMatch,
   createPlatformBackup,
@@ -103,6 +103,7 @@ import {
 import { startTourIfNeeded } from './onboarding.js';
 import { initIntegratedAdmin } from './admin-integrated-workflows.js';
 import { loadLiveMatch } from './live.js';
+import { assertMatchReportPrintCapacity, renderMatchReportDocument } from './match-report.js';
 import { db, run } from './db.js';
 import { APP_CONFIG } from './app-config.js';
 import { escapeHtml, formatDateTime, formatDuration, getEl, medalByRank, showAppAlert, showAppConfirm, showAppPrompt, showToast } from './utils.js';
@@ -131,6 +132,47 @@ const state = {
   regiaSnapshot: null,
 };
 const MOBILE_MENU_BREAKPOINT = 1024;
+const REPORT_COMPACT_KEY = 'itsoscup_report_compact';
+const ADMIN_VIEW_IDS = new Set(['dashboard', 'operations', 'reports', 'matches', 'venues', 'archive', 'telegram', 'sports', 'teams', 'events', 'settings']);
+
+function canOpenAdminView(viewId) {
+  if (!ADMIN_VIEW_IDS.has(viewId)) return false;
+  if (viewId === 'operations') return canAccessControlCenter(state.admin?.ruolo);
+  if (['sports', 'teams', 'events', 'settings'].includes(viewId)) return canManageAll(state.admin?.ruolo);
+  if (viewId === 'matches') return canEditMatches(state.admin?.ruolo);
+  return true;
+}
+
+function getDefaultAdminView() {
+  return canManageAll(state.admin?.ruolo) ? 'dashboard' : canEditMatches(state.admin?.ruolo) ? 'matches' : 'reports';
+}
+
+function setReportCompactMode(compact, { persist = false } = {}) {
+  const panel = getEl('view-reports');
+  const button = getEl('btn-report-density');
+  if (!panel || !button) return;
+  panel.classList.toggle('report-compact', compact);
+  button.setAttribute('aria-pressed', String(compact));
+  const label = compact ? 'Disattiva la visualizzazione compatta delle tabelle' : 'Attiva la visualizzazione compatta delle tabelle';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  const icon = button.querySelector('i');
+  if (icon) icon.className = `fa-solid ${compact ? 'fa-expand' : 'fa-compress'}`;
+  if (persist) {
+    try { window.sessionStorage.setItem(REPORT_COMPACT_KEY, String(compact)); }
+    catch (_error) { /* Il toggle rimane utilizzabile se lo storage è disabilitato. */ }
+  }
+}
+
+function bindReportDensityToggle() {
+  let compact = false;
+  try { compact = window.sessionStorage.getItem(REPORT_COMPACT_KEY) === 'true'; }
+  catch (_error) { /* Predefinito: visualizzazione normale. */ }
+  setReportCompactMode(compact);
+  getEl('btn-report-density')?.addEventListener('click', () => {
+    setReportCompactMode(!getEl('view-reports')?.classList.contains('report-compact'), { persist: true });
+  });
+}
 
 const adminUsersPanel = createAdminUsersPanel({
   canManageAll: () => canManageAll(state.admin?.ruolo),
@@ -585,6 +627,7 @@ function collectMatchReportTeamIds(matches) {
 
 async function loadMatchReportData(matches) {
   const matchIds = matches.map((match) => Number(match.id)).filter((id) => id > 0);
+  const sportIds = [...new Set(matches.map((match) => Number(match.sport_id)).filter((id) => id > 0))];
   const teamIds = collectMatchReportTeamIds(matches);
   const signaturePromise = matchIds.length
     ? run(
@@ -605,7 +648,19 @@ async function loadMatchReportData(matches) {
       ).catch(() => ({ data: [] }))
     : Promise.resolve({ data: [] });
 
-  const [playersResult, statsResult, signaturesResult, staffResult] = await Promise.all([
+  const eventPromise = matchIds.length
+    ? run(
+        db.from('live_match_events').select('*').in('match_id', matchIds)
+          .order('created_at', { ascending: true }).order('id', { ascending: true }),
+        'Caricamento cronologia referto'
+      ).catch(() => ({ data: [], unavailable: true }))
+    : Promise.resolve({ data: [] });
+  const configPromise = sportIds.length
+    ? run(db.from('sport_config').select('*').in('sport_id', sportIds), 'Configurazione sport referto')
+      .catch(() => ({ data: [] }))
+    : Promise.resolve({ data: [] });
+
+  const [playersResult, statsResult, signaturesResult, staffResult, eventsResult, configsResult] = await Promise.all([
     teamIds.length
       ? run(
           db.from('players').select('id, team_id, full_name, is_captain').in('team_id', teamIds).order('full_name', { ascending: true }),
@@ -620,6 +675,8 @@ async function loadMatchReportData(matches) {
       : Promise.resolve({ data: [] }),
     signaturePromise,
     staffPromise,
+    eventPromise,
+    configPromise,
   ]);
 
   const playersByTeam = new Map();
@@ -644,7 +701,14 @@ async function loadMatchReportData(matches) {
     staffByMatchRole.set(`${Number(staff.match_id)}:${staff.role}`, staff);
   });
 
-  return { playersByTeam, statsByMatchPlayer, signaturesByMatchSide, staffByMatchRole };
+  const eventsByMatch = new Map();
+  (eventsResult.data ?? []).forEach((event) => {
+    const key = Number(event.match_id);
+    if (!eventsByMatch.has(key)) eventsByMatch.set(key, []);
+    eventsByMatch.get(key).push(event);
+  });
+  const configsBySport = new Map((configsResult.data ?? []).map((config) => [Number(config.sport_id), config]));
+  return { playersByTeam, statsByMatchPlayer, signaturesByMatchSide, staffByMatchRole, eventsByMatch, configsBySport, eventsUnavailable: Boolean(eventsResult.unavailable) };
 }
 
 function getMatchReportSnapshotStat(match, playerId) {
@@ -654,148 +718,34 @@ function getMatchReportSnapshotStat(match, playerId) {
   return snapshot.find((entry) => Number(entry.player_id) === Number(playerId)) ?? null;
 }
 
-function getMatchReportPlayerRows(match, side, reportData) {
-  const teamId = Number(side === 'home' ? match.home_team_id : match.away_team_id);
-  const players = reportData.playersByTeam.get(teamId) ?? [];
-
-  return players.map((player) => {
-    const stat =
-      reportData.statsByMatchPlayer.get(`${Number(match.id)}:${Number(player.id)}`) ??
-      getMatchReportSnapshotStat(match, player.id) ??
-      {};
-    return {
-      player,
-      played: Boolean(stat.played),
-      fouls: Number(stat.fouls ?? 0),
-      yellowCards: Number(stat.yellow_cards ?? 0),
-      redCards: Number(stat.red_cards ?? 0),
-      pointsScored: Number(stat.points_scored ?? 0),
-      isMvp: Boolean(stat.is_mvp_vote),
-    };
-  });
+function buildMatchReportModel(match, reportData) {
+  const homePlayers = reportData.playersByTeam.get(Number(match.home_team_id)) ?? [];
+  const awayPlayers = reportData.playersByTeam.get(Number(match.away_team_id)) ?? [];
+  const players = [...homePlayers, ...awayPlayers];
+  const snapshotStats = Array.isArray(match.live_payload?.stats_snapshot) ? match.live_payload.stats_snapshot : [];
+  const statsByPlayer = new Map(snapshotStats.map((stat) => [Number(stat.player_id), stat]));
+  for (const stat of reportData.statsByMatchPlayer.values()) {
+    if (Number(stat.match_id) === Number(match.id)) statsByPlayer.set(Number(stat.player_id), { ...(statsByPlayer.get(Number(stat.player_id)) ?? {}), ...stat });
+  }
+  for (const player of players) {
+    statsByPlayer.set(Number(player.id), { ...(statsByPlayer.get(Number(player.id)) ?? {}), player_id: player.id, team_id: player.team_id });
+  }
+  const storedEvents = reportData.eventsByMatch.get(Number(match.id)) ?? [];
+  const snapshotEvents = Array.isArray(match.live_payload?.event_log) ? match.live_payload.event_log : [];
+  return {
+    match,
+    mode: 'final',
+    config: reportData.configsBySport.get(Number(match.sport_id)) ?? {},
+    homePlayers,
+    awayPlayers,
+    stats: [...statsByPlayer.values()],
+    signatures: ['home', 'away'].map((side) => reportData.signaturesByMatchSide.get(`${Number(match.id)}:${side}`)).filter(Boolean),
+    staff: ['referee', 'scorekeeper', 'field_manager', 'supervisor'].map((role) => reportData.staffByMatchRole.get(`${Number(match.id)}:${role}`)).filter(Boolean),
+    eventLog: storedEvents.length ? storedEvents : snapshotEvents,
+    eventLogUnavailable: reportData.eventsUnavailable && !snapshotEvents.length,
+    notes: match.live_payload?.offline_notes ?? '',
+  };
 }
-
-function renderMatchReportPlayersTable(title, rows) {
-  return `
-    <section class="match-report-team">
-      <h3>${escapeHtml(title)}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Giocatore</th>
-            <th>Cap.</th>
-            <th>Pres.</th>
-            <th>Falli</th>
-            <th>Gialli</th>
-            <th>Rossi</th>
-            <th>Punti</th>
-            <th>MVP</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            rows.length
-              ? rows
-                  .map(
-                    (row) => `
-                      <tr>
-                        <td><strong>${escapeHtml(row.player.full_name)}</strong></td>
-                        <td>${boolLabel(Boolean(row.player.is_captain))}</td>
-                        <td>${boolLabel(row.played)}</td>
-                        <td>${row.fouls}</td>
-                        <td>${row.yellowCards}</td>
-                        <td>${row.redCards}</td>
-                        <td>${row.pointsScored}</td>
-                        <td>${boolLabel(row.isMvp)}</td>
-                      </tr>
-                    `
-                  )
-                  .join('')
-              : '<tr><td colspan="8">Nessun giocatore registrato.</td></tr>'
-          }
-        </tbody>
-      </table>
-    </section>
-  `;
-}
-
-function renderMatchReportSignatures(match, reportData) {
-  const homeSignature = reportData.signaturesByMatchSide.get(`${Number(match.id)}:home`);
-  const awaySignature = reportData.signaturesByMatchSide.get(`${Number(match.id)}:away`);
-  const renderSignatureBox = (label, signature) => `
-    <div>
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(signature?.captain_name ?? 'Firma non presente')}</strong>
-      <small>${escapeHtml(formatReportDateTime(signature?.signed_at))}</small>
-      ${
-        signature?.signature_data_url
-          ? `<img class="match-report-signature-img" src="${escapeHtml(signature.signature_data_url)}" alt="Firma ${escapeHtml(label)}" />`
-          : '<em>Immagine firma non disponibile.</em>'
-      }
-    </div>
-  `;
-
-  return `
-    <section class="match-report-signatures">
-      <h3>Firme capitani</h3>
-      <div class="match-report-signature-grid">
-        ${renderSignatureBox('Casa', homeSignature)}
-        ${renderSignatureBox('Ospite', awaySignature)}
-      </div>
-    </section>
-  `;
-}
-
-function renderMatchReportStaff(match, reportData) {
-  const getStaffName = (role) =>
-    reportData.staffByMatchRole?.get(`${Number(match.id)}:${role}`)?.name ?? 'Non assegnato';
-
-  return `
-    <section class="match-report-staff">
-      <h3>Staff referto</h3>
-      <div class="match-report-meta">
-        <div><span>Arbitro</span><strong>${escapeHtml(getStaffName('referee'))}</strong></div>
-        <div><span>Segnapunti</span><strong>${escapeHtml(getStaffName('scorekeeper'))}</strong></div>
-        <div><span>Responsabile campo</span><strong>${escapeHtml(getStaffName('field_manager'))}</strong></div>
-        <div><span>Docente supervisore</span><strong>${escapeHtml(getStaffName('supervisor'))}</strong></div>
-      </div>
-    </section>
-  `;
-}
-
-function renderSingleMatchReport(match, reportData) {
-  const homeRows = getMatchReportPlayerRows(match, 'home', reportData);
-  const awayRows = getMatchReportPlayerRows(match, 'away', reportData);
-  const livePayload = match.live_payload ?? {};
-  const score = `${Number(match.home_score ?? 0)} - ${Number(match.away_score ?? 0)}`;
-
-  return `
-    <article class="match-report-page">
-      <header class="match-report-header">
-        <div>
-          <p>Referto partita</p>
-          <h1>${escapeHtml(getMatchTeamsLabel(match))}</h1>
-          <div class="match-report-header-meta">
-            <span><strong>Torneo</strong> ${escapeHtml(match.sport?.name ?? '-')}</span>
-            <span><strong>Fase</strong> ${escapeHtml(match.round_name ?? '-')}</span>
-            <span><strong>Campo</strong> ${escapeHtml(match.venue?.name ?? 'Campo da definire')}</span>
-            <span><strong>Slot</strong> ${escapeHtml(formatScheduleRange(match))}</span>
-            <span><strong>Chiuso il</strong> ${escapeHtml(formatReportDateTime(match.finished_at))}</span>
-            <span><strong>Durata live</strong> ${escapeHtml(formatDuration(livePayload.duration ?? match.duration ?? 0))}</span>
-          </div>
-        </div>
-        <div class="match-report-score">${escapeHtml(score)}</div>
-      </header>
-
-      ${match.schedule_notes ? `<section class="match-report-notes"><strong>Note:</strong> ${escapeHtml(match.schedule_notes)}</section>` : ''}
-      ${renderMatchReportStaff(match, reportData)}
-      ${renderMatchReportPlayersTable(match.home?.name ?? 'Casa', homeRows)}
-      ${renderMatchReportPlayersTable(match.away?.name ?? 'Ospite', awayRows)}
-      ${renderMatchReportSignatures(match, reportData)}
-    </article>
-  `;
-}
-
 function openMatchReportPrintWindow() {
   const printWindow = window.open('', '_blank');
 
@@ -823,64 +773,17 @@ function openMatchReportPrintWindow() {
 }
 
 function openPrintableMatchReports(matches, reportData, printWindow) {
-  const pages = matches.map((match) => renderSingleMatchReport(match, reportData)).join('');
+  const models = matches.map((match) => buildMatchReportModel(match, reportData));
   const fileName = buildMatchReportFileName(matches);
   const title = matches.length === 1 ? `Referto ${getMatchTeamsLabel(matches[0])}` : 'Referti match conclusi';
-
   printWindow.document.open();
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html lang="it">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${escapeHtml(title)}</title>
-        <style>
-          @page { size: A4 portrait; margin: 12mm; }
-          * { box-sizing: border-box; }
-          body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; font-size: 11px; }
-          .match-report-page { page-break-after: always; break-after: page; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-          .match-report-page:last-child { page-break-after: auto; break-after: auto; }
-          .match-report-header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; break-inside: avoid; }
-          .match-report-header p { margin: 0 0 4px; color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-          .match-report-header h1 { margin: 0; font-size: 24px; line-height: 1.08; }
-          .match-report-header-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 8px; color: #334155; font-size: 10px; line-height: 1.25; }
-          .match-report-header-meta span { white-space: nowrap; }
-          .match-report-header-meta strong { color: #64748b; font-size: 8.5px; text-transform: uppercase; margin-right: 3px; }
-          .match-report-score { min-width: 104px; padding: 8px 12px; border: 2px solid #0f172a; text-align: center; font-size: 28px; font-weight: 800; }
-          .match-report-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; margin: 0; }
-          .match-report-meta div, .match-report-notes, .match-report-signature-grid div { border: 1px solid #cbd5e1; padding: 7px; border-radius: 6px; }
-          .match-report-meta span, .match-report-signature-grid span { display: block; color: #64748b; font-size: 9px; font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
-          .match-report-meta strong { font-size: 10.5px; line-height: 1.2; }
-          .match-report-notes { margin: 0; font-size: 10.5px; break-inside: avoid; }
-          .match-report-staff,
-          .match-report-signatures { break-inside: avoid; }
-          h3 { margin: 3px 0 6px; font-size: 13px; }
-          table { width: 100%; border-collapse: collapse; font-size: 10px; break-inside: auto; }
-          thead { display: table-header-group; }
-          tr { break-inside: avoid; page-break-inside: avoid; }
-          th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: left; line-height: 1.2; }
-          th { background: #f1f5f9; font-size: 8.5px; text-transform: uppercase; }
-          th:not(:first-child), td:not(:first-child) { text-align: center; }
-          .match-report-staff .match-report-meta { grid-template-columns: repeat(2, 1fr); }
-          .match-report-signature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-          .match-report-signature-grid strong, .match-report-signature-grid small { display: block; }
-          .match-report-signature-grid small { color: #64748b; margin-top: 4px; }
-          .match-report-signature-grid em { display: block; margin-top: 10px; color: #64748b; font-size: 10px; }
-          .match-report-signature-img { display: block; width: 100%; max-height: 82px; object-fit: contain; margin-top: 8px; border-top: 1px solid #cbd5e1; padding-top: 6px; }
-          @media print {
-            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-          }
-        </style>
-      </head>
-      <body>${pages}</body>
-    </html>
-  `);
+  printWindow.document.write(renderMatchReportDocument(models, { title }));
   printWindow.document.close();
   printWindow.document.title = fileName.replace(/\.pdf$/i, '');
+  assertMatchReportPrintCapacity(printWindow.document);
   printWindow.focus();
   setTimeout(() => printWindow.print(), 250);
 }
-
 async function downloadMatchReports(matches, printWindow = null) {
   const finishedMatches = (matches ?? []).filter((match) => Boolean(match?.is_finished));
   if (!finishedMatches.length) {
@@ -1569,14 +1472,17 @@ async function handleCsvConfirmImport() {
 }
 
 async function switchView(viewId) {
-  if (viewId === 'operations' && !canAccessControlCenter(state.admin?.ruolo)) {
-    showToast('Il Centro di controllo e riservato al Super Admin.', 'error');
-    viewId = 'dashboard';
+  if (!canOpenAdminView(viewId)) {
+    if (ADMIN_VIEW_IDS.has(viewId)) showToast(viewId === 'operations' ? 'Il Centro di controllo è riservato al Super Admin.' : 'Questa sezione non è disponibile per il tuo ruolo.', 'error');
+    viewId = getDefaultAdminView();
   }
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
+  const url = new URL(window.location.href);
+  url.searchParams.set('view', viewId);
+  window.history.replaceState(null, '', url);
 
   if (viewId === 'dashboard') loadDashboardStats();
   if (viewId === 'operations') await loadRegiaOperations();
@@ -1586,7 +1492,9 @@ async function switchView(viewId) {
   if (viewId === 'venues') loadVenuesTable();
   if (viewId === 'archive') loadArchiveTable();
   if (viewId === 'telegram') await renderTelegramView();
-  if (viewId === 'reports') loadReportData();
+  if (viewId === 'reports') {
+    loadReportData();
+  }
   if (viewId === 'events') loadEventsSection();
   if (viewId === 'settings') loadSettingsForSelectedSport();
 }
@@ -1955,6 +1863,9 @@ function getRegiaEventMode(snapshot = {}) {
   if (Number(matches.paused ?? 0) > 0) {
     return { label: 'Sospensione attiva', icon: 'fa-pause', tone: 'danger' };
   }
+  if (closedVenue || criticalDevices || issues.length || Number(matches.delayed ?? 0) > 0 || Number(matches.unscheduled ?? 0) > 0) {
+    return { label: 'Da verificare', icon: 'fa-triangle-exclamation', tone: 'warning' };
+  }
   return { label: 'Operativo', icon: 'fa-circle-check', tone: 'success' };
 }
 
@@ -1978,10 +1889,11 @@ function renderRegiaChecklist(rows) {
   const snapshotPercent = Number(state.regiaSnapshot?.readiness_percent ?? percent);
   const readiness = getEl('regia-readiness-value');
   if (readiness) readiness.textContent = `${snapshotPercent}%`;
+  const count = getEl('regia-preparation-count');
+  if (count) count.textContent = items.length ? `${items.length} controlli` : 'Pronta';
   target.innerHTML = items.length
     ? `<div class="regia-checklist">
         ${items
-          .slice(0, 12)
           .map(
             (row) => `
               <button class="regia-check-item ${escapeHtml(row.severity ?? 'warning')}" data-entity-type="${escapeHtml(row.entity_type ?? '')}" data-entity-id="${escapeHtml(row.entity_id ?? '')}" type="button">
@@ -2017,7 +1929,7 @@ function buildRegiaActionQueue(snapshot = {}, checklist = []) {
     });
   }
 
-  delayed.slice(0, 4).forEach((match) => {
+  delayed.forEach((match) => {
     items.push({
       severity: Number(match.delay_minutes ?? 0) >= 15 ? 'danger' : 'warning',
       icon: 'fa-stopwatch',
@@ -2030,13 +1942,12 @@ function buildRegiaActionQueue(snapshot = {}, checklist = []) {
 
   checklist
     .filter((row) => ['error', 'warning'].includes(row?.severity))
-    .slice(0, 5)
     .forEach((row) => {
       items.push({
         severity: row.severity ?? 'warning',
         icon: row.severity === 'error' ? 'fa-xmark' : 'fa-triangle-exclamation',
         title: row.message ?? 'Controllo da verificare',
-        detail: row.code ?? 'validazione',
+        detail: 'Apri la sezione per completare il controllo.',
         entityType: row.entity_type,
         entityId: row.entity_id,
       });
@@ -2044,7 +1955,6 @@ function buildRegiaActionQueue(snapshot = {}, checklist = []) {
 
   venues
     .filter((venue) => ['temporarily_closed', 'maintenance', 'unavailable'].includes(venue.status ?? venue.operational_status))
-    .slice(0, 4)
     .forEach((venue) => {
       items.push({
         severity: 'danger',
@@ -2058,20 +1968,19 @@ function buildRegiaActionQueue(snapshot = {}, checklist = []) {
 
   devices
     .filter(isDeviceCritical)
-    .slice(0, 4)
     .forEach((device) => {
       const status = formatDeviceStatus(device);
       items.push({
         severity: device.is_revoked || device.is_blocked ? 'danger' : 'warning',
         icon: 'fa-laptop',
         title: device.label || 'Postazione senza nome',
-        detail: status.label,
+        detail: device.anomaly_note || (device.is_revoked || device.is_blocked ? status.label : !device.is_offline_ready ? 'Offline da preparare' : 'Nessun aggiornamento negli ultimi 30 minuti'),
         entityType: 'device',
         entityId: device.device_id,
       });
     });
 
-  issues.slice(0, 4).forEach((issue) => {
+  issues.forEach((issue) => {
     items.push({
       severity: 'warning',
       icon: 'fa-message',
@@ -2083,13 +1992,15 @@ function buildRegiaActionQueue(snapshot = {}, checklist = []) {
   });
 
   const severityOrder = { danger: 0, error: 0, warning: 1, info: 2, success: 3 };
-  return items.sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2)).slice(0, 12);
+  return items.sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
 }
 
 function renderRegiaActionQueue(snapshot = {}, checklist = []) {
   const target = getEl('regia-action-queue-panel');
   if (!target) return;
   const items = buildRegiaActionQueue(snapshot, checklist);
+  const count = getEl('regia-action-count');
+  if (count) count.textContent = String(items.length);
   if (!items.length) {
     target.innerHTML = `
       <div class="regia-action-empty">
@@ -2103,9 +2014,7 @@ function renderRegiaActionQueue(snapshot = {}, checklist = []) {
     return;
   }
 
-  target.innerHTML = `
-    <div class="regia-action-queue">
-      ${items
+  const renderItems = (rows) => rows
         .map(
           (item) => `
             <button class="regia-action-item ${escapeHtml(item.severity)}" type="button" data-entity-type="${escapeHtml(item.entityType ?? '')}" data-entity-id="${escapeHtml(item.entityId ?? '')}">
@@ -2117,14 +2026,18 @@ function renderRegiaActionQueue(snapshot = {}, checklist = []) {
             </button>
           `
         )
-        .join('')}
-    </div>
+        .join('');
+  target.innerHTML = `
+    <div class="regia-action-queue">${renderItems(items.slice(0, 4))}</div>
+    ${items.length > 4 ? `<details class="regia-more-actions"><summary>Altri ${items.length - 4} interventi</summary><div class="regia-action-queue">${renderItems(items.slice(4))}</div></details>` : ''}
   `;
 }
 
 function renderRegiaVenues(venues = []) {
   const target = getEl('regia-venues-panel');
   if (!target) return;
+  const count = getEl('regia-venues-count');
+  if (count) count.textContent = `${venues.filter((venue) => !['temporarily_closed', 'maintenance', 'unavailable'].includes(venue.status ?? venue.operational_status)).length}/${venues.length} disponibili`;
   target.innerHTML = venues.length
     ? `<div class="regia-venue-list">
         ${venues
@@ -2136,7 +2049,7 @@ function renderRegiaVenues(venues = []) {
                   <small>${escapeHtml(venue.reason || `${Number(venue.matches_today ?? 0)} match oggi`)}</small>
                 </div>
                 <div class="regia-venue-actions" data-venue-id="${venue.id}">
-                  <select data-action="regia-venue-status">
+                  <select data-action="regia-venue-status" aria-label="Stato campo ${escapeHtml(venue.name)}">
                     ${['available', 'busy', 'temporarily_closed', 'maintenance', 'unavailable']
                       .map((status) => `<option value="${status}" ${status === (venue.status ?? venue.operational_status) ? 'selected' : ''}>${escapeHtml(formatRegiaStatusLabel(status))}</option>`)
                       .join('')}
@@ -2175,8 +2088,8 @@ function renderRegiaDevices(devices = []) {
                   <strong>${escapeHtml(device.label || 'Dispositivo non nominato')}</strong>
                   <small>${escapeHtml(String(device.device_id).slice(0, 8))}</small>
                 </td>
-                <td><select data-device-field="venue">${venueOptions}</select></td>
-                <td><input data-device-field="operator" type="text" value="${escapeHtml(device.operator_name ?? '')}" placeholder="Operatore" /></td>
+                <td><select data-device-field="venue" aria-label="Campo di ${escapeHtml(device.label || 'postazione')}">${venueOptions}</select></td>
+                <td><input data-device-field="operator" type="text" value="${escapeHtml(device.operator_name ?? '')}" placeholder="Operatore" aria-label="Operatore di ${escapeHtml(device.label || 'postazione')}" /></td>
                 <td>${device.is_offline_ready ? 'Pronto' : 'Da preparare'} · ${Number(device.offline_match_count ?? 0)} match</td>
                 <td>${escapeHtml(formatReportDateTime(device.last_sync_at ?? device.last_seen_at))}</td>
                 <td><span class="badge ${status.badge}">${escapeHtml(status.label)}</span></td>
@@ -2228,13 +2141,12 @@ function renderRegiaIssues(issues = []) {
   target.innerHTML = issues.length
     ? `<div class="issue-report-list">
         ${issues
-          .slice(0, 8)
           .map(
             (issue) => `
               <article class="issue-report-row">
                 <strong>${escapeHtml(issue.reporter ?? 'Segnalazione')}</strong>
                 <p>${escapeHtml(issue.message ?? '').slice(0, 180)}</p>
-                <small>${escapeHtml(formatReportDateTime(issue.created_at))} · ${escapeHtml(issue.status ?? 'open')}</small>
+                <small>${escapeHtml(formatReportDateTime(issue.created_at))} · ${escapeHtml(({ open: 'Aperta', in_progress: 'In gestione', acknowledged: 'Presa in carico' })[issue.status] ?? issue.status ?? 'Aperta')}</small>
               </article>
             `
           )
@@ -2290,17 +2202,27 @@ function handleRegiaActionNavigation(actionEl) {
   }
 
   if (type === 'device') {
+    const details = getEl('regia-devices-details');
+    if (details) details.open = true;
     getEl('regia-devices-panel')?.scrollIntoView({ block: 'center' });
     return;
   }
 
   if (type === 'issue') {
+    const details = getEl('regia-issues-details');
+    if (details) details.open = true;
     getEl('regia-issues-panel')?.scrollIntoView({ block: 'center' });
     return;
   }
 
   if (type === 'matches') {
     switchView('matches').catch((error) => showToast(error.message, 'error'));
+  }
+  if (type === 'sport') {
+    switchView('sports').catch((error) => showToast(error.message, 'error'));
+  }
+  if (type === 'system') {
+    switchView('settings').catch((error) => showToast(error.message, 'error'));
   }
 }
 
@@ -2335,6 +2257,7 @@ async function loadRegiaOperations() {
 }
 
 async function handleRegiaVenueStatusChange(select) {
+  if (!canAccessControlCenter(state.admin?.ruolo)) return;
   const row = select.closest('[data-venue-id]');
   const venueId = Number(row?.dataset.venueId || 0);
   if (!venueId) return;
@@ -2354,6 +2277,7 @@ async function handleRegiaVenueStatusChange(select) {
 }
 
 async function handleSaveRegiaDevice(row) {
+  if (!canAccessControlCenter(state.admin?.ruolo)) return;
   const deviceId = row?.dataset.deviceId;
   if (!deviceId) return;
   const current = (state.regiaSnapshot?.devices ?? []).find((device) => String(device.device_id) === String(deviceId)) ?? {};
@@ -2370,6 +2294,7 @@ async function handleSaveRegiaDevice(row) {
 }
 
 async function handleToggleRegiaDeviceBlock(row) {
+  if (!canAccessControlCenter(state.admin?.ruolo)) return;
   const deviceId = row?.dataset.deviceId;
   if (!deviceId) return;
   const current = (state.regiaSnapshot?.devices ?? []).find((device) => String(device.device_id) === String(deviceId)) ?? {};
@@ -2397,6 +2322,7 @@ async function handleToggleRegiaDeviceBlock(row) {
 }
 
 async function handleRevokeRegiaDevice(row) {
+  if (!canAccessControlCenter(state.admin?.ruolo)) return;
   const deviceId = row?.dataset.deviceId;
   if (!deviceId) return;
   if (!(await showAppConfirm('Revocare questa postazione? Non verra piu considerata operativa.', {
@@ -5431,6 +5357,7 @@ async function saveEventResultForm(event) {
 }
 function bindCoreActions() {
   bindRankingRulesDrag();
+  bindReportDensityToggle();
 
   getEl('btn-logout').addEventListener('click', async () => {
     await signOutAdmin();
@@ -6196,9 +6123,8 @@ async function init() {
     await loadSettingsForSelectedSport();
   }
 
-  if (canManageAll(state.admin?.ruolo)) await switchView('dashboard');
-  else if (canEditMatches(state.admin?.ruolo)) await switchView('matches');
-  else await switchView('reports');
+  const requestedView = new URLSearchParams(window.location.search).get('view');
+  await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView());
 
   startAdminTour();
 }

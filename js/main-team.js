@@ -54,7 +54,7 @@ async function refresh() {
   } finally { refreshing = false; document.getElementById('team-refresh').disabled = false; }
 }
 if (!route) {
-  status.innerHTML = '<div class="empty-state">Link squadra non valido. Apri una squadra dalla classifica del torneo.</div>';
+  status.innerHTML = '<div class="empty-state">Link squadra non valido. Controlla l’indirizzo oppure visita la pagina iniziale.</div>';
   document.getElementById('team-refresh').hidden = true;
 } else {
   const canonical = teamPageUrl(route.sportId, route.teamId);

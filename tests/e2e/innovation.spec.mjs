@@ -115,5 +115,5 @@ test('class invites, targeted notices and analytics are integrated into existing
   expect(submitted.p_invite_ids).toEqual(['11111111-1111-1111-1111-111111111111']);
   expect(submitted.p_publish_to_team).toBe(true);
   await expect(page.locator('#class-notification-history')).toContainText('Nuovo orario');
-  await expect(page.locator('#event-analytics-kpis')).toContainText('5 min');
+  await expect(page.locator('#event-analytics-kpis')).toHaveCount(0);
 });

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('USB package encryption, zero-network startup and offline draft persistence', async ({page,context})=>{
   await page.goto('/offline-workspace.html');
+  await page.locator('#offline-browser-workspace summary').click();
   const prepared=await page.evaluate(async()=>{
     const {putLiveCacheEntry}=await import('/js/offline-db.js');
     const entry={match_id:9911001,cached_at:'2026-10-14T08:00:00Z',
@@ -70,6 +71,7 @@ test('a second independent device imports an encrypted USB package while complet
     });
     // Receiver must install shell while connected; after that no LAN or Internet is available.
     await incoming.goto('/offline-workspace.html');
+    await incoming.locator('#offline-browser-workspace summary').click();
     await incoming.waitForFunction(()=>navigator.serviceWorker?.controller!=null);
     await receiver.setOffline(true);
     await incoming.locator('#offline-package-password').fill('PasswordUSBScuola1234');

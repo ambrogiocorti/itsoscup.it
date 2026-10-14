@@ -1,0 +1,45 @@
+name: ITSOSCup Platform Windows
+on:
+  pull_request:
+    paths:
+      - 'desktop/key/**'
+      - 'admin/**'
+      - 'css/**'
+      - 'js/**'
+      - 'tests/**'
+      - 'offline-workspace.html'
+      - 'team.html'
+      - '.github/workflows/platform-windows.yml'
+  workflow_dispatch:
+jobs:
+  verify-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/key/package-lock.json
+      - name: Check match-report behavior
+        run: node --test tests/match-report.test.mjs
+      - name: Install desktop dependencies
+        run: npm ci --prefix desktop/key
+      - name: Test offline platform and Key
+        run: npm --prefix desktop/key test
+      - name: Test unified platform smoke
+        run: npm --prefix desktop/key run test:platform
+      - name: Build Windows portable executable
+        run: npm --prefix desktop/key run build:win
+      - name: Verify packaged application
+        run: npm --prefix desktop/key run test:packaged
+      - name: Upload Windows installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ITSOSCup-Platform-Windows
+          path: |
+            desktop/key/dist/ITSOSCup-Platform-*.exe
+            desktop/key/dist/ITSOSCup-Platform-*.zip
+          if-no-files-found: error
+          retention-days: 14

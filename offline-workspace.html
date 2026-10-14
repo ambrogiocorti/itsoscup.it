@@ -1,77 +1,97 @@
 <!doctype html>
-<html lang="it"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer">
-<title>Postazione senza rete | ITSOSCup</title>
-<link rel="icon" href="./favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./css/style.css?v=56">
-<link rel="stylesheet" href="./css/integrated-workflows.css?v=56">
-<style>
-.offline-workspace {max-width:1100px;margin:24px auto 80px;padding:0 17px;}
-.offline-workspace-header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 22px}
-.offline-workspace-header h1{font-size:clamp(1.45rem,3vw,2.2rem);margin:0;color:var(--color-text);}
-.offline-workspace .card{margin-bottom:20px}
-.offline-workspace .card-body{padding:22px}
-.offline-workspace .field{margin:0 0 12px}
-.offline-workspace .field input,.offline-workspace .field select,.offline-workspace .field textarea{width:100%}
-.offline-workspace .offline-banner{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;line-height:1.6}
-.offline-workspace .offline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.offline-workspace .offline-match{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--color-border);padding:12px 0}
-.offline-workspace .offline-match strong{display:block;overflow-wrap:anywhere}
-.offline-workspace .offline-match small{display:block;color:var(--color-text-soft)}
-.offline-workspace .offline-actions{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-.offline-workspace .offline-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.offline-workspace .offline-score input{font-size:1.7rem;font-weight:900;text-align:center}
-.offline-workspace .offline-note{font-size:.86rem;color:var(--color-text-soft)}
-.offline-workspace [hidden]{display:none!important}
-.offline-workspace #offline-status{font-weight:700;white-space:pre-wrap}
-.offline-workspace #offline-status.is-error{color:var(--color-danger)}
-.offline-workspace .offline-ops-row{padding:10px 0;border-bottom:1px solid var(--color-border);font-size:.86rem}
-.offline-workspace button{cursor:pointer}
-@media(max-width:720px){.offline-workspace .offline-grid,.offline-workspace .offline-score{grid-template-columns:1fr}}
-</style></head><body>
-<main class="offline-workspace">
-<header class="offline-workspace-header"><div>
-  <p class="itsos-flow-muted">ITSOSCup · Modalità di emergenza senza rete</p><h1>Postazione autonoma</h1>
-</div><a class="btn btn-ghost" href="./admin/"><span aria-hidden="true">←</span> Dashboard</a></header>
-<p class="offline-banner">Questa postazione salva i dati <strong>solo su questo dispositivo</strong>. Non deve essere collegata ad altri dispositivi. Per scambiare le partite e recuperare i risultati, usa un <strong>file cifrato trasferito tramite USB</strong>. Le partite vanno preparate in anticipo oppure importate da un pacchetto.</p>
-<p id="offline-status" role="status" aria-live="polite"></p>
-<div class="offline-grid">
-<section class="card"><div class="card-header">1 · Preparazione e trasferimento</div><div class="card-body">
-<p class="offline-note">Esporta la preparazione prima del torneo o importa il pacchetto sulla postazione destinata a segnare i risultati. La password non viene memorizzata.</p>
-<div class="field"><label for="offline-package-password">Password del pacchetto (almeno 12 caratteri)</label><input id="offline-package-password" type="password" minlength="12" autocomplete="off" placeholder="Password comunicata agli operatori"></div>
-<div class="offline-actions">
-<button type="button" class="btn btn-ghost" id="offline-export-prepared">Esporta partite</button>
-<button type="button" class="btn btn-primary" id="offline-export-results">Esporta risultati</button>
-</div>
-<div class="field"><label for="offline-package-file">Importa un pacchetto ITSOSCup (.json)</label><input id="offline-package-file" type="file" accept=".json,application/json"></div>
-<button class="btn btn-ghost" type="button" id="offline-import">Importa dal dispositivo USB</button>
-<p class="offline-note">Non inviare i file non cifrati e non condividere la password insieme al file.</p>
-</div></section>
-<section class="card"><div class="card-header">2 · Partite preparate</div><div class="card-body">
-<p class="offline-note">Apri una partita, registra il punteggio e salva sul dispositivo. Le modifiche non vengono inviate automaticamente.</p>
-<div id="offline-matches" aria-live="polite">Caricamento archivio locale…</div>
-</div></section></div>
-<section class="card" id="offline-editor" hidden><div class="card-header"><span id="offline-editor-label">Partita</span></div><div class="card-body">
-<div class="offline-score">
-<div class="field"><label for="offline-home-score" id="offline-home-label">Squadra casa</label><input type="number" id="offline-home-score" min="0" max="999" inputmode="numeric" required></div>
-<div class="field"><label for="offline-away-score" id="offline-away-label">Squadra ospite</label><input type="number" id="offline-away-score" min="0" max="999" inputmode="numeric" required></div>
-</div>
-<div class="offline-grid">
-<div class="field"><label for="offline-minutes">Tempo di gioco (minuti)</label><input type="number" id="offline-minutes" min="0" max="999" value="0"></div>
-<div class="field"><label for="offline-period">Tempo / set / periodo</label><input type="number" id="offline-period" min="1" max="99" value="1"></div>
-</div>
-<div class="field"><label for="offline-notes">Annotazioni di gara</label><textarea id="offline-notes" rows="3" maxlength="1000" placeholder="Eventi essenziali, contestazioni, note"></textarea></div>
-<div class="offline-actions"><button class="btn btn-primary" type="button" id="offline-save">Salva sul dispositivo</button><button class="btn btn-ghost" id="offline-close" type="button">Chiudi</button></div>
-<p class="offline-note">Questa modalità registra una <strong>bozza del punteggio</strong>, non sostituisce il referto completo con firme o statistiche. L'invio al cloud richiede controllo dei conflitti e autenticazione online.</p>
-</div></section>
-<section class="card"><div class="card-header">3 · Registro e sincronizzazione controllata</div><div class="card-body">
-<p class="offline-note">Importa i risultati sul dispositivo da cui hai accesso autorizzato a Supabase. La sincronizzazione richiede Internet e verifica la versione del match: in caso di modifiche concorrenti si blocca, senza sovrascrivere.</p>
-<div id="offline-operations" aria-live="polite"></div>
-<div class="offline-actions"><button type="button" class="btn btn-primary" id="offline-sync">Verifica e sincronizza i risultati in attesa</button><button class="btn btn-ghost" type="button" id="offline-refresh">Aggiorna</button></div>
-<p class="offline-note">I conflitti restano archiviati per la verifica manuale. Non eliminare i pacchetti USB fino all'avvenuto collaudo e alla conferma dei risultati.</p>
-</div></section>
-</main>
-<script type="module" src="./js/offline-workspace.js"></script>
-<script>if('serviceWorker' in navigator&&window.isSecureContext)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
-</body></html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0f172a">
+  <title>Postazioni offline | ITSOSCup</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./css/style.css?v=56"><link rel="stylesheet" href="./css/integrated-workflows.css?v=56"><link rel="stylesheet" href="./css/key-control.css"><link rel="stylesheet" href="./css/offline-workspace.css?v=60">
+</head>
+<body class="admin-page offline-workspace-page">
+  <div class="admin-shell" id="offline-shell">
+    <button class="mobile-sidebar-toggle" id="btn-mobile-menu" type="button" aria-label="Apri menu" aria-controls="admin-sidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i><span>Menu</span></button>
+    <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+    <aside class="sidebar" id="admin-sidebar" aria-label="Navigazione amministrazione">
+      <a class="sidebar-brand" href="./"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ITSOSCup.it</a>
+      <div class="sidebar-user"><div class="sidebar-user-name">Postazioni offline</div><div class="sidebar-user-role" id="offline-workspace-mode">Gestione dei trasferimenti</div><div class="sidebar-device"><i class="fa-solid fa-laptop" aria-hidden="true"></i><span id="offline-storage-label">Archivio su questo dispositivo</span></div></div>
+      <nav class="offline-sidebar-nav" aria-label="Sezioni della piattaforma"><ul class="sidebar-menu">
+        <li><a class="sidebar-link" href="./admin/?view=dashboard"><i class="fa-solid fa-house" aria-hidden="true"></i> Dashboard</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=operations"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> Centro di controllo</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=reports"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Report</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=matches"><i class="fa-solid fa-calendar" aria-hidden="true"></i> Calendario</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=venues"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Campi</a></li>
+        <li><a class="sidebar-link active" href="./offline-workspace.html" aria-current="page"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Postazioni offline</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=archive"><i class="fa-solid fa-landmark" aria-hidden="true"></i> Albo</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=telegram"><i class="fa-brands fa-telegram" aria-hidden="true"></i> Telegram</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=sports"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Tornei</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=teams"><i class="fa-solid fa-users" aria-hidden="true"></i> Squadre</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=events"><i class="fa-solid fa-person-running" aria-hidden="true"></i> Atletica</a></li>
+        <li><a class="sidebar-link" href="./admin/?view=settings"><i class="fa-solid fa-gears" aria-hidden="true"></i> Impostazioni</a></li>
+      </ul></nav>
+      <div class="sidebar-logout"><a class="btn btn-ghost" href="./"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Sito pubblico</a></div>
+    </aside>
+    <main class="main-pane offline-workspace" id="offline-main">
+      <header class="offline-workspace-header"><div><p class="offline-eyebrow">ITSOSCup · Gestione tornei</p><h1>Postazioni offline</h1><p class="offline-intro">Un unico percorso per preparare le chiavette, verificare i referti e confermare i risultati.</p></div><span class="offline-environment" id="offline-environment"><i class="fa-solid fa-desktop" aria-hidden="true"></i><span id="offline-environment-label">Archivio del browser</span></span></header>
+      <div class="offline-overview" role="note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><strong>Procedura consigliata</strong><span>Collega l’archivio, prepara le partite, importa il pacchetto di ritorno e verifica la ricevuta. Le operazioni di trasferimento funzionano senza Internet nell’app Windows.</span></div><a href="#key-central-panel">Inizia <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></a></div>
+      <nav class="offline-workflow" aria-label="Fasi del trasferimento, seleziona una fase per raggiungerla">
+        <a href="#key-preparation" class="offline-workflow-step"><span class="offline-step-number">1</span><span><strong>Prepara</strong><small>Partite e accessi per il campo</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+        <a href="#key-collection" class="offline-workflow-step"><span class="offline-step-number">2</span><span><strong>Raccogli</strong><small>Referti firmati dalle chiavette</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+        <a href="#key-confirmation" class="offline-workflow-step"><span class="offline-step-number">3</span><span><strong>Conferma</strong><small>Verifica e restituisci le ricevute</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+      </nav>
+      <p id="offline-status" class="offline-feedback" role="status" aria-live="polite"></p>
+      <section class="card offline-primary" id="key-central-panel" aria-labelledby="key-central-title">
+        <div class="card-header offline-card-header"><div><h2 id="key-central-title"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Chiavette Windows</h2><p>ITSOSCup Key · partite, firme e referti completi</p></div><span class="offline-tag">File cifrati</span></div>
+        <div class="card-body">
+          <div class="offline-access">
+            <div class="field"><label for="key-password">Password del trasferimento</label><div class="offline-password"><input id="key-password" type="password" minlength="12" autocomplete="off" placeholder="Almeno 12 caratteri" aria-describedby="key-password-help"><button class="icon-btn" type="button" data-password-toggle="key-password" aria-label="Mostra password del trasferimento" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div><small id="key-password-help">La stessa password protegge preparazione, risultati e ricevute della postazione.</small></div>
+            <div class="offline-access-actions"><button type="button" class="btn btn-primary" id="key-connect"><i class="fa-solid fa-link" aria-hidden="true"></i><span data-online-label="Collega calendario" data-native-label="Collega archivio centrale">Collega calendario</span></button><button type="button" class="btn btn-ghost" id="key-lock"><i class="fa-solid fa-lock" aria-hidden="true"></i> Blocca trasferimenti</button></div>
+          </div>
+          <p id="key-central-status" class="offline-feedback" role="status" aria-live="polite"></p>
+          <details id="key-preparation" class="offline-preparation">
+            <summary><span class="offline-step-number">1</span><span><strong>Prepara una chiavetta</strong><small>Assegna partite e operatori alla postazione</small></span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="offline-preparation-body">
+              <p class="offline-inline-help" id="key-connect-help"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span data-online-label="Accedi alla dashboard e collega il calendario per scegliere le partite." data-native-label="Accedi alla centrale e collega l'archivio per scegliere le partite.">Accedi alla dashboard e collega il calendario per scegliere le partite.</span> <a href="./admin/?view=matches">Apri calendario</a></p>
+              <div id="key-preparation-fields" hidden>
+                <div class="offline-form-grid"><div class="field"><label for="key-sport">Torneo</label><select id="key-sport"></select></div><div class="field"><label for="key-venue">Campo</label><select id="key-venue"></select></div><div class="field"><label for="key-station">Postazione</label><select id="key-station"></select></div><div class="field"><label for="key-label">Nome della postazione</label><input id="key-label" type="text" maxlength="80" placeholder="Es. Campo 1 · Palestra"></div></div>
+                <fieldset class="offline-match-fieldset"><legend>Partite assegnate</legend><p class="offline-note">Seleziona le partite che saranno gestite da questa chiavetta.</p><div id="key-match-list"></div></fieldset>
+                <div class="offline-personnel">
+                  <section class="offline-personnel-card" aria-labelledby="key-operator-title"><h3 id="key-operator-title"><i class="fa-solid fa-user" aria-hidden="true"></i> Segnapunti</h3><p>Registra punteggio, presenze ed eventi sul campo.</p><div class="field"><label for="key-operator-name">Nome operatore</label><input id="key-operator-name" type="text" maxlength="80" autocomplete="off" placeholder="Nome e cognome"></div><div class="field"><label for="key-operator-pin">PIN personale</label><div class="offline-password"><input id="key-operator-pin" type="password" inputmode="numeric" minlength="8" maxlength="20" autocomplete="off" placeholder="Da 8 a 20 cifre"><button class="icon-btn" type="button" data-password-toggle="key-operator-pin" aria-label="Mostra PIN operatore" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div></div></section>
+                  <section class="offline-personnel-card" aria-labelledby="key-supervisor-title"><h3 id="key-supervisor-title"><i class="fa-solid fa-user-shield" aria-hidden="true"></i> Supervisore</h3><p>Autorizza le correzioni dopo la verifica del referto.</p><div class="field"><label for="key-supervisor-name">Nome supervisore</label><input id="key-supervisor-name" type="text" maxlength="80" autocomplete="off" placeholder="Nome e cognome"></div><div class="field"><label for="key-supervisor-pin">PIN personale</label><div class="offline-password"><input id="key-supervisor-pin" type="password" inputmode="numeric" minlength="8" maxlength="20" autocomplete="off" placeholder="Diverso dal PIN del segnapunti"><button class="icon-btn" type="button" data-password-toggle="key-supervisor-pin" aria-label="Mostra PIN supervisore" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div><small>Da 8 a 20 cifre.</small></div></section>
+                </div>
+                <div class="offline-submit-row"><button type="button" class="btn btn-primary" id="key-prepare"><i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Esporta preparazione cifrata</button><p class="offline-note">Copia il pacchetto sulla chiavetta, importalo nell'app e verifica le partite assegnate. Comunica password e PIN agli operatori separatamente.</p></div>
+              </div>
+            </div>
+          </details>
+          <section class="offline-subsection" id="key-collection" aria-labelledby="key-collection-title">
+            <div class="offline-subsection-title"><span class="offline-step-number">2</span><div><h3 id="key-collection-title">Raccogli i risultati dei campi</h3><p>Importa il pacchetto esportato dalla postazione al termine delle partite.</p></div></div>
+            <div class="offline-collection-row"><div class="field"><label for="key-result-file">Pacchetto risultati (.json / .keypack)</label><input type="file" id="key-result-file" accept=".json,.keypack,application/json"></div><button type="button" class="btn btn-primary" id="key-stage"><i class="fa-solid fa-file-import" aria-hidden="true"></i> Raccogli pacchetto</button></div>
+            <p class="offline-note" data-online-label="I pacchetti restano cifrati su questo dispositivo. Puoi raccoglierli senza rete e verificarli quando il calendario torna raggiungibile." data-native-label="I pacchetti restano cifrati sulla centrale. Raccolta, verifica e ricevute funzionano anche senza Internet.">I pacchetti restano cifrati su questo dispositivo. Puoi raccoglierli senza rete e verificarli quando il calendario torna raggiungibile.</p>
+          </section>
+          <section class="offline-subsection" id="key-confirmation" aria-labelledby="key-confirmation-title">
+            <div class="offline-subsection-title"><span class="offline-step-number">3</span><div><h3 id="key-confirmation-title">Verifica e restituisci le ricevute</h3><p data-online-label="Controlla i referti con una sessione autorizzata online, poi riporta la ricevuta sulla chiavetta originale." data-native-label="Conferma i referti nell'archivio centrale, poi riporta la ricevuta sulla chiavetta originale.">Controlla i referti con una sessione autorizzata online, poi riporta la ricevuta sulla chiavetta originale.</p></div></div>
+            <div id="key-inbox" aria-live="polite"></div><p class="offline-note">Un trasferimento è concluso quando la postazione importa la ricevuta. I conflitti rimangono disponibili per la revisione.</p>
+          </section>
+        </div>
+      </section>
+      <details class="offline-browser-workspace" id="offline-browser-workspace">
+        <summary><i class="fa-solid fa-globe" aria-hidden="true"></i><span><strong>Bozze nel browser</strong><small>Modalità essenziale per annotare e trasferire il punteggio</small></span><span class="offline-tag">Opzionale</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+        <div class="offline-browser-body">
+          <p class="offline-inline-help">Le bozze restano in questo browser e comprendono punteggio, tempo e note. Per il referto completo con presenze, eventi e firme usa la postazione ITSOSCup Key nell'applicazione Windows.</p>
+          <div class="offline-grid">
+            <section class="card"><div class="card-header"><h3>Pacchetti delle bozze</h3></div><div class="card-body"><div class="field"><label for="offline-package-password">Password del pacchetto</label><input id="offline-package-password" type="password" minlength="12" autocomplete="off" placeholder="Almeno 12 caratteri"></div><div class="offline-actions"><button type="button" class="btn btn-ghost" id="offline-export-prepared">Esporta partite</button><button type="button" class="btn btn-primary" id="offline-export-results">Esporta risultati</button></div><div class="field"><label for="offline-package-file">Pacchetto ITSOSCup (.json)</label><input id="offline-package-file" type="file" accept=".json,application/json"></div><button class="btn btn-ghost" type="button" id="offline-import"><i class="fa-solid fa-file-import" aria-hidden="true"></i> Importa pacchetto</button></div></section>
+            <section class="card"><div class="card-header"><h3>Partite sul dispositivo</h3><button class="icon-btn" type="button" id="offline-refresh" aria-label="Aggiorna partite e bozze" title="Aggiorna"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></button></div><div class="card-body"><p class="offline-note">Apri una partita e salva il punteggio sul dispositivo.</p><div id="offline-matches" aria-live="polite">Caricamento archivio locale…</div></div></section>
+          </div>
+          <section class="card" id="offline-editor" hidden><div class="card-header"><h3 id="offline-editor-label">Partita</h3></div><div class="card-body">
+            <div class="offline-score"><div class="field"><label for="offline-home-score" id="offline-home-label">Squadra casa</label><input type="number" id="offline-home-score" min="0" max="999" inputmode="numeric" required></div><div class="field"><label for="offline-away-score" id="offline-away-label">Squadra ospite</label><input type="number" id="offline-away-score" min="0" max="999" inputmode="numeric" required></div></div>
+            <div class="offline-form-grid"><div class="field"><label for="offline-minutes">Tempo di gioco (minuti)</label><input type="number" id="offline-minutes" min="0" max="999" value="0"></div><div class="field"><label for="offline-period">Tempo / set / periodo</label><input type="number" id="offline-period" min="1" max="99" value="1"></div></div><div class="field"><label for="offline-notes">Annotazioni di gara</label><textarea id="offline-notes" rows="3" maxlength="1000" placeholder="Eventi essenziali e note del responsabile"></textarea></div><div class="offline-actions"><button class="btn btn-primary" type="button" id="offline-save">Salva bozza</button><button class="btn btn-ghost" id="offline-close" type="button">Chiudi</button></div>
+          </div></section>
+          <section class="card"><div class="card-header"><h3>Bozze in attesa</h3></div><div class="card-body"><div id="offline-operations" aria-live="polite"></div><div class="offline-actions"><button type="button" class="btn btn-primary" id="offline-sync">Verifica e sincronizza le bozze</button></div><p class="offline-note">L'invio richiede Internet e un accesso autorizzato al calendario. Le versioni in conflitto restano disponibili per la revisione.</p></div></section>
+        </div>
+      </details>
+      <footer class="offline-workspace-footer">ITSOSCup · Trasferimenti locali protetti · Verifica sempre le ricevute prima di scollegare la chiavetta.</footer>
+    </main>
+  </div>
+  <script type="module" src="./js/offline-workspace-shell.js"></script><script type="module" src="./js/offline-workspace.js"></script>
+  <script>if('serviceWorker' in navigator&&window.isSecureContext&&!window.ITSOSCUP_DESKTOP)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
+</body>
+</html>
