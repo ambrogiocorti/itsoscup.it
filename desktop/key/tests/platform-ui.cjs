@@ -16,7 +16,7 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);process.stderr.write('Platform page error: '+e.message+'\n');});page.on('console',event=>{if(event.type()==='error')process.stderr.write('Platform console: '+event.text()+'\n');});
   await application.context().setOffline(true);assert.equal(await page.evaluate(()=>navigator.onLine),false);
   await page.locator('#central-password').fill(PASSWORD);await page.locator('#central-name').fill('Responsabile sintetico');await page.locator('#central-email').fill(EMAIL);await page.locator('#central-pin').fill(PIN);await page.locator('#central-submit').click();await page.locator('#link-sports').waitFor();
-  assert.match(page.url(), /^platform:\/\/app\/admin\//, 'Unlock must open original administration, not a desktop duplicate');
+  assert.match(page.url(), /^platform:\/\/app\/admin\/?$/, 'Unlock must open original administration, not a desktop duplicate');
   const initialShell=await appPage(application,'shell');
   assert.equal(await initialShell.locator('#desktop-print').count(),0,'No unsafe global print button');
   assert.equal(await initialShell.locator('#open-site').count(),1,'Public ITSOSCup entry is present');
