@@ -117,7 +117,7 @@ test('local follow survives navigation, shows home next/latest/notices, coalesce
   await page.reload();
   await expect(page.locator('#my-teams-content .favorite-team-heading')).toContainText('4A');
   await page.locator('[data-unfollow]').click();
-  await expect(page.locator('#my-teams-content')).toContainText('Apri una squadra dalla classifica');
+  await expect(page.locator('#my-teams-content')).toContainText('Nessuna squadra seguita');
 });
 
 test('hidden roster is never queried; notice boundaries and escaping remain intact; config failure hides previous roster', async ({ page, context }) => {
