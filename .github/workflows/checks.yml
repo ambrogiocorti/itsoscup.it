@@ -75,6 +75,8 @@ jobs:
         run: npm run key:build
       - name: Launch the packaged executable offline
         run: npm run key:packaged
+      - name: Packaged match signatures, encrypted export and persistence after restart
+        run: node desktop/key/tests/renderer-smoke.cjs "desktop/key/dist/win-unpacked/ITSOSCup Key.exe"
       - name: Launch the portable EXE from an independent empty folder
         run: node desktop/key/tests/packaged-smoke.cjs desktop/key/dist/ITSOSCup-Key-0.1.0-x64.exe
       - name: SHA-256 distribution checksums

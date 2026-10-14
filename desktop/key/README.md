@@ -47,14 +47,19 @@ Da questa cartella, con Node.js 24 e npm:
 npm ci
 npm test
 npm run test:smoke
+npm --prefix ../.. ci
+npm run test:ui
 npm run build:win
 npm run test:packaged
 node tests/packaged-smoke.cjs dist/ITSOSCup-Key-0.1.0-x64.exe
+node tests/renderer-smoke.cjs "dist/win-unpacked/ITSOSCup Key.exe"
 ```
 
 La build scarica Electron e gli strumenti **sulla postazione di preparazione**; sul computer del campo non scarica nulla. I file di distribuzione sono in `dist/`. Il controllo nativo con `--key-self-check` avvia una finestra nascosta, verifica asset locali, isolamento e accessi rete/file negati, scrive `ITSOSCup-Key-self-check.json` accanto all'eseguibile e termina senza aprire un archivio. Non accetta percorsi di uscita arbitrari.
 
 I test automatici coprono interoperabilità Node/WebCrypto, AES-GCM e password errate, SQLite cifrato dopo riapertura, autorizzazioni, PIN e versioni locali, timer monotono, regolamenti, firme e correzioni, replay di pacchetti/ricevute, rimozione simulata della cartella USB, errore atomico durante la sostituzione e recupero su una nuova directory. La suite centrale `tests/key-sql.test.mjs` verifica inoltre l'intero protocollo desktop → WebCrypto → PostgreSQL sintetico → ricevuta → desktop e le autorizzazioni SQL.
+
+Verifiche locali superate il 14 ottobre 2026: 15 regressioni Node, 8 test di integrazione centrale, avvio nativo Electron, flusso completo dell'interfaccia con firme disegnate, avvio dell'eseguibile Windows distribuito, persistenza SQLite/WASM dopo il suo riavvio e avvio del singolo lanciatore portatile da una directory indipendente inizialmente vuota. Il contenuto dell'applicazione distribuita e gli asset originali sono stati confrontati byte per byte con le sorgenti correnti. La build ha generato realmente `.exe` e `.zip`; `dist/verification.json` registra dimensioni, SHA-256 e limiti dei collaudi locali. Queste prove non sostituiscono il collaudo fisico seguente.
 
 ## Collaudo fisico ancora necessario
 

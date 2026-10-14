@@ -4,8 +4,11 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),asse
 const {encryptPackage}=require('../crypto.cjs');const {prepared,PASSWORD}=require('./fixtures.cjs');
 (async()=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'itsoscup-key-ui-')),p=prepared(),file=path.join(root,'prepared.keypack');fs.writeFileSync(file,encryptPackage(p,PASSWORD));let application;
+  const packaged=process.argv[2]?path.resolve(process.argv[2]):null,dataDirectory=packaged?path.join(path.dirname(packaged),'ITSOSCup-Key-data'):path.join(root,'USB-data');
+  if(fs.existsSync(dataDirectory))throw new Error('Workflow test requires an empty archive path; existing data was left untouched');
+  const launchOptions={executablePath:packaged||require('electron'),args:packaged?[]:[path.resolve(__dirname,'..')],env:{...process.env,ITSOSCUP_KEY_DATA_DIR:path.join(root,'USB-data')}};
   try{
-    application=await _electron.launch({executablePath:require('electron'),args:[path.resolve(__dirname,'..')],env:{...process.env,ITSOSCUP_KEY_DATA_DIR:path.join(root,'USB-data')}});
+    application=await _electron.launch(launchOptions);
     const page=await application.firstWindow();page.setDefaultTimeout(20000);
     await page.locator('#vault-password').fill(PASSWORD);await page.locator('#create-vault').check();await page.locator('#unlock-form button[type="submit"]').click();
     await page.locator('#setup-name').fill('Responsabile sintetico');await page.locator('#setup-pin').fill('11223344');await page.locator('#setup-form button').click();
@@ -22,10 +25,15 @@ const {encryptPackage}=require('../crypto.cjs');const {prepared,PASSWORD}=requir
     assert.equal(await page.locator('#print-report').getByText('Capitano Test Alfa',{exact:false}).count()>0,true);
     await page.locator('#package-password').fill(PASSWORD);await page.locator('#export').click();
     await page.waitForFunction(()=>document.getElementById('status').textContent.includes('referti cifrati esportati'));
-    const transfers=fs.readdirSync(path.join(root,'USB-data/exchange')).filter(name=>name.endsWith('.keypack'));assert.equal(transfers.length,1);
+    const transfers=fs.readdirSync(path.join(dataDirectory,'exchange')).filter(name=>name.endsWith('.keypack'));assert.equal(transfers.length,1);
     await page.locator('#logout').click();assert.equal(await page.locator('#print-report').textContent(),'');assert.equal(await page.locator('#editor').textContent(),'');assert.equal(await page.locator('#new-matches').textContent(),'');
     await page.locator('#login-pin').fill('11223344');await page.locator('#login-form button').click();await page.locator('#lock').click();assert.equal(await page.locator('#print-report').textContent(),'');assert.equal(await page.locator('#operator').textContent(),'');
     await application.close();application=null;
+    if(packaged){
+      application=await _electron.launch(launchOptions);const reopened=await application.firstWindow();await reopened.locator('#vault-password').fill(PASSWORD);await reopened.locator('#unlock-form button[type="submit"]').click();await reopened.locator('#login-pin').fill('11223344');await reopened.locator('#login-form button').click();await reopened.locator('[data-open="17"]').click();
+      await reopened.waitForFunction(()=>state.current.finalized===true&&state.current.payload.home_score===2&&state.current.signatures.length===2);assert.ok(fs.readFileSync(path.join(dataDirectory,'archive.keyvault'),'utf8').includes('itsoscup-key-vault'));await application.close();application=null;
+      process.stdout.write('Actual packaged Windows SQLite/WASM persistence after executable restart passed.\n');
+    }
     process.stdout.write('Native renderer workflow passed: archive, local login, dialog import, sport score, captain canvas signatures, finalized encrypted export, logout/lock privacy clearing.\n');
-  }finally{if(application)await application.close();fs.rmSync(root,{recursive:true,force:true});}
+  }finally{if(application)await application.close();if(packaged&&fs.existsSync(dataDirectory)){assert.equal(path.resolve(dataDirectory),path.join(path.dirname(packaged),'ITSOSCup-Key-data'));fs.rmSync(dataDirectory,{recursive:true,force:true});}fs.rmSync(root,{recursive:true,force:true});}
 })().catch(error=>{process.stderr.write(error.stack+'\n');process.exitCode=1;});
