@@ -26,14 +26,14 @@ export function registerOfflineSupport() {
       banner = document.createElement('div');
       banner.id = 'offline-status-banner';
       banner.className = 'offline-status-banner';
-      banner.textContent = 'Connessione assente: uso dati locali e cache dove disponibili.';
+      banner.textContent = 'Connessione assente: ITSOSCup richiede Internet per salvare e aggiornare le partite. Verifica la rete prima di proseguire.';
       document.body.appendChild(banner);
     }
     banner.classList.toggle('show', !navigator.onLine);
   };
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
       .then((registration) => {
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
@@ -45,7 +45,7 @@ export function registerOfflineSupport() {
         });
       })
       .catch(() => {
-        // Offline support is best-effort; the app must keep working without it.
+        // The PWA remains usable online even if SW registration is unavailable.
       });
     syncBanner();
   });
