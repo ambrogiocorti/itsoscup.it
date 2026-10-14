@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="./css/style.css?v=56"><link rel="stylesheet" href="./css/integrated-workflows.css?v=56"><link rel="stylesheet" href="./css/key-control.css"><link rel="stylesheet" href="./css/offline-workspace.css?v=60">
 </head>
 <body class="admin-page offline-workspace-page">
+  <a class="offline-skip-link" href="#offline-main">Vai al contenuto delle postazioni offline</a>
   <div class="admin-shell" id="offline-shell">
     <button class="mobile-sidebar-toggle" id="btn-mobile-menu" type="button" aria-label="Apri menu" aria-controls="admin-sidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i><span>Menu</span></button>
     <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
@@ -31,12 +32,12 @@
       <div class="sidebar-logout"><a class="btn btn-ghost" href="./"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Sito pubblico</a></div>
     </aside>
     <main class="main-pane offline-workspace" id="offline-main">
-      <header class="offline-workspace-header"><div><p class="offline-eyebrow">ITSOSCup · Gestione tornei</p><h1>Postazioni offline</h1><p class="offline-intro">Un unico percorso per preparare le chiavette, verificare i referti e confermare i risultati.</p></div><span class="offline-environment" id="offline-environment"><i class="fa-solid fa-desktop" aria-hidden="true"></i><span id="offline-environment-label">Archivio del browser</span></span></header>
-      <div class="offline-overview" role="note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><strong>Procedura consigliata</strong><span>Collega l’archivio, prepara le partite, importa il pacchetto di ritorno e verifica la ricevuta. Le operazioni di trasferimento funzionano senza Internet nell’app Windows.</span></div><a href="#key-central-panel">Inizia <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></a></div>
-      <nav class="offline-workflow" aria-label="Fasi del trasferimento, seleziona una fase per raggiungerla">
+      <header class="offline-workspace-header"><div><p class="offline-eyebrow">ITSOSCup · Gestione tornei</p><h1>Postazioni offline</h1><p class="offline-intro">Prepara le partite, raccogli i referti firmati e conferma i risultati. Ogni passaggio è guidato, anche senza connessione nell’app Windows.</p></div><span class="offline-environment" id="offline-environment"><i class="fa-solid fa-desktop" aria-hidden="true"></i><span id="offline-environment-label">Archivio del browser</span></span></header>
+      <div class="offline-overview" role="note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><strong>Come funziona</strong><span>1. Prepara le partite · 2. Importa i referti dalla chiavetta · 3. Verifica e conferma. Non scollegare la chiavetta durante il salvataggio. Il trasferimento offline completo è disponibile nell’app Windows.</span></div><a href="#key-central-panel">Inizia <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></a></div>
+      <nav class="offline-workflow" aria-label="Procedura in tre fasi: seleziona per raggiungere una sezione">
         <a href="#key-preparation" class="offline-workflow-step"><span class="offline-step-number">1</span><span><strong>Prepara</strong><small>Partite e accessi per il campo</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
-        <a href="#key-collection" class="offline-workflow-step"><span class="offline-step-number">2</span><span><strong>Raccogli</strong><small>Referti firmati dalle chiavette</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
-        <a href="#key-confirmation" class="offline-workflow-step"><span class="offline-step-number">3</span><span><strong>Conferma</strong><small>Verifica e restituisci le ricevute</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+        <a href="#key-collection" class="offline-workflow-step"><span class="offline-step-number">2</span><span><strong>Raccogli</strong><small>Importa i referti firmati</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+        <a href="#key-confirmation" class="offline-workflow-step"><span class="offline-step-number">3</span><span><strong>Conferma</strong><small>Convalida e restituisci le ricevute</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
       </nav>
       <p id="offline-status" class="offline-feedback" role="status" aria-live="polite"></p>
       <section class="card offline-primary" id="key-central-panel" aria-labelledby="key-central-title">
