@@ -42,6 +42,7 @@
     <meta name="apple-mobile-web-app-title" content="ITSOS Cup" />
     <link rel="stylesheet" href="css/style.css?v=50"/>
     <link rel="stylesheet" href="css/admin-modules.css?v=62"/>
+    <link rel="stylesheet" href="css/pwa.css?v=1"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   </head>
@@ -90,6 +91,7 @@
         </ul>
 
         <div class="sidebar-logout">
+          <button type="button" class="btn btn-ghost" data-install-pwa aria-label="Installa ITSOSCup come applicazione Windows"><i class="fa-solid fa-download" aria-hidden="true"></i> Installa ITSOSCup</button>
           <button class="btn btn-danger" id="btn-logout">
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </button>
@@ -155,7 +157,6 @@
 
           <nav class="regia-quick-links" aria-label="Accessi rapidi del Centro di controllo">
             <a href="./admin/?view=matches"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Calendario <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-            <a href="./offline-workspace.html"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Postazioni offline <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
             <a href="./admin/?view=reports"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Report <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
           </nav>
 
@@ -1088,6 +1089,7 @@
       </div>
     </div>
 
+    <script type="module" src="js/pwa-install.js?v=1"></script>
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
