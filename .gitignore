@@ -7,3 +7,8 @@ node_modules/
 Thumbs.db
 test-results/
 playwright-report/
+desktop/key/dist/
+desktop/key/KeyData/
+*.keyvault
+*.keyvault.bak
+*.keyvault.pending

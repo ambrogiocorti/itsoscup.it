@@ -1,9 +1,12 @@
 name: ITSOSCup checks
 on:
   push:
-    branches: [main, codex/team-pages-follows]
+    branches: [main, codex/team-follow-key]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   application:
     runs-on: ubuntu-latest
@@ -11,30 +14,80 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - name: Install
         run: npm ci
+      - name: Install Key SQLite runtime
+        run: npm ci --prefix desktop/key
       - name: JavaScript syntax
         run: npm run check:js
-      - name: Current static regression checks
+      - name: Current static and regression checks
         run: npm test
       - name: Inline page module syntax
         run: npm run check:inline
       - name: Innovation analytics tests
         run: npm run test:innovation
-      - name: Team preferences and deduplicated updates
+      - name: Team preferences and personalized updates
         run: npm run test:teams
+      - name: Browser/desktop encrypted wire protocol
+        run: npm run test:key:transfer
+      - name: PostgreSQL authorization, signatures and idempotent import
+        run: npm run test:key:sql
+      - name: Encrypted desktop archive and recovery tests
+        run: npm run key:test
   browser:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci
       - name: Install browser
         run: npx playwright install --with-deps chromium
-      - name: Class portal and admin smoke tests
+      - name: Desktop and mobile end-to-end flows
         run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-traces
+          path: test-results/
+  key-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/key/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix desktop/key
+      - run: npm run key:test
+      - name: Electron offline launch and isolation smoke
+        run: npm run key:smoke
+      - name: Native scorekeeper flow and locked-screen privacy
+        run: npm run key:ui
+      - name: Portable Windows EXE and standalone ZIP
+        run: npm run key:build
+      - name: Launch the packaged executable offline
+        run: npm run key:packaged
+      - name: Packaged match signatures, encrypted export and persistence after restart
+        run: node desktop/key/tests/renderer-smoke.cjs "desktop/key/dist/win-unpacked/ITSOSCup Key.exe"
+      - name: Launch the portable EXE from an independent empty folder
+        run: node desktop/key/tests/packaged-smoke.cjs desktop/key/dist/ITSOSCup-Key-0.1.0-x64.exe
+      - name: SHA-256 distribution checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem desktop/key/dist -File | Where-Object { $_.Extension -in '.exe','.zip' } | ForEach-Object { '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash,$_.Name } | Set-Content desktop/key/dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ITSOSCup-Key-Windows-x64
+          path: |
+            desktop/key/dist/*.exe
+            desktop/key/dist/*.zip
+            desktop/key/dist/SHA256SUMS.txt
+          if-no-files-found: error

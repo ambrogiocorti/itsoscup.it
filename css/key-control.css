@@ -1,0 +1,11 @@
+#key-central-panel { grid-column: 1 / -1; }
+#key-central-panel details { margin: 18px 0; }
+#key-central-panel summary { cursor: pointer; font-weight: 700; color: var(--color-primary); }
+#key-central-panel fieldset { border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin: 14px 0; }
+#key-central-panel .key-match-choice { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+#key-central-panel .key-match-choice input { width: auto; }
+#key-central-panel .key-match-choice small { display: block; color: var(--color-text-soft); }
+#key-central-status { white-space: pre-wrap; font-weight: 700; }
+#key-central-status.is-error { color: var(--color-danger); }
+#key-central-panel :focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+#key-central-panel hr { border: 0; border-top: 1px solid var(--color-border); margin: 20px 0; }

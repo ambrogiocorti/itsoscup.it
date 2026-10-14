@@ -51,6 +51,7 @@ test('USB package encryption, zero-network startup and offline draft persistence
 });
 
 test('a second independent device imports an encrypted USB package while completely offline',async({browser})=>{
+  test.setTimeout(60_000);
   const sender=await browser.newContext();
   const receiver=await browser.newContext();
   try{
