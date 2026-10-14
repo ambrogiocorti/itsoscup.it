@@ -1,4 +1,5 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
+import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import {
   createManualMatch,
   createPlatformBackup,
@@ -136,15 +137,11 @@ const REPORT_COMPACT_KEY = 'itsoscup_report_compact';
 const ADMIN_VIEW_IDS = new Set(['dashboard', 'operations', 'reports', 'matches', 'venues', 'archive', 'telegram', 'sports', 'teams', 'events', 'settings']);
 
 function canOpenAdminView(viewId) {
-  if (!ADMIN_VIEW_IDS.has(viewId)) return false;
-  if (viewId === 'operations') return canAccessControlCenter(state.admin?.ruolo);
-  if (['sports', 'teams', 'events', 'settings'].includes(viewId)) return canManageAll(state.admin?.ruolo);
-  if (viewId === 'matches') return canEditMatches(state.admin?.ruolo);
-  return true;
+  return ADMIN_VIEW_IDS.has(viewId) && canAccessAdminView(state.admin?.ruolo, viewId);
 }
 
 function getDefaultAdminView() {
-  return canManageAll(state.admin?.ruolo) ? 'dashboard' : canEditMatches(state.admin?.ruolo) ? 'matches' : 'reports';
+  return defaultAdminView(state.admin?.ruolo);
 }
 
 function setReportCompactMode(compact, { persist = false } = {}) {
@@ -1046,6 +1043,19 @@ async function renderOfflineAdminDashboard() {
 }
 
 function startAdminTour() {
+  const role = state.admin?.ruolo;
+  if (role === 'match_manager') {
+    startTourIfNeeded('admin_match_manager', [
+      { selector: '#link-matches', title: 'Calendario', text: 'Qui trovi le partite, apri la diretta, registri il punteggio e completi i referti con le firme.' },
+    ]);
+    return;
+  }
+  if (role === 'report_viewer') {
+    startTourIfNeeded('admin_report_viewer', [
+      { selector: '#link-reports', title: 'Report', text: 'Consulta i risultati e le statistiche disponibili al tuo ruolo, con filtri ed esportazione.' },
+    ]);
+    return;
+  }
   startTourIfNeeded('admin', [
     {
       selector: '#admin-sidebar',
@@ -1562,27 +1572,27 @@ function applyRolePermissions() {
   const matchWrite = canEditMatches(role);
   const fullWrite = canManageAll(role);
   const controlCenterAccess = canAccessControlCenter(role);
+  const allowed = new Set(allowedAdminViews(role));
 
   document.querySelectorAll('[data-requires-match-write]').forEach((el) => {
     el.classList.toggle('hidden', !matchWrite);
   });
-
   document.querySelectorAll('[data-requires-admin-write]').forEach((el) => {
     el.classList.toggle('hidden', !fullWrite);
   });
-
   document.querySelectorAll('[data-requires-control-center]').forEach((el) => {
     el.classList.toggle('hidden', !controlCenterAccess);
   });
 
-  if (!fullWrite) {
-    ['sports', 'teams', 'settings', 'events'].forEach((view) => {
-      document.querySelector(`.sidebar-link[data-view="${view}"]`)?.classList.add('hidden');
-    });
-  }
-  if (!matchWrite) {
-    document.querySelector('.sidebar-link[data-view="matches"]')?.classList.add('hidden');
-  }
+  // Hide the entire list item so restricted roles do not see empty menu gaps.
+  document.querySelectorAll('.sidebar-link[data-view]').forEach((button) => {
+    const permitted = allowed.has(button.dataset.view);
+    button.classList.toggle('hidden', !permitted);
+    button.closest('li')?.classList.toggle('hidden', !permitted);
+    button.disabled = !permitted;
+    if (!permitted) button.setAttribute('aria-hidden', 'true');
+    else button.removeAttribute('aria-hidden');
+  });
 }
 
 function bindSidebar() {
