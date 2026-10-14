@@ -5,12 +5,12 @@ import { join } from 'node:path';
 
 test.use({ serviceWorkers: 'block' });
 
-function syntheticSdk({ privacy = 'full', denyStorage = false } = {}) {
+function syntheticSdk({ privacy = 'full', denyStorage = false, showClass = true } = {}) {
   const data = {
     sports: [{ id: 37, name: 'Torneo di prova', sport_type: 'calcio', format: 'gironi', year: 4, is_active: true }],
     teams: [{ id: 124, sport_id: 37, name: '4A' }, { id: 125, sport_id: 37, name: '4B' }],
     players: [{ id: 1, team_id: 124, full_name: 'Studente Prova', is_captain: true }],
-    sport_config: [{ sport_id: 37, privacy_settings: { player_name: privacy, show_class: privacy !== 'hidden' } }],
+    sport_config: [{ sport_id: 37, privacy_settings: { player_name: privacy, show_class: showClass } }],
     matches: [
       { id: 11, sport_id: 37, home_team_id: 124, away_team_id: 125, home: { name: '4A' }, away: { name: '4B' }, home_score: 2, away_score: 1, is_finished: true, status: 'finished', scheduled_start: '2026-10-10T10:00:00Z', finished_at: '2026-10-10T11:00:00Z', venue_id: 2, venue: { id: 2, name: 'Campo 2' } },
       { id: 12, sport_id: 37, home_team_id: 124, away_team_id: 125, home: { name: '4A' }, away: { name: '4B' }, home_score: 0, away_score: 0, is_finished: false, status: 'scheduled', scheduled_start: '2099-11-14T10:00:00Z', scheduled_end: '2099-11-14T11:00:00Z', venue_id: 1, venue: { id: 1, name: 'Palestra' } },
@@ -124,6 +124,8 @@ test('hidden roster is never queried; notice boundaries and escaping remain inta
   await installFixture(context, { privacy: 'hidden' });
   await page.goto('/team.html?sport=37&team=124');
   await expect(page.getByRole('heading', { name: 'Classe', exact: true })).toBeVisible();
+  await expect(page.locator('#team-page-content')).not.toContainText('4A');
+  await expect(page.locator('#team-page-content')).not.toContainText('4B');
   await expect(page.locator('.team-roster-list')).toHaveText('Rosa non pubblica.');
   expect(await page.evaluate(() => window.__queries.filter((q) => q.table === 'players'))).toEqual([]);
   await page.evaluate(() => { window.__notices = [{ id: 22, title: '<script>test</script>', body: '<img src=x>', created_at: '2026-10-14T10:00:00Z' }]; });
