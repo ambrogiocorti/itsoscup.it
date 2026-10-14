@@ -5,6 +5,7 @@ import {
 import {
   createEncryptedPackage, getOfflineDeviceId, importEncryptedPackage
 } from './offline-package.js';
+import { initializeKeyControl } from './key-control.js';
 
 const $=id=>document.getElementById(id);
 let currentMatch=null;
@@ -199,3 +200,4 @@ wire('offline-sync','click',syncPending);
 wire('offline-refresh','click',render);
 wire('offline-close','click',async()=>{$('offline-editor').hidden=true;currentMatch=null;});
 render().catch(e=>info(e.message,true));
+initializeKeyControl();
