@@ -37,13 +37,13 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   await clickSiteSidebar(page,'link-matches');
   assert.equal(await page.locator('#view-matches').isVisible(),true);
   await clickSiteSidebar(page,'link-sports');
-  assert.equal(await page.locator('#view-sports').isVisible(),true);await finishWelcome(page);await page.locator('#link-sports').click();await page.locator('#btn-new-sport').click();
+  assert.equal(await page.locator('#view-sports').isVisible(),true);await finishWelcome(page);await clickSiteSidebar(page,'link-sports');await page.locator('#btn-new-sport').click();
   await page.locator('#input-sport-name').fill('Torneo desktop sintetico');await page.locator('#input-sport-year').fill('3');await page.locator('#input-sport-type').selectOption('basket');await page.locator('#form-sport button[type=submit]').click();await page.locator('#modal-sport').waitFor({state:'hidden'});
-  await page.locator('#link-teams').click();
+  await clickSiteSidebar(page,'link-teams');
   for(const [name,players,captain]of [['3A Sintetica','Capitano Alfa\nGiocatore Alfa Uno\nGiocatore Alfa Due\nGiocatore Alfa Tre\nGiocatore Alfa Quattro','Capitano Alfa'],['3B Sintetica','Capitano Beta\nGiocatore Beta Uno\nGiocatore Beta Due\nGiocatore Beta Tre\nGiocatore Beta Quattro','Capitano Beta']]){
    await page.locator('#btn-new-team-alt').click();await page.locator('#select-sport-team').selectOption({label:'Torneo desktop sintetico'});await page.locator('#input-team-name').fill(name);await page.locator('#input-players-list').fill(players);await page.locator('#select-team-captain').selectOption({label:captain});await page.locator('#form-team button[type=submit]').click();await page.locator('#modal-team').waitFor({state:'hidden'});
   }
-  await page.locator('#link-matches').click();await page.locator('#view-matches [data-open-match-modal]').click();await page.locator('#select-sport-match').selectOption({label:'Torneo desktop sintetico'});await page.locator('#select-home-team').selectOption({label:'3A Sintetica'});await page.locator('#select-away-team').selectOption({label:'3B Sintetica'});await page.locator('#input-match-date').fill('2026-10-14');await page.locator('#input-match-start').fill('10:00');await page.locator('#input-match-end').fill('10:30');await page.locator('#btn-submit-match').click();await page.locator('#modal-match').waitFor({state:'hidden'});
+  await clickSiteSidebar(page,'link-matches');await page.locator('#view-matches [data-open-match-modal]').click();await page.locator('#select-sport-match').selectOption({label:'Torneo desktop sintetico'});await page.locator('#select-home-team').selectOption({label:'3A Sintetica'});await page.locator('#select-away-team').selectOption({label:'3B Sintetica'});await page.locator('#input-match-date').fill('2026-10-14');await page.locator('#input-match-start').fill('10:00');await page.locator('#input-match-end').fill('10:30');await page.locator('#btn-submit-match').click();await page.locator('#modal-match').waitFor({state:'hidden'});
   await page.locator('[data-action="toggle-match-menu"]').first().click();await page.locator('[data-action="start-live"]').first().click();await page.locator('#live-home-name').waitFor();await finishWelcome(page);
   for (const checkbox of await page.locator('[data-action="toggle-played"]').all()) await checkbox.check();
   await page.locator('[data-score-team="home"][data-score-delta="2"]').click();await page.locator('#btn-save-snapshot').click();
@@ -53,7 +53,7 @@ async function finishWelcome(page) { if(await page.evaluate(()=>document.getElem
   await page.locator('#btn-confirm-finalize-signatures').click();
   await page.waitForFunction(async()=>{const r=await window.itsoscupPlatform.call({type:'query',table:'matches',calls:[{method:'select',args:['*']}]});return r.data?.[0]?.is_finished===true;});
   const results=await page.evaluate(async()=>({matches:await window.itsoscupPlatform.call({type:'query',table:'matches',calls:[{method:'select',args:['*']}] }),signatures:await window.itsoscupPlatform.call({type:'query',table:'match_captain_signatures',calls:[{method:'select',args:['*']}]})}));assert.equal(results.matches.data[0].home_score,2);assert.equal(results.signatures.data.length,2);
-  await page.locator('#btn-back-admin').click();await page.locator('#link-reports').click();assert.equal(await page.locator('#view-reports').isVisible(),true);
+  await page.locator('#btn-back-admin').click();await clickSiteSidebar(page,'link-reports');assert.equal(await page.locator('#view-reports').isVisible(),true);
   await page.evaluate(async()=>{const {teamFollowStore}=await import('/js/team-follow-store.js');teamFollowStore.follow(1,1,{consent:true});});
   await page.waitForFunction(async()=>{const r=await window.itsoscupPlatform.call({type:'status'});return JSON.parse(r.data?.preferences?.tornei_team_follows_v1||'{}').favorites?.length===1;});
   assert.equal(errors.length,0,errors.join('\n'));
