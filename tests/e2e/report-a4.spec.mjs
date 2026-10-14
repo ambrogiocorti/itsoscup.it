@@ -12,7 +12,7 @@ for (const sport of ['calcio', 'basket', 'pallavolo']) {
       await page.emulateMedia({ media: 'print' });
       const pdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true, displayHeaderFooter: false });
       // Chromium writes its page dictionaries uncompressed even when content streams are compressed.
-      const count = (pdf.toString('latin1').match(/\\/Type\\s*\\/Page\\b/g) || []).length;
+      const count = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
       expect(count, `Referto ${sport}: ${count} pagine A4, massimo 2 consentite`).toBeGreaterThan(0);
       expect(count, `Referto ${sport}: ${count} pagine A4, massimo 2 consentite`).toBeLessThanOrEqual(2);
       expect(html).toContain('Cronologia partita');
