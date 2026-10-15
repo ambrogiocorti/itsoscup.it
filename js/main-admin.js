@@ -1502,9 +1502,18 @@ async function refreshDailyRecap() {
   if(dateField)dateField.value=date;
   el.innerHTML='<p class="muted">Generazione riepilogo…</p>';
   try {
-    const matches=await listMatchesForAdmin({});
+    const [matches, archiveResult] = await Promise.all([
+      listMatchesForAdmin({}),
+      run(db.from('itsos_daily_recaps')
+        .select('recap_date,match_count,generated_at')
+        .eq('recap_date',date).maybeSingle(),'Archivio riepilogo').catch(()=>({data:null})),
+    ]);
     const data=buildDailyRecap(matches,date);
-    el.innerHTML=renderDailyRecap(data);
+    const archive=archiveResult.data;
+    const archiveLabel=archive
+      ? `<p class="muted" role="status"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Riepilogo della giornata archiviato automaticamente: ${escapeHtml(formatReportDateTime(archive.generated_at))}. I dati mostrati vengono aggiornati alla consultazione.</p>`
+      : '<p class="muted">Riepilogo in tempo reale. La giornata viene archiviata automaticamente alle 21:05 (ora italiana).</p>';
+    el.innerHTML=archiveLabel+renderDailyRecap(data);
     el.dataset.date=date;
   } catch(error) {el.textContent='Riepilogo non disponibile: '+error.message}
 }
