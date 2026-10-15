@@ -56,6 +56,7 @@ function openPreferences({automatic=false}={}){
     const mode=button.dataset.pushMode;
     if(mode==='none'){saveMode(mode);try{await updateSubscription('none')}catch{};close();return}
     // Call requestPermission in the actual click handler (required by modern browsers).
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) { status('Questo browser non supporta le notifiche push. Puoi continuare a consultare quelle del sito.'); return; }
     const permission=await Notification.requestPermission();
     if(permission!=='granted'){status('Permesso non concesso. Puoi scegliere Nessuna oppure abilitare le notifiche dal browser.');return}
     banner.querySelectorAll('button[data-push-mode]').forEach(x=>x.disabled=true);
