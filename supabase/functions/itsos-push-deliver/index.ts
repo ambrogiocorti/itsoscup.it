@@ -10,8 +10,16 @@ Deno.serve(async req=>{
   if(configError)return reply({error:'Configurazione push non disponibile'},503);
   const expected=String(cfg?.cron||'');
   if(!expected||req.headers.get('x-itsos-cron')!==expected)return reply({error:'Non autorizzato'},403);
-  const vapidPublic=cfg?.public||Deno.env.get('VAPID_PUBLIC_KEY');
-  const vapidPrivate=cfg?.private||Deno.env.get('VAPID_PRIVATE_KEY');
+  let vapidPublic=cfg?.public||Deno.env.get('VAPID_PUBLIC_KEY');
+  let vapidPrivate=cfg?.private||Deno.env.get('VAPID_PRIVATE_KEY');
+  if(!vapidPublic||!vapidPrivate){
+    const pair=webpush.generateVAPIDKeys();
+    const {error:initError}=await db.rpc('itsos_push_initialize_vapid',{p_public:pair.publicKey,p_private:pair.privateKey});
+    if(initError)return reply({error:'Impossibile inizializzare VAPID'},503);
+    const {data:newConfig,error:readError}=await db.rpc('itsos_push_runtime_config');
+    if(readError)return reply({error:'Verifica chiavi VAPID fallita'},503);
+    vapidPublic=newConfig?.public;vapidPrivate=newConfig?.private;
+  }
   if(!vapidPublic||!vapidPrivate)return reply({error:'Chiavi VAPID non disponibili'},503);
   webpush.setVapidDetails(cfg?.subject||'mailto:info@itsoscup.it',vapidPublic,vapidPrivate);
   const {data:events,error:eventsError}=await db.rpc('itsos_claim_push_events',{p_limit:10});
