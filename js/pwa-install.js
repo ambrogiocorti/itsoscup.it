@@ -13,7 +13,9 @@ function showInstallBanner(){
   banner.innerHTML=`<div><strong>Installa ITSOSCup</strong><p>Apri i tornei dalla schermata Home o dal desktop, senza scaricare un file EXE.</p></div>
   <div class="pwa-banner-actions"><button type="button" class="btn btn-primary" id="pwa-install-once">Installa</button><button type="button" class="btn btn-ghost" id="pwa-install-dismiss">Non ora</button></div>`;
   document.body.appendChild(banner);
-  const close=()=>{markSeen();banner.remove()};
+  // Showing it once is the first visit. Subsequent visits use the browser menu.
+  markSeen();
+  const close=()=>{banner.remove();window.dispatchEvent(new Event('itsos:pwa-install-closed'))};
   banner.querySelector('#pwa-install-dismiss').addEventListener('click',close);
   banner.querySelector('#pwa-install-once').addEventListener('click',async()=>{
     // Prompt only in direct response to this button click.
