@@ -83,7 +83,8 @@ returns jsonb language sql stable security definer set search_path='' as $$
   'public', (select decrypted_secret from vault.decrypted_secrets where name='itsos_vapid_public' limit 1),
   'private',(select decrypted_secret from vault.decrypted_secrets where name='itsos_vapid_private' limit 1),
   'subject',(select decrypted_secret from vault.decrypted_secrets where name='itsos_vapid_subject' limit 1),
-  'cron',(select decrypted_secret from vault.decrypted_secrets where name='itsos_push_cron_secret' limit 1)
+  'cron',(select decrypted_secret from vault.decrypted_secrets where name='tornei_cron_secret' limit 1),
+  'telegram',(select decrypted_secret from vault.decrypted_secrets where name='itsos_telegram_webhook_secret' limit 1)
  );
 $$;
 revoke all on function public.itsos_push_runtime_config() from public,anon,authenticated;
@@ -100,3 +101,28 @@ returns setof public.itsos_push_events language sql volatile security definer se
 $$;
 revoke all on function public.itsos_claim_push_events(int) from public,anon,authenticated;
 grant execute on function public.itsos_claim_push_events(int) to service_role;
+
+-- Create a webhook verification token internally; never put it in the repository.
+do $block$ begin
+ if not exists(select 1 from vault.secrets where name='itsos_telegram_webhook_secret') then
+   perform vault.create_secret(encode(extensions.gen_random_bytes(32),'hex'),'itsos_telegram_webhook_secret');
+ end if;
+end; $block$;
+
+-- VAPID keys are generated as an EC P-256 pair in the Edge runtime, not with
+-- random byte strings (which would not be valid ECDSA public keys).
+create or replace function public.itsos_push_initialize_vapid(p_public text, p_private text)
+returns void language plpgsql security definer set search_path='' as $$
+begin
+ perform pg_catalog.pg_advisory_xact_lock(9182341);
+ if length(coalesce(p_public,''))<>87 or length(coalesce(p_private,''))<40 then
+   raise exception 'Invalid VAPID key material';
+ end if;
+ if not exists(select 1 from vault.secrets where name='itsos_vapid_public') then
+   perform vault.create_secret(p_public,'itsos_vapid_public');
+   perform vault.create_secret(p_private,'itsos_vapid_private');
+   perform vault.create_secret('mailto:info@itsoscup.it','itsos_vapid_subject');
+ end if;
+end;$$;
+revoke all on function public.itsos_push_initialize_vapid(text,text) from public,anon,authenticated;
+grant execute on function public.itsos_push_initialize_vapid(text,text) to service_role;
