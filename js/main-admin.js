@@ -1,6 +1,7 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
+import { buildDailyRecap, renderDailyRecap, localDay } from './daily-recap.js';
 import {
   createManualMatch,
   createPlatformBackup,
@@ -1493,6 +1494,21 @@ async function handleCsvConfirmImport() {
   closeModal('modal-csv-import');
 }
 
+async function refreshDailyRecap() {
+  const el=getEl('daily-recap-content');
+  if(!el)return;
+  const dateField=getEl('daily-recap-date');
+  const date=dateField?.value||localDay(Date.now());
+  if(dateField)dateField.value=date;
+  el.innerHTML='<p class="muted">Generazione riepilogo…</p>';
+  try {
+    const matches=await listMatchesForAdmin({});
+    const data=buildDailyRecap(matches,date);
+    el.innerHTML=renderDailyRecap(data);
+    el.dataset.date=date;
+  } catch(error) {el.textContent='Riepilogo non disponibile: '+error.message}
+}
+
 async function switchView(viewId) {
   if (!canOpenAdminView(viewId)) {
     if (ADMIN_VIEW_IDS.has(viewId)) showToast(viewId === 'operations' ? 'Il Centro di controllo è riservato al Super Admin.' : 'Questa sezione non è disponibile per il tuo ruolo.', 'error');
@@ -1516,6 +1532,7 @@ async function switchView(viewId) {
   if (viewId === 'telegram') await renderTelegramView();
   if (viewId === 'reports') {
     loadReportData();
+    refreshDailyRecap().catch(error=>showToast(error.message,'error'));
   }
   if (viewId === 'events') loadEventsSection();
   if (viewId === 'settings') loadSettingsForSelectedSport();
@@ -5382,6 +5399,25 @@ async function saveEventResultForm(event) {
   showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
+  getEl('daily-recap-refresh')?.addEventListener('click',()=>refreshDailyRecap());
+  getEl('daily-recap-date')?.addEventListener('change',()=>refreshDailyRecap());
+  getEl('daily-recap-copy-link')?.addEventListener('click',async()=>{
+    const url=new URL(window.location.href);
+    url.searchParams.set('view','reports');
+    url.searchParams.set('day',getEl('daily-recap-date')?.value||localDay(Date.now()));
+    try { await navigator.clipboard.writeText(url.toString());showToast('Link del riepilogo copiato. Richiede accesso autorizzato.','success') }
+    catch(error){showToast('Impossibile copiare il link: '+error.message,'error')}
+  });
+  getEl('daily-recap-print')?.addEventListener('click',()=>{
+    const node=getEl('daily-recap-content');
+    if(!node)return;
+    const win=window.open('','_blank');
+    if(!win){showToast('Consenti i popup per esportare il PDF.','error');return}
+    win.document.write('<!doctype html><html lang="it"><head><meta charset="utf-8"><title>ITSOSCup · Riepilogo</title><style>@page{size:A4;margin:16mm}body{font:13px/1.55 system-ui,sans-serif;color:#0f172a}h1{font-size:21px}h2{font-size:16px;border-bottom:1px solid #ddd;padding-bottom:4px}section{break-inside:avoid}li{margin:6px 0}small{color:#64748b;margin-left:8px}</style></head><body>'+node.innerHTML+'</body></html>');
+    win.document.close();
+    win.focus();
+    win.setTimeout(()=>win.print(),300);
+  });
   getEl('form-assign-match-staff')?.addEventListener('submit', async event => {
     event.preventDefault();
     if (!canManageAll(state.admin?.ruolo)) return;
@@ -6160,6 +6196,8 @@ async function init() {
     await loadSettingsForSelectedSport();
   }
 
+  const requestedDay = new URLSearchParams(window.location.search).get('day');
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(requestedDay||'')) getEl('daily-recap-date').value=requestedDay;
   const requestedView = new URLSearchParams(window.location.search).get('view');
   await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView());
 
