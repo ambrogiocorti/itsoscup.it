@@ -45,7 +45,8 @@
     <link rel="stylesheet" href="css/pwa.css?v=2"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
-  </head>
+    <link rel="stylesheet" href="css/push-experience.css?v=1">
+</head>
   <body class="admin-page auth-pending">
     <div class="admin-auth-guard" role="status" aria-live="polite">
       <div class="admin-auth-guard-card">
@@ -90,7 +91,7 @@
           <li><button class="sidebar-link" data-view="settings" id="link-settings"><i class="fa-solid fa-gears"></i> Impostazioni</button></li>
         </ul>
 
-        <div class="sidebar-logout">
+        <div class="sidebar-logout"><button type="button" data-open-push-preferences><i class="fa-solid fa-bell" aria-hidden="true"></i> Preferenze notifiche</button>
           <button class="btn btn-danger" id="btn-logout">
             <i class="fa-solid fa-right-from-bracket"></i> Logout
           </button>
@@ -1112,7 +1113,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=66').catch((error) => {
+      import('./js/main-admin.js?v=67').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(
@@ -1121,5 +1122,6 @@
         );
       });
     </script>
-  </body>
+    <script type="module" src="js/push-preferences.js?v=1"></script>
+</body>
 </html>
