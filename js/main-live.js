@@ -1,5 +1,7 @@
 ﻿import { APP_CONFIG } from './app-config.js';
 import { canEditMatches, requireAdmin } from './auth.js';
+import { canOperateMatch } from './match-assignments.js';
+import { validateMatchClosure, createUndoSnapshot, applyUndoSnapshot } from './live-safety.js';
 import { db, run } from './db.js';
 import {
   commitLiveUpdate,
@@ -53,6 +55,8 @@ const state = {
   eventLog: [],
   signaturePadsBound: false,
   emergencyNoticeShown: false,
+  undoStack: [],
+  savingRemote: false,
 };
 
 registerOfflineSupport();
@@ -63,6 +67,7 @@ const autosaveRemoteSnapshot = debounce(() => {
 }, APP_CONFIG.liveAutosaveDebounceMs);
 
 function autosaveSnapshot() {
+  setSyncStatus('pending', 'Salvataggio…');
   saveEmergencyDraft();
   autosaveRemoteSnapshot();
 }
@@ -834,6 +839,8 @@ function buildStatsPayload() {
 async function saveSnapshot() {
   if (!state.editable) return;
   const payload = buildLivePayload();
+  if (!navigator.onLine) { setSyncStatus('offline','Connessione assente · modifiche non sincronizzate'); throw new Error('Connessione assente: attendi prima di continuare.'); }
+  setSyncStatus('pending','Salvataggio…');
   saveEmergencyDraft(payload);
 
   let result;
@@ -869,7 +876,7 @@ async function saveSnapshot() {
   state.lockVersion = Number(result?.new_version ?? state.lockVersion + 1);
   state.emergencyNoticeShown = false;
   clearEmergencyDraft();
-  setSyncStatus('online', 'Tutto salvato online');
+  setSyncStatus('online', 'Salvato');
 }
 
 function applyRemoteMatchUpdate(nextMatch) {
@@ -1075,6 +1082,11 @@ function validateBeforeFinalization() {
 
 async function openFinalizeModal() {
   const { homeCaptain, awayCaptain } = validateBeforeFinalization();
+  const review=validateMatchClosure({sportType:getSportType(),homeScore:state.homeScore,awayScore:state.awayScore,
+    homePlayers:state.homePlayers,awayPlayers:state.awayPlayers,
+    entries:[...state.playerState.values()],config:state.config||{},homeCaptain,awayCaptain,signatures:state.signatures});
+  // Captains sign in the next step; this check is displayed, not failed yet.
+  if(review.blockers.some(message=>!message.includes('firme'))) throw new Error(review.blockers.filter(message=>!message.includes('firme')).join(' '));
 
   state.signatures = { home: null, away: null };
   getEl('signature-home-captain').textContent = homeCaptain.full_name;
@@ -1106,6 +1118,7 @@ async function openFinalizeModal() {
   });
   updateSignatureStatus('home');
   updateSignatureStatus('away');
+  renderClosureChecklist();
   openModal('modal-finalize-signatures');
 }
 
@@ -1113,11 +1126,24 @@ function closeFinalizeModal() {
   closeModal('modal-finalize-signatures');
 }
 
+function renderClosureChecklist() {
+  const review=validateMatchClosure({sportType:getSportType(),homeScore:state.homeScore,awayScore:state.awayScore,
+    homePlayers:state.homePlayers,awayPlayers:state.awayPlayers,
+    entries:[...state.playerState.values()],config:state.config||{},
+    homeCaptain:getCaptain('home'),awayCaptain:getCaptain('away'),signatures:state.signatures});
+  const box=getEl('finalization-checklist');
+  if(box) box.innerHTML=review.checks.map(c=>`<li class="${c.ok?'is-complete':'is-pending'}">${c.ok?'✓':'○'} ${escapeHtml(c.label)}</li>`).join('');
+  const notes=getEl('finalization-warnings');
+  if(notes) notes.textContent=review.warnings.join(' ');
+  return review;
+}
+
 function updateSignatureStatus(side) {
   const status = getEl(`signature-${side}-status`);
   if (!status) return;
   status.textContent = state.signatures[side] ? 'Firma acquisita' : 'Firma richiesta';
   status.className = `signature-status ${state.signatures[side] ? 'ready' : ''}`;
+  renderClosureChecklist();
 }
 
 function resizeSignatureCanvas(canvas) {
@@ -1242,6 +1268,11 @@ function getFinalStaffFormPayload() {
 
 async function submitFinalizationWithSignatures() {
   if (!state.editable) return;
+  const review=renderClosureChecklist();
+  if(!review.ready){showToast(review.blockers.join(' '),'error');return;}
+  if(review.warnings.length && !(await showAppConfirm(review.warnings.join(' ')+' Procedere comunque?',{title:'Controllo referto',confirmLabel:'Continua'})))return;
+  if(!navigator.onLine){showToast('Connessione assente: non puoi chiudere la partita.','error');return;}
+  if(!(await showAppConfirm('Confermi il risultato definitivo e le firme di entrambi i capitani?',{title:'Chiusura ufficiale',confirmLabel:'Conferma risultato'})))return;
   if (!state.signatures.home || !state.signatures.away) {
     showToast('Servono entrambe le firme dei capitani.', 'error');
     return;
@@ -1289,6 +1320,25 @@ async function finalizeMatch() {
 
 function bindLiveControls() {
   bindSignaturePads();
+  // Capturing phase records the state before the existing click handlers mutate it.
+  document.addEventListener('click', event => {
+    if(!state.editable || !navigator.onLine)return;
+    const changing=event.target.closest('[data-score-team],[data-player-id],[data-foul-player],[data-yellow-player],[data-red-player],[data-mvp-player],#btn-quarter-next,#btn-quarter-prev,#btn-timer-reset,#btn-timeout-home,#btn-timeout-away,#btn-add-live-event');
+    if(!changing)return;
+    state.undoStack.push(createUndoSnapshot(state));
+    if(state.undoStack.length>20)state.undoStack.shift();
+    const undo=getEl('btn-live-undo');if(undo)undo.disabled=false;
+  },true);
+  getEl('btn-live-undo')?.addEventListener('click',()=>{
+    if(!state.editable||!navigator.onLine||!state.undoStack.length)return;
+    const snapshot=state.undoStack.pop();
+    stopTimer();
+    applyUndoSnapshot(state,snapshot);
+    renderHeader();renderRosters();renderLiveEvents();
+    getEl('btn-live-undo').disabled=state.undoStack.length===0;
+    autosaveSnapshot();
+    showToast('Ultima modifica annullata.','success');
+  });
 
   getEl('btn-back-admin')?.addEventListener('click', () => {
     window.location.href = 'admin';
@@ -1621,12 +1671,18 @@ async function init() {
 
   bindLiveControls();
   await hydrateFromDatabase();
+  if (state.admin?.ruolo === 'match_manager' && !(await canOperateMatch(state.matchId,state.admin.ruolo))) {
+    setEditable(false);
+    throw new Error('Partita non assegnata a questo segnapunti. Chiedi al Super Admin di assegnartela.');
+  }
   if (!state.offlineMode) {
     await startLockFlow();
     setupRealtime();
   }
   setupUnloadRelease();
   setupEmergencyConnectivity();
+  window.addEventListener('offline',()=>{setSyncStatus('offline','Connessione assente');setEditable(false)});
+  window.addEventListener('online',()=>{setSyncStatus('pending','Connessione ripristinata · verifica dati');window.location.reload()});
   syncEmergencyDraft().catch(() => undefined);
   startLiveTour();
 }
