@@ -28,7 +28,7 @@ async function updateSubscription(mode){
   if(!secret)throw Error('Memoria locale non disponibile per l’iscrizione push');
   if(mode==='none'){
     if(sub){await fetch(serviceUrl,{method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({mode,endpoint:sub.endpoint,secret})}).catch(()=>undefined);await sub.unsubscribe()}
+       body:JSON.stringify({mode,subscription:sub.toJSON(),secret})}).catch(()=>undefined);await sub.unsubscribe()}
     return;
   }
   if(Notification.permission!=='granted')throw Error('Autorizza le notifiche nelle impostazioni del browser');
@@ -74,10 +74,14 @@ document.addEventListener('DOMContentLoaded',()=>{
  const prefsButton=document.querySelector('[data-open-push-preferences]');
  prefsButton?.addEventListener('click',()=>openPreferences());
  if(!getMode()){if(document.getElementById('pwa-first-visit'))window.addEventListener('itsos:pwa-install-closed',offerFirstVisit,{once:true});else offerFirstVisit()}
+ else if(getMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')
+   updateSubscription('limited').catch(()=>undefined);
 });
 window.addEventListener('team-follows-changed',()=>{
- if(getMode()==='limited'&&Notification.permission==='granted')updateSubscription('limited').catch(()=>undefined);
+ if(getMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')updateSubscription('limited').catch(()=>undefined);
 });
 window.addEventListener('storage',event=>{
  if(event.key===PREF&&event.newValue==='none')updateSubscription('none').catch(()=>undefined);
+ if(event.key==='tornei_team_follows_v1'&&getMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')
+   updateSubscription('limited').catch(()=>undefined);
 });
