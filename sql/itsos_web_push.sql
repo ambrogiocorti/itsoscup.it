@@ -1,4 +1,5 @@
 -- Background web push, no personal student data. Service-role access only.
+create schema if not exists private;
 create table if not exists public.itsos_push_subscriptions (
  id uuid primary key default gen_random_uuid(),
  endpoint text not null unique,
