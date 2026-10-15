@@ -91,3 +91,30 @@ create trigger itsos_guard_match_staff before insert or update or delete on publ
 for each row execute function private.itsos_guard_staff_write();
 
 create index if not exists idx_itsos_match_staff_admin on public.match_staff_assignments(admin_id,match_id) where admin_id is not null;
+
+-- Also protect event and referto tables; direct Data API writes must not bypass assignment.
+create or replace function private.itsos_guard_match_child_write()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare v_role text; v_match bigint;
+begin
+ if (select auth.uid()) is null then return coalesce(new,old); end if;
+ select a.ruolo into v_role from public.admins a where a.id=(select auth.uid());
+ if v_role='match_manager' then
+   v_match:=case when TG_OP='DELETE' then old.match_id else new.match_id end;
+   if not private.itsos_can_operate_match(v_match) then
+     raise exception 'Partita non assegnata a questo account';
+   end if;
+   if TG_OP='UPDATE' and new.match_id is distinct from old.match_id then
+     raise exception 'Non puoi spostare eventi tra partite';
+   end if;
+ end if;
+ return coalesce(new,old);
+end;$$;
+do $block$ declare table_name text;
+begin
+ foreach table_name in array array['match_stats','match_captain_signatures','match_checkins','live_event_log','live_match_events']
+ loop
+   execute format('drop trigger if exists itsos_guard_match_child on public.%I',table_name);
+   execute format('create trigger itsos_guard_match_child before insert or update or delete on public.%I for each row execute function private.itsos_guard_match_child_write()',table_name);
+ end loop;
+end; $block$;
