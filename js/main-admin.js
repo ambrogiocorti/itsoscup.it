@@ -1,5 +1,6 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
+import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
 import {
   createManualMatch,
   createPlatformBackup,
@@ -549,9 +550,10 @@ function buildMatchActionItems(match) {
   const isFinished = Boolean(match?.is_finished);
 
   if (!isFinished && canEditMatches(state.admin?.ruolo)) {
-    actions.push(`<button class="match-action-item" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i><span>Apri live</span></button>`);
-    actions.push(`<button class="match-action-item" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i><span>Modifica</span></button>`);
+    actions.push(`<button class="match-action-item" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i><span>Apri partita</span></button>`);
+    if (canManageAll(state.admin?.ruolo)) actions.push(`<button class="match-action-item" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i><span>Modifica</span></button>`);
   }
+  if (canManageAll(state.admin?.ruolo)) actions.push(`<button class="match-action-item" data-action="assign-match-staff" data-id="${match.id}" type="button"><i class="fa-solid fa-user-check"></i><span>Assegna segnapunti</span></button>`);
   if (isFinished) {
     actions.push(`<button class="match-action-item" data-action="download-match-report" data-id="${match.id}" type="button"><i class="fa-solid fa-file-pdf"></i><span>Scarica referto</span></button>`);
     if (canManageAll(state.admin?.ruolo)) {
@@ -559,12 +561,27 @@ function buildMatchActionItems(match) {
     }
   }
   actions.push(`<button class="match-action-item" data-action="qr-match" data-id="${match.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR match</span></button>`);
-  if (canEditMatches(state.admin?.ruolo)) {
+  if (canManageAll(state.admin?.ruolo)) {
     actions.push(`<button class="match-action-item" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i><span>Promemoria Telegram</span></button>`);
     actions.push(`<button class="match-action-item danger" data-action="delete-match" data-id="${match.id}" type="button"><i class="fa-solid fa-trash"></i><span>Elimina</span></button>`);
   }
 
   return actions;
+}
+
+async function openAssignmentDialog(matchId) {
+  if (!canManageAll(state.admin?.ruolo)) return;
+  const match = state.adminMatches.find(m=>Number(m.id)===Number(matchId));
+  if (!match) throw new Error('Partita non trovata');
+  const [operators, assigned] = await Promise.all([loadEligibleOperators(),getMatchOperators(matchId)]);
+  getEl('assign-match-id').value=String(matchId);
+  getEl('assign-match-label').textContent=getMatchTeamsLabel(match);
+  for (const [role,elid] of [['scorekeeper','assign-match-scorekeeper'],['supervisor','assign-match-supervisor']]) {
+    const control=getEl(elid);
+    control.innerHTML='<option value="">Da assegnare</option>'+operators.map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.nome || a.email || 'Operatore')} (${escapeHtml(a.email||'')})</option>`).join('');
+    control.value=assigned.find(a=>a.role===role)?.admin_id||'';
+  }
+  openModal('modal-assign-match-staff');
 }
 
 function renderMatchActionsMenu(match) {
@@ -2574,7 +2591,7 @@ function renderMatchesCalendar(rows) {
                         data-action="open-match-detail"
                         data-id="${match.id}"
                         type="button"
-                        ${canEditMatches(state.admin?.ruolo) && match.scheduled_start && match.scheduled_end ? 'draggable="true"' : ''}
+                        ${canManageAll(state.admin?.ruolo) && match.scheduled_start && match.scheduled_end ? 'draggable="true"' : ''}
                       >
                         <span class="calendar-match-time">${escapeHtml(timeLabel)}</span>
                         <strong>${escapeHtml(getMatchTeamsLabel(match))}</strong>
@@ -2650,7 +2667,11 @@ async function loadMatchesTable() {
     status: getEl('filter-match-status')?.value ?? 'all',
   };
 
-  const rows = await listMatchesForAdmin(filters);
+  let rows = await listMatchesForAdmin(filters);
+  if (state.admin?.ruolo === 'match_manager') {
+    const mine = await myAssignedMatches();
+    rows = rows.filter(match => mine.has(Number(match.id)));
+  }
   const statusFilter = String(filters.status ?? 'all');
   state.adminMatches = statusFilter === 'all'
     ? rows
@@ -5361,6 +5382,19 @@ async function saveEventResultForm(event) {
   showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
+  getEl('form-assign-match-staff')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!canManageAll(state.admin?.ruolo)) return;
+    const submit=event.target.querySelector('[type=submit]');
+    if(submit) submit.disabled=true;
+    try {
+      await assignMatchOperators(getEl('assign-match-id').value, getEl('assign-match-scorekeeper').value, getEl('assign-match-supervisor').value);
+      closeModal('modal-assign-match-staff');
+      showToast('Segnapunti e supervisore assegnati.','success');
+      await loadMatchesTable();
+    } catch(error) { showToast(error.message,'error'); }
+    finally { if(submit)submit.disabled=false; }
+  });
   bindRankingRulesDrag();
   bindReportDensityToggle();
 
@@ -5810,6 +5844,7 @@ function bindCoreActions() {
 
     closeMatchActionMenus();
     if (action === 'start-live') return goToLive(id);
+    if (action === 'assign-match-staff') { openAssignmentDialog(id).catch(error=>showToast(error.message,'error'));return; }
     if (action === 'edit-match') {
       const match = state.adminMatches.find((item) => Number(item.id) === id);
       if (match) {
