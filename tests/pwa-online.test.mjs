@@ -20,10 +20,12 @@ test('install command uses the same site and authenticated views', () => {
   const publicHtml = source('index.html');
   const adminHtml = source('admin/index.html');
   for (const html of [publicHtml, adminHtml]) {
-    assert.match(html, /data-install-pwa/);
+    assert.doesNotMatch(html, /data-install-pwa/);
     assert.match(html, /js\/pwa-install\.js/);
     assert.match(html, /manifest\.webmanifest/);
   }
+  assert.ok(source('js/pwa-install.js').includes('pwa-first-visit'));
+  assert.ok(source('js/pwa-install.js').includes('itsoscup_pwa_install_seen_v2'));
   assert.ok(source('js/pwa-install.js').includes('beforeinstallprompt'));
   assert.ok(source('js/pwa-install.js').includes('appinstalled'));
   assert.ok(!adminHtml.includes('href="./offline-workspace.html"'), 'No offline stations in main control center navigation');
