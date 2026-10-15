@@ -1,60 +1,32 @@
-// A single installable ITSOSCup PWA for public visitors, admins and scorekeepers.
-// Installation never creates a separate account or local match database.
-let installPrompt = null;
-const buttons = () => [...document.querySelectorAll('[data-install-pwa]')];
-const installed = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-function reflectInstallState() {
-  buttons().forEach((button) => { button.hidden = installed(); });
+// ITSOSCup PWA installation: one prompt on the first visit, never a permanent download button.
+const KEY='itsoscup_pwa_install_seen_v2';
+let deferred=null;
+const installed=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+function seen(){try{return localStorage.getItem(KEY)==='1'}catch{return false}}
+function markSeen(){try{localStorage.setItem(KEY,'1')}catch{}}
+function showInstallBanner(){
+  if(seen()||installed()||document.getElementById('pwa-first-visit'))return;
+  const banner=document.createElement('section');
+  banner.id='pwa-first-visit';banner.className='pwa-first-visit';
+  banner.setAttribute('aria-label','Installa ITSOSCup sul dispositivo');
+  const mobile=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  banner.innerHTML=`<div><strong>Installa ITSOSCup</strong><p>Apri i tornei dalla schermata Home o dal desktop, senza scaricare un file EXE.</p></div>
+  <div class="pwa-banner-actions"><button type="button" class="btn btn-primary" id="pwa-install-once">Installa</button><button type="button" class="btn btn-ghost" id="pwa-install-dismiss">Non ora</button></div>`;
+  document.body.appendChild(banner);
+  // Showing it once is the first visit. Subsequent visits use the browser menu.
+  markSeen();
+  const close=()=>{banner.remove();window.dispatchEvent(new Event('itsos:pwa-install-closed'))};
+  banner.querySelector('#pwa-install-dismiss').addEventListener('click',close);
+  banner.querySelector('#pwa-install-once').addEventListener('click',async()=>{
+    // Prompt only in direct response to this button click.
+    if(deferred){const prompt=deferred;deferred=null;await prompt.prompt();try{await prompt.userChoice}catch{};close();return}
+    banner.querySelector('p').textContent=mobile
+      ? 'In Safari: Condividi → Aggiungi alla schermata Home. Su iPhone puoi ricevere notifiche push dopo aver installato ITSOSCup.'
+      : 'Apri il menu del browser (⋮ o …), quindi scegli Installa ITSOSCup oppure App → Installa questo sito come app.';
+    markSeen();banner.querySelector('#pwa-install-once').remove();
+    banner.querySelector('#pwa-install-dismiss').textContent='Chiudi';
+  });
 }
-
-function showInstallInstructions() {
-  const existing = document.getElementById('itsoscup-install-help');
-  if (existing) { existing.showModal?.(); return; }
-  const dialog = document.createElement('dialog');
-  dialog.id = 'itsoscup-install-help';
-  dialog.className = 'pwa-install-dialog';
-  dialog.setAttribute('aria-labelledby', 'itsoscup-install-title');
-  const heading = document.createElement('h2');
-  heading.id = 'itsoscup-install-title';
-  heading.textContent = 'Installa ITSOSCup';
-  const description = document.createElement('p');
-  description.textContent = 'È sempre lo stesso sito ITSOSCup: un\u2019unica applicazione online, con accessi e permessi già configurati.';
-  const info = document.createElement('p');
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  info.textContent = ios
-    ? 'In Safari tocca Condividi, quindi Aggiungi alla schermata Home.'
-    : 'In Chrome o Edge apri il menu (⋮ o …) e scegli Installa ITSOSCup oppure App → Installa questo sito come app. Se non compare, controlla di essere su https://itsoscup.it.';
-  const close = document.createElement('button');
-  close.className = 'btn btn-primary';
-  close.type = 'button';
-  close.textContent = 'Ho capito';
-  close.addEventListener('click', () => dialog.close());
-  dialog.append(heading, description, info, close);
-  document.body.appendChild(dialog);
-  if (typeof dialog.showModal === 'function') dialog.showModal();
-  else window.alert([heading.textContent, description.textContent, info.textContent].join('\n\n'));
-}
-
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault();
-  installPrompt = event;
-  reflectInstallState();
-});
-window.addEventListener('appinstalled', () => { installPrompt = null; reflectInstallState(); });
-document.addEventListener('DOMContentLoaded', () => {
-  reflectInstallState();
-  buttons().forEach((button) => button.addEventListener('click', async () => {
-    if (installed()) return;
-    if (!installPrompt) { showInstallInstructions(); return; }
-    const prompt = installPrompt;
-    installPrompt = null;
-    try {
-      await prompt.prompt();
-      const choice = await prompt.userChoice;
-      if (choice?.outcome === 'accepted') reflectInstallState();
-    } catch (_error) {
-      showInstallInstructions();
-    }
-  }));
-});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e});
+window.addEventListener('appinstalled',()=>{markSeen();document.getElementById('pwa-first-visit')?.remove();deferred=null});
+document.addEventListener('DOMContentLoaded',()=>{if(!seen()&&!installed())showInstallBanner()});

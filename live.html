@@ -9,9 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <link rel="stylesheet" href="css/style.css?v=51"/>
-    <link rel="stylesheet" href="css/pwa.css?v=1" />
+    <link rel="stylesheet" href="css/pwa.css?v=2" />
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
-  </head>
+    <link rel="stylesheet" href="css/push-experience.css?v=1">
+</head>
   <body class="live-page">
     <div class="live-shell">
       <section class="card">
@@ -24,6 +25,7 @@
             <div class="live-top-actions">
               <button class="btn btn-ghost btn-compact icon-only-action" id="btn-back-admin" type="button" title="Torna admin" aria-label="Torna admin"><i class="fa-solid fa-arrow-left"></i></button>
               <button class="btn btn-ghost btn-compact icon-only-action" id="btn-print-emergency-report" type="button" title="Referto emergenza" aria-label="Referto emergenza"><i class="fa-solid fa-print"></i></button>
+              <button class="btn btn-ghost btn-compact icon-only-action" id="btn-live-undo" type="button" disabled title="Annulla ultima modifica" aria-label="Annulla ultima modifica"><i class="fa-solid fa-rotate-left"></i></button>
               <button class="btn btn-primary btn-compact icon-only-action" id="btn-save-snapshot" type="button" title="Salva snapshot" aria-label="Salva snapshot" data-requires-edit><i class="fa-solid fa-floppy-disk"></i></button>
               <button class="btn btn-danger btn-compact icon-only-action" id="btn-finalize-match" type="button" title="Chiudi match" aria-label="Chiudi match" data-requires-edit><i class="fa-solid fa-flag-checkered"></i></button>
             </div>
@@ -161,6 +163,7 @@
         </div>
 
         <div class="signature-report-summary" id="signature-report-summary"></div>
+        <section class="closure-checks" aria-label="Controlli prima della chiusura"><h3>Verifica il referto</h3><ul id="finalization-checklist" aria-live="polite"></ul><p id="finalization-warnings" role="status"></p></section>
 
         <section class="signature-staff-section">
           <h3>Staff referto</h3>
@@ -211,7 +214,8 @@
       </div>
     </div>
 
-    <script type="module" src="js/pwa-install.js?v=1"></script>
-    <script type="module" src="js/main-live.js?v=51"></script>
-  </body>
+    <script type="module" src="js/pwa-install.js?v=2"></script>
+    <script type="module" src="js/main-live.js?v=67"></script>
+    <script type="module" src="js/push-preferences.js?v=2"></script>
+</body>
 </html>

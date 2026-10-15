@@ -993,15 +993,23 @@ export async function saveMatchStaff(matchId, staffPayload = {}) {
     }))
     .filter((row) => row.name);
 
-  await run(
-    db.from('match_staff_assignments').delete().eq('match_id', Number(matchId)),
-    'Pulizia staff match'
+  // An assigned scorekeeper/supervisor is a real account, not a free-text
+  // signature form field. Never delete the privileged admin_id when saving.
+  const { data: assigned } = await run(
+    db.from('match_staff_assignments').select('role,admin_id')
+      .eq('match_id',Number(matchId)).not('admin_id','is',null),
+    'Lettura assegnazioni protette'
   );
-
-  if (!rows.length) return [];
-
+  const protectedRoles = new Set((assigned || []).map(row => row.role));
+  await run(
+    db.from('match_staff_assignments').delete()
+      .eq('match_id',Number(matchId)).is('admin_id',null),
+    'Pulizia nomi staff non assegnati'
+  );
+  const newRows = rows.filter(row => !protectedRoles.has(row.role));
+  if (!newRows.length) return assigned || [];
   const { data } = await run(
-    db.from('match_staff_assignments').insert(rows).select(),
+    db.from('match_staff_assignments').insert(newRows).select(),
     'Salvataggio staff match'
   );
   return data ?? [];

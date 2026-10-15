@@ -42,3 +42,33 @@ h1{font-size:1.45rem}p{line-height:1.6;color:#475569}button{background:#2563eb;c
     }
   })());
 });
+
+self.addEventListener('push',event=>{
+  let payload={};
+  try{payload=event.data?.json()||{}}catch{}
+  const title=String(payload.title||'ITSOSCup').slice(0,80);
+  const href=String(payload.url||'/');
+  const url=href.startsWith('/')&&!href.startsWith('//')?href:'/';
+  event.waitUntil(self.registration.showNotification(title,{
+    body:String(payload.body||'').slice(0,200),
+    icon:'/favicon.svg',badge:'/favicon.svg',
+    tag:String(payload.tag||'itsos-notice'),renotify:false,
+    data:{url},
+  }));
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  const path=event.notification.data?.url||'/';
+  const url=new URL(path,self.location.origin);
+  if(url.origin!==self.location.origin)return;
+  event.waitUntil((async()=>{
+    const tabs=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    for(const tab of tabs){
+      if(new URL(tab.url).origin===url.origin){
+        await tab.navigate(url.href);
+        return tab.focus();
+      }
+    }
+    return self.clients.openWindow(url.href);
+  })());
+});

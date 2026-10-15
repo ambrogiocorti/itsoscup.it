@@ -18,3 +18,5 @@
 .pwa-install-dialog h2 { margin: 0 0 12px; font-size: 1.35rem; }
 .pwa-install-dialog p { margin: 0 0 16px; line-height: 1.55; color: #475569; }
 .pwa-install-dialog button { min-height: 43px; }
+
+.pwa-first-visit{position:fixed;left:16px;right:16px;bottom:18px;z-index:95000;max-width:670px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:18px;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:15px;padding:18px 20px;box-shadow:0 18px 56px #0f172a42}.pwa-first-visit strong{font-size:1.1rem}.pwa-first-visit p{margin:5px 0 0;color:#475569;font-size:.9rem;line-height:1.45}.pwa-banner-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}.pwa-banner-actions button{min-height:43px}.pwa-first-visit button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}@media(max-width:570px){.pwa-first-visit{display:block;bottom:10px;left:10px;right:10px}.pwa-banner-actions{margin-top:13px}}

@@ -1,5 +1,7 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
+import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
+import { buildDailyRecap, renderDailyRecap, localDay } from './daily-recap.js';
 import {
   createManualMatch,
   createPlatformBackup,
@@ -549,9 +551,10 @@ function buildMatchActionItems(match) {
   const isFinished = Boolean(match?.is_finished);
 
   if (!isFinished && canEditMatches(state.admin?.ruolo)) {
-    actions.push(`<button class="match-action-item" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i><span>Apri live</span></button>`);
-    actions.push(`<button class="match-action-item" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i><span>Modifica</span></button>`);
+    actions.push(`<button class="match-action-item" data-action="start-live" data-id="${match.id}" type="button"><i class="fa-solid fa-play"></i><span>Apri partita</span></button>`);
+    if (canManageAll(state.admin?.ruolo)) actions.push(`<button class="match-action-item" data-action="edit-match" data-id="${match.id}" type="button"><i class="fa-solid fa-pen"></i><span>Modifica</span></button>`);
   }
+  if (canManageAll(state.admin?.ruolo)) actions.push(`<button class="match-action-item" data-action="assign-match-staff" data-id="${match.id}" type="button"><i class="fa-solid fa-user-check"></i><span>Assegna segnapunti</span></button>`);
   if (isFinished) {
     actions.push(`<button class="match-action-item" data-action="download-match-report" data-id="${match.id}" type="button"><i class="fa-solid fa-file-pdf"></i><span>Scarica referto</span></button>`);
     if (canManageAll(state.admin?.ruolo)) {
@@ -559,12 +562,27 @@ function buildMatchActionItems(match) {
     }
   }
   actions.push(`<button class="match-action-item" data-action="qr-match" data-id="${match.id}" type="button"><i class="fa-solid fa-qrcode"></i><span>QR match</span></button>`);
-  if (canEditMatches(state.admin?.ruolo)) {
+  if (canManageAll(state.admin?.ruolo)) {
     actions.push(`<button class="match-action-item" data-action="telegram-match" data-id="${match.id}" type="button"><i class="fa-brands fa-telegram"></i><span>Promemoria Telegram</span></button>`);
     actions.push(`<button class="match-action-item danger" data-action="delete-match" data-id="${match.id}" type="button"><i class="fa-solid fa-trash"></i><span>Elimina</span></button>`);
   }
 
   return actions;
+}
+
+async function openAssignmentDialog(matchId) {
+  if (!canManageAll(state.admin?.ruolo)) return;
+  const match = state.adminMatches.find(m=>Number(m.id)===Number(matchId));
+  if (!match) throw new Error('Partita non trovata');
+  const [operators, assigned] = await Promise.all([loadEligibleOperators(),getMatchOperators(matchId)]);
+  getEl('assign-match-id').value=String(matchId);
+  getEl('assign-match-label').textContent=getMatchTeamsLabel(match);
+  for (const [role,elid] of [['scorekeeper','assign-match-scorekeeper'],['supervisor','assign-match-supervisor']]) {
+    const control=getEl(elid);
+    control.innerHTML='<option value="">Da assegnare</option>'+operators.map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.nome || a.email || 'Operatore')} (${escapeHtml(a.email||'')})</option>`).join('');
+    control.value=assigned.find(a=>a.role===role)?.admin_id||'';
+  }
+  openModal('modal-assign-match-staff');
 }
 
 function renderMatchActionsMenu(match) {
@@ -1476,6 +1494,30 @@ async function handleCsvConfirmImport() {
   closeModal('modal-csv-import');
 }
 
+async function refreshDailyRecap() {
+  const el=getEl('daily-recap-content');
+  if(!el)return;
+  const dateField=getEl('daily-recap-date');
+  const date=dateField?.value||localDay(Date.now());
+  if(dateField)dateField.value=date;
+  el.innerHTML='<p class="muted">Generazione riepilogo…</p>';
+  try {
+    const [matches, archiveResult] = await Promise.all([
+      listMatchesForAdmin({}),
+      run(db.from('itsos_daily_recaps')
+        .select('recap_date,match_count,generated_at')
+        .eq('recap_date',date).maybeSingle(),'Archivio riepilogo').catch(()=>({data:null})),
+    ]);
+    const data=buildDailyRecap(matches,date);
+    const archive=archiveResult.data;
+    const archiveLabel=archive
+      ? `<p class="muted" role="status"><i class="fa-solid fa-check-circle" aria-hidden="true"></i> Riepilogo della giornata archiviato automaticamente: ${escapeHtml(formatReportDateTime(archive.generated_at))}. I dati mostrati vengono aggiornati alla consultazione.</p>`
+      : '<p class="muted">Riepilogo in tempo reale. La giornata viene archiviata automaticamente alle 21:05 (ora italiana).</p>';
+    el.innerHTML=archiveLabel+renderDailyRecap(data);
+    el.dataset.date=date;
+  } catch(error) {el.textContent='Riepilogo non disponibile: '+error.message}
+}
+
 async function switchView(viewId) {
   if (!canOpenAdminView(viewId)) {
     if (ADMIN_VIEW_IDS.has(viewId)) showToast(viewId === 'operations' ? 'Il Centro di controllo è riservato al Super Admin.' : 'Questa sezione non è disponibile per il tuo ruolo.', 'error');
@@ -1499,6 +1541,7 @@ async function switchView(viewId) {
   if (viewId === 'telegram') await renderTelegramView();
   if (viewId === 'reports') {
     loadReportData();
+    refreshDailyRecap().catch(error=>showToast(error.message,'error'));
   }
   if (viewId === 'events') loadEventsSection();
   if (viewId === 'settings') loadSettingsForSelectedSport();
@@ -2574,7 +2617,7 @@ function renderMatchesCalendar(rows) {
                         data-action="open-match-detail"
                         data-id="${match.id}"
                         type="button"
-                        ${canEditMatches(state.admin?.ruolo) && match.scheduled_start && match.scheduled_end ? 'draggable="true"' : ''}
+                        ${canManageAll(state.admin?.ruolo) && match.scheduled_start && match.scheduled_end ? 'draggable="true"' : ''}
                       >
                         <span class="calendar-match-time">${escapeHtml(timeLabel)}</span>
                         <strong>${escapeHtml(getMatchTeamsLabel(match))}</strong>
@@ -2650,7 +2693,11 @@ async function loadMatchesTable() {
     status: getEl('filter-match-status')?.value ?? 'all',
   };
 
-  const rows = await listMatchesForAdmin(filters);
+  let rows = await listMatchesForAdmin(filters);
+  if (state.admin?.ruolo === 'match_manager') {
+    const mine = await myAssignedMatches();
+    rows = rows.filter(match => mine.has(Number(match.id)));
+  }
   const statusFilter = String(filters.status ?? 'all');
   state.adminMatches = statusFilter === 'all'
     ? rows
@@ -5361,6 +5408,38 @@ async function saveEventResultForm(event) {
   showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
+  getEl('daily-recap-refresh')?.addEventListener('click',()=>refreshDailyRecap());
+  getEl('daily-recap-date')?.addEventListener('change',()=>refreshDailyRecap());
+  getEl('daily-recap-copy-link')?.addEventListener('click',async()=>{
+    const url=new URL(window.location.href);
+    url.searchParams.set('view','reports');
+    url.searchParams.set('day',getEl('daily-recap-date')?.value||localDay(Date.now()));
+    try { await navigator.clipboard.writeText(url.toString());showToast('Link del riepilogo copiato. Richiede accesso autorizzato.','success') }
+    catch(error){showToast('Impossibile copiare il link: '+error.message,'error')}
+  });
+  getEl('daily-recap-print')?.addEventListener('click',()=>{
+    const node=getEl('daily-recap-content');
+    if(!node)return;
+    const win=window.open('','_blank');
+    if(!win){showToast('Consenti i popup per esportare il PDF.','error');return}
+    win.document.write('<!doctype html><html lang="it"><head><meta charset="utf-8"><title>ITSOSCup · Riepilogo</title><style>@page{size:A4;margin:16mm}body{font:13px/1.55 system-ui,sans-serif;color:#0f172a}h1{font-size:21px}h2{font-size:16px;border-bottom:1px solid #ddd;padding-bottom:4px}section{break-inside:avoid}li{margin:6px 0}small{color:#64748b;margin-left:8px}</style></head><body>'+node.innerHTML+'</body></html>');
+    win.document.close();
+    win.focus();
+    win.setTimeout(()=>win.print(),300);
+  });
+  getEl('form-assign-match-staff')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!canManageAll(state.admin?.ruolo)) return;
+    const submit=event.target.querySelector('[type=submit]');
+    if(submit) submit.disabled=true;
+    try {
+      await assignMatchOperators(getEl('assign-match-id').value, getEl('assign-match-scorekeeper').value, getEl('assign-match-supervisor').value);
+      closeModal('modal-assign-match-staff');
+      showToast('Segnapunti e supervisore assegnati.','success');
+      await loadMatchesTable();
+    } catch(error) { showToast(error.message,'error'); }
+    finally { if(submit)submit.disabled=false; }
+  });
   bindRankingRulesDrag();
   bindReportDensityToggle();
 
@@ -5810,6 +5889,7 @@ function bindCoreActions() {
 
     closeMatchActionMenus();
     if (action === 'start-live') return goToLive(id);
+    if (action === 'assign-match-staff') { openAssignmentDialog(id).catch(error=>showToast(error.message,'error'));return; }
     if (action === 'edit-match') {
       const match = state.adminMatches.find((item) => Number(item.id) === id);
       if (match) {
@@ -6125,6 +6205,8 @@ async function init() {
     await loadSettingsForSelectedSport();
   }
 
+  const requestedDay = new URLSearchParams(window.location.search).get('day');
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(requestedDay||'')) getEl('daily-recap-date').value=requestedDay;
   const requestedView = new URLSearchParams(window.location.search).get('view');
   await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView());
 
