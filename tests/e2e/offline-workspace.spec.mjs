@@ -1,17 +1,17 @@
 import { test, expect } from '@playwright/test';
 
-test('PWA install is accessible from the same public and management application', async ({ page }) => {
+test('PWA installation banner appears only on first visit, not as a persistent icon', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('[data-install-pwa]')).toHaveCount(1);
-  await page.locator('[data-install-pwa]').click();
-  await expect(page.locator('#itsoscup-install-help')).toBeVisible();
-  await expect(page.locator('#itsoscup-install-help')).toContainText('stesso sito ITSOSCup');
-  await page.locator('#itsoscup-install-help button').click();
-
+  await expect(page.locator('[data-install-pwa]')).toHaveCount(0);
+  await expect(page.locator('#pwa-first-visit')).toBeVisible();
+  await page.locator('#pwa-install-dismiss').click();
+  await expect(page.locator('#pwa-first-visit')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('#pwa-first-visit')).toHaveCount(0);
   await page.goto('/admin/');
-  await expect(page.locator('[data-install-pwa]')).toHaveCount(1);
+  await expect(page.locator('[data-install-pwa]')).toHaveCount(0);
   await expect(page.locator('#btn-prepare-offline')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'ITSOSCup Key' })).toHaveCount(0);
+  await expect(page.getByRole('link',{ name:'ITSOSCup Key' })).toHaveCount(0);
   await expect(page.locator('.sidebar-link[data-view="matches"]')).toHaveCount(1);
 });
 
