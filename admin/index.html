@@ -122,7 +122,7 @@
               <div class="field">
                 <label>Azioni Rapide</label>
                 <div class="top-row-actions">
-                  <button class="btn btn-primary" id="btn-new-match" data-open-match-modal data-requires-match-write><i class="fa-solid fa-plus"></i> Nuovo Match</button>
+                  <button class="btn btn-primary" id="btn-new-match" data-open-match-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuovo Match</button>
                   <button class="btn btn-ghost" id="btn-new-team" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-users"></i> Nuova Squadra</button>
                 </div>
               </div>
@@ -335,7 +335,7 @@
           <div class="top-row">
             <h1 class="page-title">Calendario Match</h1>
             <div class="top-row-actions">
-              <button class="btn btn-primary icon-only-action" id="btn-generate-matches" data-requires-match-write title="Genera automatico" aria-label="Genera automatico"><i class="fa-solid fa-bolt"></i></button>
+              <button class="btn btn-primary icon-only-action" id="btn-generate-matches" data-requires-admin-write title="Genera automatico" aria-label="Genera automatico"><i class="fa-solid fa-bolt"></i></button>
               <button class="btn btn-ghost" id="btn-download-finished-match-reports" type="button"><i class="fa-solid fa-file-pdf"></i> Tutti i referti</button>
               <button class="btn btn-ghost icon-only-action" id="btn-toggle-matches-view" type="button" aria-pressed="false" title="Vista calendario" aria-label="Vista calendario">
                 <i class="fa-solid fa-calendar-days"></i>
@@ -345,7 +345,7 @@
               </button>
             </div>
           </div>
-          <button class="admin-fab match-new-fab" id="btn-new-match-alt" data-open-match-modal data-requires-match-write title="Nuova partita" aria-label="Nuova partita"><i class="fa-solid fa-plus"></i></button>
+          <button class="admin-fab match-new-fab" id="btn-new-match-alt" data-open-match-modal data-requires-admin-write title="Nuova partita" aria-label="Nuova partita"><i class="fa-solid fa-plus"></i></button>
 
           <div class="filter-bar is-collapsed" id="match-filters">
             <div class="field"><label for="filter-match-team">Cerca squadra</label><input id="filter-match-team" type="text" placeholder="4A, 5B..." /></div>
@@ -766,6 +766,20 @@
       </div>
     </div>
 
+<div class="modal-overlay" id="modal-assign-match-staff">
+      <div class="modal-box" style="max-width:540px">
+        <div class="modal-header"><h2>Assegna operatori alla partita</h2><button class="close-btn" type="button" data-modal-close="modal-assign-match-staff" aria-label="Chiudi">&times;</button></div>
+        <form id="form-assign-match-staff">
+          <input type="hidden" id="assign-match-id"/>
+          <p id="assign-match-label" class="muted"></p>
+          <div class="field"><label for="assign-match-scorekeeper">Segnapunti</label><select id="assign-match-scorekeeper"><option value="">Da assegnare</option></select></div>
+          <div class="field"><label for="assign-match-supervisor">Supervisore</label><select id="assign-match-supervisor"><option value="">Da assegnare</option></select></div>
+          <p class="muted">Solo gli account assegnati possono gestire questa partita. Il Super Admin mantiene l'accesso completo.</p>
+          <div class="modal-actions"><button type="button" class="btn btn-ghost" data-modal-close="modal-assign-match-staff">Annulla</button><button type="submit" class="btn btn-primary">Salva assegnazioni</button></div>
+        </form>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="modal-match">
       <div class="modal-box match-modal">
         <div class="modal-header"><h2 id="title-modal-match" style="margin: 0">Nuovo Match</h2><button class="close-btn" data-modal-close="modal-match">&times;</button></div>
@@ -1090,7 +1104,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=64').catch((error) => {
+      import('./js/main-admin.js?v=65').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(
