@@ -20,7 +20,7 @@ function syntheticSdk({ privacy = 'full', denyStorage = false, showClass = true,
   window.__rows = data;
   window.__queries = [];
   window.__notices = [{ id: 9, title: 'Cambio palestra', body: 'Partita al campo 2', created_at: '2026-10-14T08:00:00Z' }];
-  try { localStorage.setItem('tornei_tour_done_public', 'true'); } catch (_) {}
+  try { localStorage.setItem('tornei_tour_done_public', 'true'); localStorage.setItem('itsoscup_pwa_install_seen_v2','1'); localStorage.setItem('itsoscup_push_choice_v1','none'); } catch (_) {}
   if (denyStorage) Object.defineProperty(window, 'localStorage', { get() { throw new Error('SecurityError'); } });
   function query(name) {
     if (name === 'team_favorites' || name.startsWith('class_')) throw new Error('Private or cloud favorites table queried');
