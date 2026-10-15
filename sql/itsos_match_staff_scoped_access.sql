@@ -81,7 +81,8 @@ begin
    v_match:=coalesce(new.match_id,old.match_id);
    if not private.itsos_can_operate_match(v_match) then raise exception 'Partita non assegnata'; end if;
    if TG_OP='INSERT' and new.admin_id is not null then raise exception 'Assegnazioni riservate al Super Admin'; end if;
-   if TG_OP='UPDATE' and new.admin_id is distinct from old.admin_id then raise exception 'Assegnazioni riservate al Super Admin'; end if;
+   if TG_OP='UPDATE' and (new.admin_id is distinct from old.admin_id or new.role is distinct from old.role or new.match_id is distinct from old.match_id) then raise exception 'Assegnazioni riservate al Super Admin'; end if;
+   if TG_OP='DELETE' and old.admin_id is not null then raise exception 'Non puoi rimuovere un operatore assegnato'; end if;
  end if;
  return coalesce(new,old);
 end;$$;
