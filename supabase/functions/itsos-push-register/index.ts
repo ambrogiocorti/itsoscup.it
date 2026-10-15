@@ -30,15 +30,16 @@ Deno.serve(async req=>{
  const teams=[...new Set((Array.isArray(input.teams)?input.teams:[]).map(Number).filter(v=>Number.isSafeInteger(v)&&v>0))].slice(0,20);
  const db=createClient(base,key,{auth:{persistSession:false}});
  const digest=await hash(secret);
- const {data:old,error:lookupError}=await db.from('itsos_push_subscriptions').select('id,client_token_hash').eq('endpoint',endpoint).maybeSingle();
+ const {data:old,error:lookupError}=await db.from('itsos_push_subscriptions').select('id,client_token_hash,p256dh,auth_secret').eq('endpoint',endpoint).maybeSingle();
  if(lookupError)return respond({error:'Servizio indisponibile'},503);
- if(old&&old.client_token_hash!==digest)return respond({error:'Questa sottoscrizione appartiene a un altro dispositivo'},403);
+ const keys=input.subscription?.keys||{};
+ const p256dh=String(keys.p256dh||''),auth=String(keys.auth||'');
+ const proof=Boolean(old&&p256dh&&auth&&old.p256dh===p256dh&&old.auth_secret===auth);
+ if(old&&old.client_token_hash!==digest&&!proof)return respond({error:'Sottoscrizione già registrata, verifica le chiavi del dispositivo'},403);
  if(mode==='none') {
    if(old)await db.from('itsos_push_subscriptions').delete().eq('id',old.id);
    return respond({ok:true,mode:'none'});
  }
- const keys=input.subscription?.keys||{};
- const p256dh=String(keys.p256dh||''),auth=String(keys.auth||'');
  if(p256dh.length<30||auth.length<8)return respond({error:'Chiavi push non valide'},400);
  const {error}=await db.from('itsos_push_subscriptions').upsert({
     endpoint,p256dh,auth_secret:auth,client_token_hash:digest,preference:mode,team_ids:mode==='limited'?teams:[],updated_at:new Date().toISOString()
