@@ -31,7 +31,8 @@
     <link rel="stylesheet" href="css/team-follow.css?v=63" />
     <link rel="stylesheet" href="css/pwa.css?v=2" />
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
-  </head>
+    <link rel="stylesheet" href="css/push-experience.css?v=1">
+</head>
   <body class="public-page">
     <div class="page-shell">
       <header class="public-header">
@@ -70,7 +71,7 @@
 
       <div id="public-notifications-popover" class="public-notification-popover" hidden>
         <div class="public-notification-arrow" aria-hidden="true"></div>
-        <div class="public-notification-title"><span>Notifiche</span><button id="public-notifications-clear" type="button" class="btn btn-ghost btn-compact" aria-label="Segna tutte le notifiche come lette">Cancella tutte</button></div>
+        <div class="public-notification-title"><span>Notifiche</span><button type="button" class="btn btn-ghost btn-compact" data-open-push-preferences aria-label="Preferenze notifiche">Preferenze</button><button id="public-notifications-clear" type="button" class="btn btn-ghost btn-compact" aria-label="Segna tutte le notifiche come lette">Cancella tutte</button></div>
         <div id="public-notifications-list" class="public-notification-list">
           <div class="empty-state compact">Caricamento notifiche...</div>
         </div>
@@ -192,7 +193,8 @@
       </div>
     </div>
 
-    <script type="module" src="js/pwa-install.js?v=2"></script>
+    <script type="module" src="js/pwa-install.js?v=3"></script>
     <script type="module" src="js/main-index.js?v=63"></script>
-  </body>
+    <script type="module" src="js/push-preferences.js?v=1"></script>
+</body>
 </html>
