@@ -12,17 +12,19 @@ const hash=async(secret:string)=>[...new Uint8Array(await crypto.subtle.digest('
 Deno.serve(async req=>{
  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
  if(req.headers.get('origin')!==origin)return respond({error:'Origin non consentita'},403);
- if(req.method==='GET') {
-   const publicKey=Deno.env.get('VAPID_PUBLIC_KEY');
-   return publicKey?respond({publicKey}):respond({error:'Il servizio push non è ancora configurato'},503);
- }
- if(req.method!=='POST')return respond({error:'Metodo non consentito'},405);
+ if(req.method!=='POST'&&req.method!=='GET')return respond({error:'Metodo non consentito'},405);
  const base=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
  if(!base||!key)return respond({error:'Servizio non configurato'},503);
+ if(req.method==='GET'){
+   const api=createClient(base,key,{auth:{persistSession:false}});
+   const {data}=await api.rpc('itsos_push_runtime_config');
+   const publicKey=data?.public||Deno.env.get('VAPID_PUBLIC_KEY');
+   return publicKey?respond({publicKey}):respond({error:'Servizio push in attivazione'},503);
+ }
  let input:any;try{input=await req.json()}catch{return respond({error:'Richiesta non valida'},400)}
  const secret=String(input.secret||'');
  const endpoint=String(input.subscription?.endpoint||input.endpoint||'');
- if(secret.length<40||secret.length>256||!validPushEndpoint(endpoint))return respond({error:'Sottoscrizione non valida'},400);
+ if(secret.length<40||secret.length>256||endpoint.length>2048||!validPushEndpoint(endpoint))return respond({error:'Sottoscrizione non valida'},400);
  const mode=String(input.mode||'none');
  if(!['all','limited','none'].includes(mode))return respond({error:'Preferenza non valida'},400);
  const teams=[...new Set((Array.isArray(input.teams)?input.teams:[]).map(Number).filter(v=>Number.isSafeInteger(v)&&v>0))].slice(0,20);
