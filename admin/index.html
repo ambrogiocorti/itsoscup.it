@@ -1113,7 +1113,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=67').catch((error) => {
+      import('./js/main-admin.js?v=68').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(
@@ -1122,6 +1122,6 @@
         );
       });
     </script>
-    <script type="module" src="js/push-preferences.js?v=1"></script>
+    <script type="module" src="js/push-preferences.js?v=2"></script>
 </body>
 </html>
