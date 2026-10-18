@@ -18,6 +18,20 @@ Non si crea un nuovo account, PIN USB, password archivio o database PWA: la PWA 
 
 Le precedenti funzioni di trasferimento USB/Key non compaiono più nel Calendario o nel Centro di controllo. Il vecchio sorgente Windows e la pagina offline legacy restano temporaneamente nel repository solo per il recupero di eventuali archivi e dati preesistenti: **non eliminare le cartelle dati Windows prima di averli verificati**. La compilazione Windows è attivabile soltanto manualmente, senza build automatiche.
 
+
+## Strumenti del torneo (solo web)
+
+Dal Calendario dell'amministrazione, apri **Strumenti torneo** (`tournament-tools.html`).
+
+- **Pianificazione intelligente**: seleziona torneo, data, fascia oraria, durata, riposo e campi. La proposta considera conflitti con incontri gia' programmati; gli incontri che non rientrano nella fascia scelta rimangono non assegnati. Pubblicazione disponibile solo al Super Admin, previa conferma.
+- **Recupero ritardi**: ripianifica gli incontri futuri non iniziati, senza alterare partite concluse o live. Le modifiche sono soggette a convalida server-side.
+- **Verifica pre-gara**: controlla campi, orari, check-in e squalifiche confermate. I risultati sono segnalazioni informative, non decisioni automatiche.
+- **Documenti**: prepara e stampa in PDF relazione finale e attestati. I referti firmati rimangono scaricabili dalla pagina Calendario.
+- **Maxischermo**: in `gym.html` scegli Palestra o Atrio; visualizza ora, punteggi, calendario e comunicazioni urgenti. Schermo intero su richiesta.
+- **Notifiche**: è riutilizzato il sistema Web Push esistente, con consenso esplicito e opzione «Solo squadre seguite». La pubblicazione di variazioni usa i trigger già presenti.
+
+**Database**: applicare `sql/050_smart_schedule_atomic.sql` dopo verifica sul progetto Supabase associato a ITSOSCup. Non eseguire la migrazione su copie di test o sul progetto Plateform. Le modifiche al calendario sono transazionali e passano attraverso i trigger di validazione esistenti. Non e' inclusa alcuna app Android.
+
 ## Funzionalita principali
 
 - Portale pubblico con tornei, classifiche, partite, albo d'oro, pagina squadra e vista campo via QR.
