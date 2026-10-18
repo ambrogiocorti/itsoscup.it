@@ -16,11 +16,39 @@ const state = {
   sports: [],
   selectedSportId: null,
   unsubscribe: null,
+  mode: 'palestra',
+  refreshHandle: null,
 };
 
 registerOfflineSupport();
 registerClientErrorLogger('gym');
 
+function updateClock() {
+  const el=document.getElementById('gym-clock');
+  if(el)el.textContent=new Intl.DateTimeFormat('it-IT',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Rome'}).format(new Date());
+}
+function setMode(mode) {
+  state.mode = mode === 'atrio' ? 'atrio' : 'palestra';
+  document.body.dataset.mode=state.mode;
+  document.getElementById('gym-mode').value=state.mode;
+  const title=document.getElementById('gym-title');
+  if(title)title.setAttribute('aria-label',state.mode==='atrio'?'Tabellone atrio':'Tabellone palestra');
+}
+async function loadGymNotices(sportId) {
+  const panel=document.getElementById('gym-notices');
+  if(!panel)return;
+  try{
+    const {db,run}=await import('./db.js');
+    const {data}=await run(db.from('public_notifications')
+      .select('title,body,created_at')
+      .eq('is_active',true)
+      .order('created_at',{ascending:false}).limit(3),'Avvisi maxischermo');
+    const notices=(data||[]).filter(n=>n.title||n.body);
+    panel.hidden=!notices.length;
+    if(notices.length)panel.innerHTML='<strong>Avvisi organizzazione</strong>'+
+      notices.map(n=>'<p><strong>'+escapeHtml(n.title||'Comunicazione')+'</strong> · '+escapeHtml(n.body||'')+'</p>').join('');
+  }catch(_error){panel.hidden=true;}
+}
 function getSportFromQuery() {
   return Number(new URLSearchParams(window.location.search).get('sport') || 0) || null;
 }
@@ -147,6 +175,8 @@ async function loadGymData() {
   renderLive(getCurrentMatch(matches));
   renderNext(matches);
   renderStandings(computeStandings(teams, matches, config));
+  await loadGymNotices(sportId);
+  updateClock();
 
   state.unsubscribe = subscribeTable({
     channelName: `gym-screen-${sportId}`,
@@ -157,6 +187,20 @@ async function loadGymData() {
 }
 
 async function init() {
+  document.getElementById('gym-mode')?.addEventListener('change', event=>setMode(event.target.value));
+  document.getElementById('gym-fullscreen')?.addEventListener('click',()=>{
+    if(document.fullscreenElement)document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(error=>showToast(error.message,'error'));
+  });
+  const chosen=new URLSearchParams(window.location.search).get('mode');
+  setMode(chosen==='atrio'?'atrio':'palestra');
+  updateClock();
+  window.setInterval(updateClock,15_000);
+  // Safety net if the realtime channel is disconnected.
+  state.refreshHandle=window.setInterval(()=>{
+    if(!document.hidden)loadGymData().catch(error=>showToast(error.message,'error'));
+  },60_000);
+
   state.sports = await loadSports();
   renderSportOptions();
   const selectedSportId = getSportFromQuery() ?? state.sports.find((sport) => TEAM_SPORTS.includes(String(sport.sport_type ?? '').toLowerCase()))?.id;
