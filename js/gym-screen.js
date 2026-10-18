@@ -39,7 +39,7 @@ async function loadGymNotices(sportId) {
   if(!panel)return;
   try{
     const {db,run}=await import('./db.js');
-    const {data}=await run(db.from('public_notifications')
+    const {data}=await run(db.from('urgent_announcements')
       .select('title,body,created_at')
       .eq('is_active',true)
       .order('created_at',{ascending:false}).limit(3),'Avvisi maxischermo');
