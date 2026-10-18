@@ -45,7 +45,7 @@
     <link rel="stylesheet" href="css/pwa.css?v=2"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
-    <link rel="stylesheet" href="css/push-experience.css?v=1">
+    <link rel="stylesheet" href="css/push-experience.css?v=2">
 </head>
   <body class="admin-page auth-pending">
     <div class="admin-auth-guard" role="status" aria-live="polite">
@@ -240,14 +240,6 @@
               <button class="btn btn-primary" id="btn-print-report"><i class="fa-solid fa-print"></i> Stampa</button>
             </div>
           </div>
-          <section class="card" id="daily-recap-panel" aria-labelledby="daily-recap-title">
-            <div class="card-header"><h2 id="daily-recap-title"><i class="fa-solid fa-newspaper"></i> Riepilogo della giornata</h2></div>
-            <div class="card-body">
-              <div class="daily-recap-toolbar"><label for="daily-recap-date">Giornata</label><input type="date" id="daily-recap-date"><button class="btn btn-ghost" id="daily-recap-refresh" type="button"><i class="fa-solid fa-arrows-rotate"></i> Aggiorna</button><button class="btn btn-primary" id="daily-recap-print" type="button"><i class="fa-solid fa-file-pdf"></i> Salva PDF</button><button class="btn btn-ghost" id="daily-recap-copy-link" type="button"><i class="fa-solid fa-link"></i> Copia link</button></div>
-              <div id="daily-recap-content" aria-live="polite"><p class="muted">Apertura riepilogo…</p></div>
-              <p class="muted">Il link al riepilogo richiede l'accesso ai Report. I dati pubblici e gli studenti non vengono esposti.</p>
-            </div>
-          </section>
           <div class="report-columns-toolbar">
             <div class="report-columns-panel hidden" id="report-columns-panel"></div>
           </div>
@@ -1114,7 +1106,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=68').catch((error) => {
+      import('./js/main-admin.js?v=69').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(

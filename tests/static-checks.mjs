@@ -29,6 +29,12 @@ assertNotIncludes('js/app-config.js', [
 
 const adminHtml = read('admin.html');
 const adminIndexHtml = read('admin/index.html');
+// Regression: the removed daily recap must not reappear in Report Generale.
+assert(!adminIndexHtml.includes('daily-recap-panel'), 'Report Generale must not show Riepilogo della giornata');
+assert(!adminIndexHtml.includes('daily-recap-date'), 'Report Generale must not include daily recap actions');
+const adminMainJs = read('js/main-admin.js');
+assert(!adminMainJs.includes('refreshDailyRecap'), 'Admin must not try to refresh the removed recap');
+assert(!adminMainJs.includes("from './daily-recap.js'"), 'Admin must not import the removed recap');
 const matchesJs = read('js/matches.js');
 assert(
   matchesJs.includes('APP_CONFIG') &&
