@@ -12,17 +12,26 @@ test('public homepage contains no redundant following instructions', () => {
   assert.ok(html.includes('id="my-teams-checked"'), 'Keep actionable team-follow status');
 });
 
-test('team identity uses the public site heading, without global h1 override', () => {
+test('home and team headers use the same icon-free title and no subtitle', () => {
+  const home = read('index.html');
   const page = read('team.html');
   const css = read('css/team-follow.css');
-  assert.match(page, /class="public-header team-page-header"/);
-  assert.match(page, /class="public-title"/);
-  assert.match(page, /La tua squadra, dentro e fuori dal campo/);
-  assert.match(css, /\.team-page \.team-page-header \.public-title/);
+  const sharedCss = read('css/style.css');
+  const homeHeader = home.split('<header class="public-header">')[1]?.split('</header>')[0];
+  const teamHeader = page.split('<header class="public-header team-page-header">')[1]?.split('</header>')[0];
+  assert.ok(homeHeader && teamHeader, 'Both public headers must exist');
+  assert.match(homeHeader, /<h1 class="public-title">Tornei Scolastici<\/h1>/);
+  assert.match(teamHeader, /<h1 class="public-title"><a class="team-page-brand"[^>]+>Tornei Scolastici<\/a><\/h1>/);
+  for (const header of [homeHeader, teamHeader]) {
+    assert.doesNotMatch(header, /fa-trophy|public-subtitle|Risultati e classifica in tempo reale|La tua squadra, dentro e fuori dal campo/);
+  }
   assert.ok(!/\.team-page h1\s*\{/.test(css), 'No unscoped heading override');
   assert.match(css, /\.team-page \.team-page-header \.team-page-brand/);
+  assert.match(css, /\.public-page \.public-quick-actions\s*\{/);
+  assert.match(sharedCss, /\.public-header\s*\{/);
+  const main = read('js/main-index.js');
+  assert.doesNotMatch(main, /DEFAULT_SUBTITLE|public-subtitle/);
 });
-
 test('offline workspace keeps the authentic sidebar and guided transfer stages', () => {
   const html = read('offline-workspace.html');
   const css = read('css/offline-workspace.css');
