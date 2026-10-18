@@ -1042,6 +1042,8 @@ button {
 
 .public-header {
   background: linear-gradient(135deg, var(--bg-sidebar) 0%, #1e293b 100%);
+  box-sizing: border-box;
+  min-height: 184px;
   color: white;
   padding: 60px 20px;
   text-align: center;
@@ -1062,7 +1064,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 15px;
+  line-height: 1.2;
+  gap: 0;
 }
 
 .public-subtitle {
