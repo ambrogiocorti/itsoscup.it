@@ -1,5 +1,4 @@
 .team-page-brand { color: inherit; text-decoration: none; font: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 0.42em; }
-.team-page-brand i { color: var(--warning); font-size: .9em; }
 .team-page-nav { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 0 18px; }
 .team-page-nav a, .favorite-team-heading a, .my-teams-empty a, .public-team-link { color: var(--primary); font-weight: 800; text-decoration: none; }
 .team-page-nav a:hover, .favorite-team-heading a:hover, .public-team-link:hover { text-decoration: underline; }
@@ -51,21 +50,16 @@
 }
 @media (prefers-reduced-motion: reduce) { .team-page *, #my-teams-card * { transition: none !important; } }
 
-/* Profilo squadra: intestazione condivisa con il sito pubblico, senza una seconda tipografia. */
+/* Home e pagina squadra condividono l'intestazione: un titolo, nessuna icona o sottotitolo. */
 .team-page .team-page-header { isolation: isolate; }
-.team-page .team-page-header .public-title-wrap { max-width: 850px; margin-inline: auto; }
-.team-page .team-page-header .public-title { margin: 0; color: #fff; line-height: 1.2; font-weight: 800; font-size: clamp(1.9rem,3.2vw,2.3rem); }
 .team-page .team-page-header .team-page-brand { font: inherit; color: inherit; text-decoration: none; white-space: nowrap; }
 .team-page .team-page-header .team-page-brand:hover { color: #dbeafe; }
 .team-page .team-page-header .team-page-brand:focus-visible { outline: 3px solid #93c5fd; outline-offset: 6px; border-radius: 4px; }
-.team-page .team-page-header .public-subtitle { margin: 8px 0 0; color: #94a3b8; font-size: 1rem; font-weight: 500; line-height: 1.5; }
 .team-page .team-page-nav { margin-top: 4px; padding-bottom: 4px; }
 .team-page .team-page-nav .btn { min-height: 40px; }
 .team-page .team-summary-card { border-color: var(--color-border); }
 .team-page .team-profile-panel { min-width: 0; }
 @media (max-width: 680px) {
- .team-page .team-page-header .public-title { font-size: clamp(1.7rem,5vw,2.1rem); }
- .team-page .team-page-header .public-subtitle { font-size: .92rem; }
  .team-page .team-page-nav { align-items: center; row-gap: 12px; }
  .team-page .team-page-nav a { display: inline-flex; min-height: 40px; align-items: center; }
 }
@@ -108,4 +102,32 @@
   .my-teams-popover #my-teams-card .card-header { align-items: flex-start; }
   .my-teams-popover .team-follow-toolbar-actions { width: 100%; }
   .public-notification-title { padding: 12px; }
+}
+
+/* Un'unica altezza e posizione del titolo anche sugli schermi piccoli.
+   Nella home le azioni restano cliccabili sopra il titolo, senza spostarlo. */
+@media (max-width: 680px) {
+  .public-page .public-header {
+    min-height: 188px;
+    padding: 88px 18px 56px;
+  }
+  .public-page .public-title {
+    font-size: clamp(1.7rem, 5vw, 2.1rem);
+  }
+  .public-page .public-quick-actions {
+    position: absolute;
+    top: 16px;
+    left: 12px;
+    margin: 0;
+    padding: 0;
+    max-width: calc(100% - 165px);
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .public-page .public-header-actions {
+    top: 16px;
+    right: 12px;
+    gap: 6px;
+  }
 }
