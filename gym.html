@@ -24,9 +24,13 @@
             <span>Home</span>
           </a>
           <select id="gym-sport-select" aria-label="Torneo"></select>
+          <select id="gym-mode" aria-label="Modalità schermo"><option value="palestra">Palestra</option><option value="atrio">Atrio</option></select>
+          <strong id="gym-clock" aria-label="Ora attuale"></strong>
+          <button type="button" id="gym-fullscreen" aria-label="Attiva schermo intero">Schermo intero</button>
         </div>
       </header>
 
+      <section id="gym-notices" class="gym-card" aria-live="polite" style="padding:12px 20px;margin-bottom:12px" hidden></section>
       <section class="gym-live-panel" id="gym-live-panel">
         <div class="empty-state">Caricamento...</div>
       </section>
@@ -43,6 +47,7 @@
       </section>
     </main>
 
-    <script type="module" src="js/gym-screen.js?v=51"></script>
+    <style>.gym-header-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#gym-clock{font-variant-numeric:tabular-nums;min-width:70px}#gym-fullscreen{border:0;border-radius:8px;padding:9px 12px;background:#2563eb;color:#fff;cursor:pointer}.gym-page[data-mode="atrio"] .gym-live-panel{display:none}.gym-page[data-mode="atrio"] .gym-grid{grid-template-columns:1fr}.gym-page[data-mode="atrio"] #gym-next-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}@media(max-width:640px){.gym-header-actions{width:100%}}</style>
+    <script type="module" src="js/gym-screen.js?v=70"></script>
   </body>
 </html>
