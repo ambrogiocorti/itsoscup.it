@@ -35,8 +35,6 @@ import {
 } from './utils.js';
 import { buildKnockoutBracket, renderKnockoutBracketHtml } from './knockout-bracket.js';
 
-const DEFAULT_SUBTITLE =
-  'Risultati e classifica in tempo reale';
 
 registerOfflineSupport();
 registerClientErrorLogger('public');
@@ -100,13 +98,12 @@ function sanitizePublicMatch(match, privacy = getPrivacySettings()) {
 }
 
 function resetPublicTournamentUi() {
-  const subtitle = document.getElementById('public-subtitle');
+
   const standingTitle = document.getElementById('standing-title');
   const matchesTitle = document.getElementById('matches-title');
   const contextCard = document.getElementById('sport-context-card');
   const contextContent = document.getElementById('sport-context-content');
 
-  if (subtitle) subtitle.textContent = DEFAULT_SUBTITLE;
   if (standingTitle) {
     standingTitle.innerHTML = '<i class="fa-solid fa-list-ol"></i> Classifica';
   }
@@ -118,7 +115,7 @@ function resetPublicTournamentUi() {
 }
 
 function updatePublicTournamentUi(sport) {
-  const subtitle = document.getElementById('public-subtitle');
+
   const standingTitle = document.getElementById('standing-title');
   const matchesTitle = document.getElementById('matches-title');
   const contextCard = document.getElementById('sport-context-card');
