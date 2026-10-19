@@ -46,7 +46,8 @@
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
     <link rel="stylesheet" href="css/push-experience.css?v=2">
-</head>
+    <link rel="stylesheet" href="../css/redesign.css?v=20261019-r1" />
+  </head>
   <body class="admin-page auth-pending">
     <div class="admin-auth-guard" role="status" aria-live="polite">
       <div class="admin-auth-guard-card">
@@ -110,11 +111,23 @@
             <h1 class="page-title">Pannello di Controllo</h1>
           </div>
 
+          <section class="itsos-dashboard-hero" aria-label="Panoramica e azioni rapide">
+            <div class="itsos-dashboard-hero-copy">
+              <span class="itsos-eyebrow"><i class="fa-solid fa-circle" aria-hidden="true"></i> ITSOSCup · Gestione tornei</span>
+              <h2>Il tuo centro di regia, per ogni partita.</h2>
+              <p>Prepara il calendario, organizza le squadre e segui l'andamento dei tornei da un unico posto.</p>
+              <div class="itsos-dashboard-hero-actions">
+                <a class="btn itsos-hero-button" href="?view=matches"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Vai al calendario <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+                <a class="itsos-hero-text-link" href="?view=operations">Centro di controllo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+              </div>
+            </div>
+            <div class="itsos-dashboard-hero-decoration" aria-hidden="true"><i class="fa-solid fa-trophy"></i></div>
+          </section>
           <div class="stats-grid">
-            <article class="stat-card"><div class="stat-label">Tornei</div><div class="stat-value" id="count-sports">0</div></article>
-            <article class="stat-card"><div class="stat-label">Squadre</div><div class="stat-value" id="count-teams">0</div></article>
-            <article class="stat-card"><div class="stat-label">Match Conclusi</div><div class="stat-value" id="count-matches">0</div></article>
-            <article class="stat-card"><div class="stat-label">Eventi Atletica</div><div class="stat-value" id="count-events">0</div></article>
+            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-trophy"></i></div><div class="stat-label">Tornei</div><div class="stat-value" id="count-sports">0</div></article>
+            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-users"></i></div><div class="stat-label">Squadre</div><div class="stat-value" id="count-teams">0</div></article>
+            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-flag-checkered"></i></div><div class="stat-label">Match Conclusi</div><div class="stat-value" id="count-matches">0</div></article>
+            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-person-running"></i></div><div class="stat-label">Eventi Atletica</div><div class="stat-value" id="count-events">0</div></article>
           </div>
 
           <section class="card" style="margin-top: 16px">
