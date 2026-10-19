@@ -1,7 +1,7 @@
 import {
   listClassInvites, createClassInvite, rotateClassInvite, importExistingTeamsAsClasses, listClassRegistrations,
   decideClassRegistration, sendClassNotice, listClassNoticeHistory,
-  loadEventAnalytics, analyticsCsv, safeLabel
+  loadEventAnalytics, analyticsCsv, safeLabel, setTournamentRegistrationDeadline
 } from './class-portal-admin.js';
 
 const el = (id) => document.getElementById(id);
@@ -33,6 +33,34 @@ function setSportOptions(targetId, first = '') {
   else if (sports.length) select.value = String(sports[0].id);
   select.disabled = !sports.length;
   if (!sports.length) select.replaceChildren(option('Nessun torneo disponibile — riprova',''));
+}
+function syncRegistrationDeadline() {
+ const sport=state.sports.find(s=>Number(s.id)===selectedSport('class-registration-sport'));
+ const field=el('class-registration-deadline'),hint=el('class-deadline-status');
+ if(!field)return;
+ const d=sport?.registration_deadline?new Date(sport.registration_deadline):null;
+ if(d&&!Number.isNaN(d.getTime())){
+   const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+   field.value=local;
+   if(hint)hint.textContent=Date.now()>=d.getTime()?'Iscrizioni chiuse':'Scadenza attiva';
+ }else{field.value='';if(hint)hint.textContent='Nessuna scadenza impostata: stabilirne una prima di distribuire i link.';}
+}
+async function saveRegistrationDeadline(e){
+ e.preventDefault();
+ const id=selectedSport('class-registration-sport'),value=el('class-registration-deadline')?.value;
+ if(!id||!value)return feedback('class-registration-feedback','Seleziona torneo e scadenza.',true);
+ const date=new Date(value);
+ if(Number.isNaN(date.getTime()))return feedback('class-registration-feedback','Data non valida',true);
+ const form=el('class-deadline-form'),button=form?.querySelector('button[type=submit]');
+ if(button)button.disabled=true;
+ try{
+  await setTournamentRegistrationDeadline(id,date.toISOString());
+  const sport=state.sports.find(s=>Number(s.id)===id);
+  if(sport)sport.registration_deadline=date.toISOString();
+  syncRegistrationDeadline();
+  feedback('class-registration-feedback','Scadenza salvata: '+date.toLocaleString('it-IT')+'. Il database blocca le iscrizioni successive.');
+ }catch(error){feedback('class-registration-feedback',error.message,true);}
+ finally{if(button)button.disabled=false;}
 }
 function selectedSport(id) { return Number(el(id)?.value || 0); }
 function empty(message) { return '<div class="empty-state compact">' + safeLabel(message) + '</div>'; }
@@ -90,6 +118,7 @@ async function refreshRegistrations() {
   if (!id) {
     state.invites = []; state.registrations = []; renderInvites(); renderRegistrations(); return;
   }
+  syncRegistrationDeadline();
   feedback('class-registration-feedback', 'Caricamento iscrizioni…');
   try {
     [state.invites, state.registrations] = await Promise.all([listClassInvites(id),listClassRegistrations(id)]);
@@ -343,6 +372,7 @@ export async function initIntegratedAdmin({role,sports=[]}={}){
   });
   if(fullAccess(role)){
     el('class-registration-sport')?.addEventListener('change',refreshRegistrations);
+    el('class-deadline-form')?.addEventListener('submit',saveRegistrationDeadline);
     el('btn-refresh-class-registrations')?.addEventListener('click',refreshRegistrations);
     el('btn-import-existing-classes')?.addEventListener('click',connectExistingTeams);
     el('form-create-class-invite')?.addEventListener('submit',handleInviteSubmit);

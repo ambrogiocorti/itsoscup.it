@@ -587,6 +587,13 @@
                 <button id="btn-refresh-class-registrations" class="btn btn-ghost" type="button"><i class="fa-solid fa-rotate"></i> Aggiorna iscrizioni</button>
                 <button id="btn-import-existing-classes" class="btn btn-ghost" type="button" title="Collega le squadre già create ai portali delle classi"><i class="fa-solid fa-file-import"></i> Collega squadre esistenti</button>
               </div>
+              <form id="class-deadline-form" class="itsos-deadline-panel" data-requires-admin-write>
+                <div><strong>Chiusura iscrizioni del torneo</strong><p>La scadenza vale per tutte le classi del torneo. Dopo questa data non è più possibile inviare o modificare la rosa.</p></div>
+                <label for="class-registration-deadline">Data e ora di chiusura</label>
+                <input id="class-registration-deadline" type="datetime-local" required />
+                <button type="submit" class="btn btn-primary">Salva scadenza</button>
+                <span id="class-deadline-status" role="status" aria-live="polite"></span>
+              </form>
               <div class="itsos-flow-grid">
                 <section class="itsos-flow-panel">
                   <h3>Invita una classe</h3>
@@ -612,6 +619,7 @@
           <div class="top-row">
             <h1 class="page-title">Atletica</h1>
             <div class="top-row-actions athletics-toolbar">
+              <a class="btn btn-primary" href="athletics-athletes.html"><i class="fa-solid fa-address-card"></i> Schede atleti e tentativi</a>
               <button class="btn btn-ghost" id="btn-csv-athletics-events" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> CSV Eventi</button>
               <button class="btn btn-ghost" id="btn-csv-athletics-results" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> CSV Risultati</button>
               <button class="btn btn-ghost btn-icon-only" id="btn-print-athletics-sheets" type="button" title="Fogli gara" aria-label="Stampa fogli gara"><i class="fa-solid fa-print"></i></button>

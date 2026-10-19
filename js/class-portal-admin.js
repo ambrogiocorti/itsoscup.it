@@ -3,6 +3,9 @@ import { escapeHtml } from './utils.js';
 import { summarizeEvent, analyticsCsv } from './event-analytics.js';
 export { analyticsCsv };
 
+export async function setTournamentRegistrationDeadline(sportId, deadline) {
+ return runRpc('set_tournament_registration_deadline', {p_sport_id:Number(sportId),p_deadline:deadline},'Scadenza iscrizioni');
+}
 export async function listClassInvites(sportId) {
  const {data}=await run(db.from('class_invites').select('id,sport_id,class_name,access_code,is_active,created_at').eq('sport_id',Number(sportId)).order('class_name'), 'Inviti classe');
  return data||[];

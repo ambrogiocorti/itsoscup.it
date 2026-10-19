@@ -72,9 +72,13 @@ function makeProposal(mode){
     original_end:state.matches.find(old=>Number(old.id)===Number(m.id))?.scheduled_end||null,
     original_venue_id:state.matches.find(old=>Number(old.id)===Number(m.id))?.venue_id||null
   }));
-  $('tt-overview').textContent=proposed.length+' incontri pianificati su '+pending.length+'. '+(missed.length?'Non collocati: '+missed.length+'. Modifica campi o orari.':'Anteprima pronta: controlla prima di pubblicare.');
+  $('tt-count-planned').textContent=String(proposed.length);
+  $('tt-count-missed').textContent=String(missed.length);
+  $('tt-count-fields').textContent=String(selected.length);
+  $('tt-overview').textContent=proposed.length+' incontri pianificati su '+pending.length+'. '+(missed.length?'Non collocati: '+missed.length+'. Modifica campi, orari o durata.':'Anteprima pronta: controlla prima di pubblicare.');
   $('tt-preview-list').innerHTML=proposed.length?'<table class="tt-table"><thead><tr><th>Incontro</th><th>Data/ora</th><th>Campo</th></tr></thead><tbody>'+
     proposed.map(m=>'<tr><td>'+escapeHtml(name(m.home_team_id)+' – '+name(m.away_team_id))+'</td><td>'+escapeHtml(format(m.scheduled_start))+'</td><td>'+escapeHtml(state.venues.find(v=>Number(v.id)===Number(m.venue_id))?.name||'')+'</td></tr>').join('')+'</tbody></table>':'<p>Nessuno slot trovato.</p>';
+  if(missed.length){$('tt-preview-list').insertAdjacentHTML('beforeend','<div class="tt-unassigned"><h3>Incontri non collocati ('+missed.length+')</h3><ul>'+missed.map(m=>'<li>'+escapeHtml(name(m.home_team_id)+' – '+name(m.away_team_id))+' · Nessuno slot compatibile</li>').join('')+'</ul></div>')}
   $('tt-publish').disabled=!proposed.length||missed.length>0||state.admin?.ruolo!=='super_admin';
 }
 async function checks(){

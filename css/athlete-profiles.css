@@ -1,0 +1,15 @@
+.athlete-profiles-page{background:#f3f6fc;color:#0f172a}.athlete-shell{max-width:1250px;margin:0 auto;padding:28px 20px}
+.athlete-header{background:linear-gradient(110deg,#0f172a,#1d4ed8);border-radius:18px;color:white;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.athlete-header small{color:#bfdbfe;font-weight:800;text-transform:uppercase}.athlete-header h1{margin:8px 0;font-size:clamp(1.6rem,3vw,2.5rem)}
+.athlete-header p{margin:0;color:#dbeafe}.athlete-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:20px 0;padding:20px;background:white;border:1px solid #e2e8f0;border-radius:16px}
+.athlete-controls label{font-weight:800}.athlete-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.athlete-card{border:1px solid #dbe4f1;border-radius:16px;background:white;overflow:hidden;box-shadow:0 8px 20px #0f172a0a}
+.athlete-card header{background:#f0f5ff;border-bottom:1px solid #dce8fd;padding:18px}
+.athlete-card h2{margin:0 0 4px;font-size:1.25rem}.athlete-card header p{margin:0;color:#475569}
+.athlete-event{padding:16px 18px;border-bottom:1px solid #e2e8f0}.athlete-event h3{font-size:1rem;margin:0 0 7px}
+.athlete-event small{color:#64748b}.athlete-attempts{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 0;padding:0;list-style:none}
+.athlete-attempts li{background:#eff6ff;color:#1e40af;border-radius:9px;padding:7px 10px;font-weight:750;font-variant-numeric:tabular-nums}
+.athlete-attempts li.best{background:#d1fae5;color:#065f46}
+.athlete-event .athlete-best{font-weight:850;color:#047857}
+@media(max-width:650px){.athlete-controls{grid-template-columns:1fr}.athlete-cards{grid-template-columns:1fr}.athlete-header{flex-direction:column;align-items:start}}
+@media print{.athlete-controls,.athlete-header>a{display:none}.athlete-card{break-inside:avoid;box-shadow:none}.athlete-shell{max-width:none}}

@@ -39,6 +39,7 @@
         <div class="card-header"><i class="fa-solid fa-users"></i> <span id="class-title">Classe</span></div>
         <div class="card-body">
           <p id="registration-status" class="class-portal-badge" role="status"></p>
+          <p id="registration-deadline-notice" class="class-deadline-notice" role="status"></p>
           <form id="registration">
             <div class="field">
               <label for="roster">Componenti della squadra</label>
@@ -49,7 +50,7 @@
               <label for="captain">Capitano</label>
               <select id="captain" required></select>
             </div>
-            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Invia proposta</button>
+            <button type="submit" class="btn btn-primary" id="submit-registration"><i class="fa-solid fa-paper-plane"></i> Invia iscrizione</button>
           </form>
           <p class="itsos-flow-muted" style="margin-top:12px">La proposta sarà verificata dai responsabili prima della conferma.</p>
         </div>
@@ -79,7 +80,15 @@ async function load(){
  const reg=data.registration;
  $('registration-status').textContent=reg?'Stato proposta: '+({pending:'In attesa di approvazione',approved:'Approvata',rejected:'Da correggere / respinta'}[reg.status]||reg.status)+(reg.decision_note?' — '+reg.decision_note:''):'Nessuna proposta inviata';
  if(reg){$('roster').value=(reg.roster||[]).join('\n');$('roster').dispatchEvent(new Event('input'));$('captain').value=reg.captain||''}
- $('registration').hidden=reg?.status==='approved';
+ let closing=null;
+ try{closing=await runRpc('class_registration_deadline',{p_code:key},'Scadenza iscrizioni')}catch(e){status('Impossibile verificare la scadenza: '+e.message,true)}
+ const d=closing?new Date(closing):null;
+ const closed=!closing||Number.isNaN(d?.getTime())||Date.now()>=d.getTime();
+ $('registration-deadline-notice').textContent=closing&&!Number.isNaN(d?.getTime())?
+   ('Scadenza: '+d.toLocaleString('it-IT')+(closed?' · ISCRIZIONI CHIUSE':'')):
+   'Scadenza non ancora confermata: contatta il docente coordinatore.';
+ $('registration').hidden=reg?.status==='approved'||closed;
+ $('registration-deadline-notice').classList.toggle('is-closed',closed);
  const notices=$('notices');notices.replaceChildren();
  if(!data.notices?.length)notices.append(el('p','Nessun avviso disponibile.'));
  for(const n of data.notices||[]){

@@ -306,3 +306,20 @@ body:has(>.tt-shell){background:#f3f6fc!important}
  .itsos-dashboard-hero h2,.itsos-dashboard-hero p,.itsos-eyebrow{color:#000!important}
  .gym-page .gym-live-panel,.gym-page .gym-card{background:#fff;color:#000}
 }
+
+/* Enrollment and scheduler workflow */
+.itsos-deadline-panel{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:0 0 18px;padding:18px;border:1px solid #bfdbfe;border-radius:15px;background:#eff6ff}
+.itsos-deadline-panel>div{flex:1 1 100%}.itsos-deadline-panel strong{font-weight:850}.itsos-deadline-panel p{margin:3px 0;color:#475569;font-size:.86rem}
+.itsos-deadline-panel label{font-weight:800;font-size:.86rem}.itsos-deadline-panel input{max-width:265px}
+.itsos-deadline-panel #class-deadline-status{flex:1 1 100%;font-size:.83rem;color:#1e40af}
+.class-deadline-notice{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:11px;padding:11px 15px;font-weight:800}
+.class-deadline-notice.is-closed{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+.tt-steps{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:19px}
+.tt-step{display:inline-flex;align-items:center;background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:7px 13px;font-weight:800;font-size:.82rem}
+.tt-scheduler-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:15px 0}
+.tt-scheduler-stats>div{background:#eff6ff;border:1px solid #dbeafe;border-radius:12px;padding:13px}
+.tt-scheduler-stats strong{display:block;font-size:2rem;color:#1e40af}
+.tt-scheduler-stats span{font-size:.8rem;color:#475569;font-weight:750}
+.tt-unassigned{margin-top:16px;border:1px solid #fecaca;padding:15px;border-radius:12px;background:#fff7f7}
+.tt-unassigned h3{color:#991b1b;margin:0 0 8px}
+@media(max-width:600px){.tt-scheduler-stats{gap:6px}.tt-scheduler-stats>div{padding:9px}.tt-scheduler-stats strong{font-size:1.45rem}}
