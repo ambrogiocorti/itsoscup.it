@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/integrated-workflows.css?v=54">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/redesign.css?v=20261019-r1" />
-  </head>
+  <link rel="stylesheet" href="css/public-rail.css?v=1"></head>
 <body class="class-portal-body">
   <header class="class-portal-topbar">
     <div class="class-portal-topbar-inner">
@@ -107,5 +107,5 @@ const query=new URLSearchParams(location.search).get('code');if(query){$('code')
 
   </script>
   <script>if('serviceWorker' in navigator && window.isSecureContext)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
-</body>
+<script type="module" src="js/public-rail.js?v=1"></script></body>
 </html>
