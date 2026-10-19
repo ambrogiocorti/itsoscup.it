@@ -27,13 +27,14 @@
   rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
 />
-    <link rel="stylesheet" href="css/style.css?v=69"/>
+    <link rel="stylesheet" href="css/style.css?v=70"/>
     <link rel="stylesheet" href="css/team-follow.css?v=69" />
     <link rel="stylesheet" href="css/pwa.css?v=2" />
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
     <link rel="stylesheet" href="css/push-experience.css?v=1">
 </head>
   <body class="public-page">
+    <a class="itsos-skip-link" href="#itsos-main">Vai al contenuto principale</a>
     <div class="page-shell">
       <header class="public-header">
         <div class="public-quick-actions">
@@ -86,7 +87,8 @@
         </section>
       </div>
 
-      <main class="container">
+      <main class="container" id="itsos-main">
+        <section class="card public-overview" id="public-overview" aria-labelledby="public-overview-heading"><div class="card-header"><h2 id="public-overview-heading">Tornei attivi</h2></div><div class="card-body"><p class="public-overview-help">Consulta rapidamente i tornei, le gare in corso e quelle ancora da giocare.</p><div id="public-overview-list" class="public-overview-grid" aria-live="polite">Caricamento tornei…</div></div></section>
         <section class="sport-selector">
           <label for="sport-select">Scegli il Torneo</label>
           <select id="sport-select">
@@ -193,7 +195,7 @@
     </div>
 
     <script type="module" src="js/pwa-install.js?v=3"></script>
-    <script type="module" src="js/main-index.js?v=69"></script>
+    <script type="module" src="js/main-index.js?v=70"></script>
     <script type="module" src="js/push-preferences.js?v=2"></script>
 </body>
 </html>

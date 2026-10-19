@@ -1171,6 +1171,7 @@ async function openMatchDetails(matchId) {
 async function loadTournamentData() {
   const sportId = Number(getSportSelect()?.value || 0);
   state.selectedSportId = sportId || null;
+  if (sportId) try { window.localStorage.setItem('itsoscup.last-tournament', String(sportId)); } catch (_error) { /* Optional preference. */ }
 
   if (state.unsubscribe) {
     state.unsubscribe();
@@ -1324,6 +1325,54 @@ function bindIssueReport() {
   });
 }
 
+async function renderPublicOverview(sports) {
+  const root = document.getElementById('public-overview-list');
+  const select = getSportSelect();
+  if (!root || !select) return;
+  if (!sports.length) { root.textContent = 'Nessun torneo attivo al momento.'; return; }
+  const counts = new Map();
+  const draw = () => {
+    root.innerHTML = sports.map((sport) => {
+      const id = String(sport.id);
+      const stats = counts.get(id);
+      const live = stats?.live ? '<span class="public-overview-badge is-live">● ' + stats.live + ' in corso</span>' : '';
+      const later = stats ? '<span class="public-overview-badge">' + stats.upcoming + ' da giocare</span>' : '<span class="public-overview-badge">Apri torneo</span>';
+      return '<button type="button" class="public-overview-tournament" data-overview-sport="' + escapeHtml(id) + '" aria-current="' + (select.value === id) + '"><strong>' + escapeHtml(sport.name) + '</strong><small>' + escapeHtml(sport.sport_type || 'Torneo') + (sport.year ? ' · ' + escapeHtml(sport.year) + '° anno' : '') + '</small><span class="public-overview-badges">' + live + later + '</span></button>';
+    }).join('');
+  };
+  draw();
+  root.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-overview-sport]');
+    if (!button || !root.contains(button)) return;
+    const id = button.dataset.overviewSport;
+    if (!sports.some((sport) => String(sport.id) === id)) return;
+    select.value = id;
+    const url = new URL(window.location.href);
+    url.searchParams.set('sport', id);
+    url.searchParams.delete('match');
+    window.history.replaceState(null, '', url);
+    draw();
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('upcoming-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  select.addEventListener('change', draw);
+  const queue = sports.slice(0, 8);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+    while (cursor < queue.length) {
+      const sport = queue[cursor++];
+      try {
+        const matches = await loadMatchesBySport(Number(sport.id), { includeUnfinished: true });
+        const now = Date.now();
+        const live = matches.filter((m) => m.status === 'in_progress' || m.status === 'live').length;
+        const upcoming = matches.filter((m) => !['finished', 'cancelled', 'completed', 'in_progress', 'live'].includes(m.status) && m.scheduled_start && new Date(m.scheduled_start).getTime() >= now).length;
+        counts.set(String(sport.id), { live, upcoming });
+        draw();
+      } catch (_error) { /* Public overview must not block the normal tournament page. */ }
+    }
+  }));
+}
+
 async function init() {
   state.venueSlug = getVenueSlugFromQuery();
   const myTeams = initMyTeams();
@@ -1368,7 +1417,11 @@ async function init() {
 
   renderSports(sports);
   renderHonorRollSportOptions(sports);
-  const initialSportId = getSportIdFromQuery();
+  void renderPublicOverview(sports).catch((error) => console.warn('Panoramica tornei non disponibile:', error.message));
+  let rememberedSport = null;
+  try { rememberedSport = window.localStorage.getItem('itsoscup.last-tournament'); } catch (_error) { /* Optional preference. */ }
+  const querySportId = getSportIdFromQuery();
+  const initialSportId = querySportId || (sports.some((sport) => String(sport.id) === rememberedSport) ? Number(rememberedSport) : null);
   state.matchIdFromQuery = getMatchIdFromQuery();
   if (initialSportId) {
     getSportSelect().value = String(initialSportId);

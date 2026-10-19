@@ -40,7 +40,7 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ITSOS Cup" />
-    <link rel="stylesheet" href="css/style.css?v=50"/>
+    <link rel="stylesheet" href="css/style.css?v=70"/>
     <link rel="stylesheet" href="css/admin-modules.css?v=62"/>
     <link rel="stylesheet" href="css/pwa.css?v=2"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
@@ -78,18 +78,24 @@
         </div>
 
         <ul class="sidebar-menu">
-          <li><button class="sidebar-link active" data-view="dashboard" id="link-dashboard"><i class="fa-solid fa-house"></i> Dashboard</button></li>
-          <li><button class="sidebar-link" data-view="operations" id="link-operations" data-requires-control-center><i class="fa-solid fa-tower-broadcast"></i> Centro di controllo</button></li>
-          <li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
-          <li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
-          <li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
-          <li><button class="sidebar-link" data-view="archive" id="link-archive"><i class="fa-solid fa-landmark"></i> Albo</button></li>
-          <li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-brands fa-telegram"></i> Telegram</button></li>
-          <li><button class="sidebar-link" data-view="sports" id="link-sports"><i class="fa-solid fa-trophy"></i> Tornei</button></li>
-          <li><button class="sidebar-link" data-view="teams" id="link-teams"><i class="fa-solid fa-users"></i> Squadre</button></li>
-          <li><button class="sidebar-link" data-view="events" id="link-events"><i class="fa-solid fa-person-running"></i> Atletica</button></li>
-          <li><button class="sidebar-link" data-view="settings" id="link-settings"><i class="fa-solid fa-gears"></i> Impostazioni</button></li>
-        </ul>
+<li class="sidebar-group-label" aria-hidden="true">Panoramica</li>
+<li><button class="sidebar-link active" data-view="dashboard" id="link-dashboard"><i class="fa-solid fa-house"></i> Dashboard</button></li>
+<li><button class="sidebar-link" data-view="operations" id="link-operations" data-requires-control-center><i class="fa-solid fa-tower-broadcast"></i> Centro di controllo</button></li>
+<li class="sidebar-group-label" aria-hidden="true">Preparazione</li>
+<li><button class="sidebar-link" data-view="sports" id="link-sports"><i class="fa-solid fa-trophy"></i> Tornei</button></li>
+<li><button class="sidebar-link" data-view="teams" id="link-teams"><i class="fa-solid fa-users"></i> Squadre</button></li>
+<li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
+<li><button class="sidebar-link" data-view="events" id="link-events"><i class="fa-solid fa-person-running"></i> Atletica</button></li>
+<li class="sidebar-group-label" aria-hidden="true">Gestione gare</li>
+<li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
+<li class="sidebar-group-label" aria-hidden="true">Comunicazioni</li>
+<li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-brands fa-telegram"></i> Telegram</button></li>
+<li><button class="sidebar-link" data-view="archive" id="link-archive"><i class="fa-solid fa-landmark"></i> Albo</button></li>
+<li class="sidebar-group-label" aria-hidden="true">Analisi</li>
+<li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
+<li class="sidebar-group-label" aria-hidden="true">Impostazioni</li>
+<li><button class="sidebar-link" data-view="settings" id="link-settings"><i class="fa-solid fa-gears"></i> Impostazioni</button></li>
+</ul>
 
         <div class="sidebar-logout"><button type="button" data-open-push-preferences><i class="fa-solid fa-bell" aria-hidden="true"></i> Preferenze notifiche</button>
           <button class="btn btn-danger" id="btn-logout">

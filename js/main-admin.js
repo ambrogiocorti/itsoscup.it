@@ -1493,7 +1493,7 @@ async function handleCsvConfirmImport() {
   closeModal('modal-csv-import');
 }
 
-async function switchView(viewId) {
+async function switchView(viewId, { fromNavigation = false } = {}) {
   if (!canOpenAdminView(viewId)) {
     if (ADMIN_VIEW_IDS.has(viewId)) showToast(viewId === 'operations' ? 'Il Centro di controllo è riservato al Super Admin.' : 'Questa sezione non è disponibile per il tuo ruolo.', 'error');
     viewId = getDefaultAdminView();
@@ -1504,7 +1504,8 @@ async function switchView(viewId) {
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
   const url = new URL(window.location.href);
   url.searchParams.set('view', viewId);
-  window.history.replaceState(null, '', url);
+  if (fromNavigation || new URL(window.location.href).searchParams.get('view') === viewId) window.history.replaceState(null, '', url);
+  else window.history.pushState({ view: viewId }, '', url);
 
   if (viewId === 'dashboard') loadDashboardStats();
   if (viewId === 'operations') await loadRegiaOperations();
@@ -1611,6 +1612,11 @@ function applyRolePermissions() {
 }
 
 function bindSidebar() {
+  window.addEventListener('popstate', () => {
+    const requested = new URLSearchParams(window.location.search).get('view');
+    void switchView(requested && ADMIN_VIEW_IDS.has(requested) ? requested : getDefaultAdminView(), { fromNavigation: true })
+      .catch((error) => showToast(error.message, 'error'));
+  });
   document.querySelectorAll('.sidebar-link[data-view]').forEach((button) => {
     button.addEventListener('click', () => {
       const view = button.dataset.view;
@@ -6159,7 +6165,7 @@ async function init() {
   }
 
   const requestedView = new URLSearchParams(window.location.search).get('view');
-  await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView());
+  await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView(), { fromNavigation: true });
 
   startAdminTour();
 }
