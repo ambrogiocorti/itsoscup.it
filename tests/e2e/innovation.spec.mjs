@@ -11,6 +11,7 @@ test('class portal uses ITSOSCup styling and can submit roster and read notices'
           class_name:'4A',sport_id:1,registration,
           notices:[{id:17,title:'Cambio orario',body:'Partita alle 11:00',created_at:'2026-10-14T10:00:00Z',read_at:read?'2026-10-14T10:05:00Z':null}]
         },error:null};
+        if(name==='class_registration_deadline')return {data:'2099-11-30T18:00:00Z',error:null};
         if(name==='submit_class_registration'){registration={status:'pending',roster:args.p_roster,captain:args.p_captain};return {data:'pending',error:null};}
         if(name==='acknowledge_class_notice'){read=true;return {data:true,error:null};}
         return {data:null,error:{message:'RPC inattesa: '+name}};
@@ -23,7 +24,7 @@ test('class portal uses ITSOSCup styling and can submit roster and read notices'
   await expect(page.locator('#notices')).toContainText('Cambio orario');
   await page.locator('#roster').fill('Mario Rossi\nGiulia Bianchi');
   await page.locator('#captain').selectOption('Giulia Bianchi');
-  await page.getByRole('button',{name:'Invia proposta'}).click();
+  await page.getByRole('button',{name:'Invia iscrizione'}).click();
   await expect(page.locator('#registration-status')).toContainText('In attesa');
   await page.getByRole('button',{name:'Conferma lettura'}).click();
   await expect(page.locator('#notices')).toContainText('Lettura confermata');
