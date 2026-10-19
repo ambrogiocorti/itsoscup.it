@@ -1,5 +1,6 @@
 import {requireAdmin} from './auth.js';
 import {db,run} from './db.js';
+import {mountOperationalSidebar} from './operational-sidebar.js';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let profiles=[];
@@ -9,7 +10,7 @@ function render(){
  const visible=profiles.filter(p=>(p.name+' '+p.className).toLocaleLowerCase('it').includes(query));
  $('athlete-cards').innerHTML=visible.map(p=>'<article class="athlete-card"><header><h2>'+esc(p.name)+'</h2><p>Classe: '+esc(p.className)+' · '+p.events.length+' eventi</p></header>'+
  p.events.map(e=>'<section class="athlete-event"><h3>'+esc(e.event.name)+'</h3><small>'+e.attempts.length+' tentativi registrati'+(e.event.unit?' · '+esc(e.event.unit):'')+'</small>'+
- '<ol class="athlete-attempts">'+e.attempts.map((val,i)=>'<li class="'+(Number(val)===Number(e.best)?'best':'')+'">#'+(i+1)+' '+esc(val)+'</li>').join('')+'</ol>'+
+ '<ol class="athlete-attempts">'+e.attempts.map((val,i)=>'<li class="'+(String(val)!=='Non registrato'&&String(val)===String(e.best)?'best':'')+'"><span class="attempt-number">Tentativo '+(i+1)+'</span><span class="attempt-value">'+esc(val)+'</span></li>').join('')+'</ol>'+
  '<p class="athlete-best">Migliore: '+esc(e.best??'—')+'</p></section>').join('')+'</article>').join('')||'<p>Nessun atleta corrispondente.</p>';
  status(visible.length+' atleti visualizzati');
 }
@@ -43,6 +44,7 @@ async function load(){
 }
 async function init(){
  const session=await requireAdmin({redirectTo:'./'});if(!session.allowed)return;
+ mountOperationalSidebar({active:'athletes',role:session.admin?.ruolo});
  const {data:sports}=await run(db.from('sports').select('id,name').eq('sport_type','atletica').order('name'),'Tornei atletica');
  $('athlete-sport').replaceChildren(...(sports||[]).map(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;return o}));
  $('athlete-sport').addEventListener('change',load);$('athlete-search').addEventListener('input',render);

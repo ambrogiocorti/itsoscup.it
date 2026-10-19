@@ -3,6 +3,8 @@ import { db, run } from './db.js';
 import { loadSports, loadMatchesBySport, loadTeamsBySport, loadSportConfig, computeStandings } from './matches.js';
 import { loadVenues } from './schedule.js';
 import { escapeHtml } from './utils.js';
+import {buildSmartSchedule,isReturnMatch} from './smart-scheduler.js';
+import {mountOperationalSidebar} from './operational-sidebar.js';
 
 const $ = id => document.getElementById(id);
 const state = { sports: [], venues: [], matches: [], teams: [], config: {}, proposal: [], sportId: null, admin: null };
@@ -25,6 +27,7 @@ function busyMatch(m){return !active(m)||m.started_at||m.status==='live'||m.stat
 async function reload(){
   state.sportId=Number($('tt-sport').value);
   state.proposal=[];$('tt-publish').disabled=true;
+  for(const id of ['tt-count-planned','tt-count-missed','tt-count-fields'])if($(id))$(id).textContent='0';
   [state.matches,state.teams,state.config]=await Promise.all([
     loadMatchesBySport(state.sportId,{includeUnfinished:true}),
     loadTeamsBySport(state.sportId),
@@ -36,51 +39,33 @@ async function reload(){
 }
 function checkedVenues(){return [...document.querySelectorAll('[data-tt-venue]:checked')].map(x=>state.venues.find(v=>Number(v.id)===Number(x.value))).filter(Boolean);}
 function makeProposal(mode){
-  const selected=checkedVenues();
-  if(!selected.length)throw Error('Seleziona almeno un campo');
-  const date=$('tt-date').value,start=$('tt-start').value,end=$('tt-end').value;
-  const beginning=new Date(date+'T'+start),finish=new Date(date+'T'+end);
-  const duration=Number($('tt-duration').value),rest=Number($('tt-rest').value);
-  if(!date||!Number.isFinite(beginning.getTime())||!Number.isFinite(finish.getTime())||finish<=beginning)throw Error('Data o intervallo non valido');
-  if(!Number.isInteger(duration)||duration<10||duration>240||!Number.isInteger(rest)||rest<0||rest>240)throw Error('Durata o riposo non validi');
-  const pending=state.matches.filter(m=>active(m)&&!busyMatch(m)&&m.home_team_id&&m.away_team_id &&
-    (mode==='delay' ? m.scheduled_start && when(m.scheduled_start)>=Date.now() : !m.scheduled_start));
-  if(!pending.length)throw Error(mode==='delay'?'Nessuna partita futura da ripianificare':'Nessuna partita senza orario');
-  const occupied=rows().filter(m=>!pending.some(p=>Number(p.id)===Number(m.id)));
-  const proposed=[], missed=[];
-  const slots=[];
-  // A day is an explicit admin choice: don't silently schedule additional days.
-  for(let t=beginning.getTime();t+duration*minute<=finish.getTime();t+=5*minute)
-    for(const venue of selected)slots.push({t,venue_id:Number(venue.id)});
-  // Prioritize postponed matches in their existing order, then fairness by team burden.
-  pending.sort((a,b)=> mode==='delay'?when(a.scheduled_start)-when(b.scheduled_start):Number(a.id)-Number(b.id));
-  for(const m of pending){
-    const prior=mode==='delay'?Math.max(beginning.getTime(),when(m.scheduled_start)):beginning.getTime();
-    const eligible=slots.filter(s=>s.t>=prior).map(s=>({
-      ...m,venue_id:s.venue_id,
-      scheduled_start:new Date(s.t).toISOString(),
-      scheduled_end:new Date(s.t+duration*minute).toISOString()
-    }));
-    const candidate=eligible.find(c=>[...occupied,...proposed].every(other=>!conflict(c,other,rest)));
-    if(!candidate){missed.push(m);continue}
-    proposed.push(candidate);
-  }
-  state.proposal=proposed.map(m=>({
-    match_id:Number(m.id),venue_id:Number(m.venue_id),
-    scheduled_start:m.scheduled_start,scheduled_end:m.scheduled_end,
-    original_start:state.matches.find(old=>Number(old.id)===Number(m.id))?.scheduled_start||null,
-    original_end:state.matches.find(old=>Number(old.id)===Number(m.id))?.scheduled_end||null,
-    original_venue_id:state.matches.find(old=>Number(old.id)===Number(m.id))?.venue_id||null
-  }));
-  $('tt-count-planned').textContent=String(proposed.length);
-  $('tt-count-missed').textContent=String(missed.length);
-  $('tt-count-fields').textContent=String(selected.length);
-  $('tt-overview').textContent=proposed.length+' incontri pianificati su '+pending.length+'. '+(missed.length?'Non collocati: '+missed.length+'. Modifica campi, orari o durata.':'Anteprima pronta: controlla prima di pubblicare.');
-  $('tt-preview-list').innerHTML=proposed.length?'<table class="tt-table"><thead><tr><th>Incontro</th><th>Data/ora</th><th>Campo</th></tr></thead><tbody>'+
-    proposed.map(m=>'<tr><td>'+escapeHtml(name(m.home_team_id)+' – '+name(m.away_team_id))+'</td><td>'+escapeHtml(format(m.scheduled_start))+'</td><td>'+escapeHtml(state.venues.find(v=>Number(v.id)===Number(m.venue_id))?.name||'')+'</td></tr>').join('')+'</tbody></table>':'<p>Nessuno slot trovato.</p>';
-  if(missed.length){$('tt-preview-list').insertAdjacentHTML('beforeend','<div class="tt-unassigned"><h3>Incontri non collocati ('+missed.length+')</h3><ul>'+missed.map(m=>'<li>'+escapeHtml(name(m.home_team_id)+' – '+name(m.away_team_id))+' · Nessuno slot compatibile</li>').join('')+'</ul></div>')}
-  $('tt-publish').disabled=!proposed.length||missed.length>0||state.admin?.ruolo!=='super_admin';
+ const selected=checkedVenues();
+ const date=$('tt-date').value,start=$('tt-start').value,end=$('tt-end').value;
+ if(!date||!start||!end)throw new Error('Imposta data e fascia oraria');
+ const draft=buildSmartSchedule({
+  matches:state.matches,venues:selected,start:new Date(date+'T'+start).toISOString(),
+  end:new Date(date+'T'+end).toISOString(),
+  durationMinutes:Number($('tt-duration').value),restMinutes:Number($('tt-rest').value),mode
+ });
+ state.proposal=draft.proposal;
+ $('tt-count-planned').textContent=String(draft.scheduled.length);
+ $('tt-count-missed').textContent=String(draft.missed.length);
+ $('tt-count-fields').textContent=String(draft.fields);
+ $('tt-overview').textContent=draft.scheduled.length+' incontri collocati su '+draft.total+'. '+
+  (draft.missed.length?'Partite non collocate: modifica la fascia oraria, i campi o la durata.':'Vincoli rispettati: anteprima pronta.');
+ const field=id=>state.venues.find(v=>Number(v.id)===Number(id))?.name||'Campo';
+ $('tt-preview-list').innerHTML='<div class="tt-preview-advice">Le partite di andata terminano prima dell’inizio dei ritorni. Nessuna squadra può occupare tre turni consecutivi.</div>'+
+  (draft.scheduled.length?'<table class="tt-table"><thead><tr><th>Fase</th><th>Incontro</th><th>Data e ora</th><th>Campo</th></tr></thead><tbody>'+
+   [...draft.scheduled].sort((a,b)=>a.scheduled_start.localeCompare(b.scheduled_start)).map(m=>
+    '<tr><td><span class="tt-phase-tag'+(isReturnMatch(m)?' return':'')+'">'+escapeHtml(m.round_name||'Andata')+'</span></td><td>'+
+    escapeHtml(name(m.home_team_id)+' – '+name(m.away_team_id))+'</td><td>'+
+    escapeHtml(format(m.scheduled_start))+'</td><td>'+escapeHtml(field(m.venue_id))+'</td></tr>').join('')+'</tbody></table>':'<p>Nessuno slot compatibile.</p>')+
+  (draft.missed.length?'<div class="tt-unassigned"><h3>Da ripianificare ('+draft.missed.length+')</h3><ul>'+
+   draft.missed.map(x=>'<li><strong>'+escapeHtml(name(x.match.home_team_id)+' – '+name(x.match.away_team_id))+
+   '</strong> · '+escapeHtml(x.reason)+'</li>').join('')+'</ul></div>':'');
+ $('tt-publish').disabled=!draft.proposal.length||draft.missed.length>0||state.admin?.ruolo!=='super_admin';
 }
+
 async function checks(){
   const ids=state.matches.filter(active).map(m=>Number(m.id));
   const [{data:checkins}, {data:suspensions}] = await Promise.all([
@@ -127,6 +112,7 @@ async function init(){
   const access=await requireAdmin({redirectTo:'./'});
   if(!access.allowed)return;
   state.admin=access.admin;
+  mountOperationalSidebar({active:'tools',role:state.admin?.ruolo});
   state.sports=await loadSports();state.venues=await loadVenues();
   $('tt-sport').innerHTML=state.sports.filter(s=>s.sport_type!=='atletica').map(s=>'<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('');
   $('tt-date').value=new Date().toLocaleDateString('en-CA');

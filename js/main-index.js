@@ -43,6 +43,7 @@ const SPORT_TYPE_LABELS = {
   calcio: 'Calcio',
   basket: 'Basket',
   pallavolo: 'Pallavolo',
+  pallamano: 'Pallamano',
   atletica: 'Atletica',
 };
 

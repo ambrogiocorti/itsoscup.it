@@ -102,7 +102,7 @@ export const MATCH_REPORT_CSS = `
 
 export function getMatchReportColumns(sport, config = {}, stats = []) {
   const type = String(sport?.sport_type || sport?.name || sport || '').toLocaleLowerCase('it-IT');
-  const columns = [{ key: 'played', label: 'Pres.', className: 'report-presence' }, { key: 'points_scored', label: type.includes('calcio') ? 'Reti' : 'Punti' }];
+  const columns = [{ key: 'played', label: 'Pres.', className: 'report-presence' }, { key: 'points_scored', label: (type.includes('calcio')||type.includes('pallamano')) ? 'Reti' : 'Punti' }];
   if (type.includes('basket')) columns.push({ key: 'fouls', label: 'Falli' });
   else if (type.includes('calcio') || type.includes('calcetto') || type.includes('futsal') || type.includes('pallavolo') || type.includes('volley')) {
     for (const [key, label, flag] of [['yellow_cards', 'Gialli', 'allow_yellow_cards'], ['red_cards', 'Rossi', 'allow_red_cards']]) {

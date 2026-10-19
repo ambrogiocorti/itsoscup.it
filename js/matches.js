@@ -281,6 +281,7 @@ export function generateRoundRobinMatches(teams, hasReturnMatch = false) {
   }));
 
   const matches = [];
+  const returns = [];
   for (let i = 0; i < normalizedTeams.length; i += 1) {
     for (let j = i + 1; j < normalizedTeams.length; j += 1) {
       matches.push({
@@ -289,7 +290,7 @@ export function generateRoundRobinMatches(teams, hasReturnMatch = false) {
         round_name: 'Girone (Andata)',
       });
       if (hasReturnMatch) {
-        matches.push({
+        returns.push({
           home_team_id: normalizedTeams[j].id,
           away_team_id: normalizedTeams[i].id,
           round_name: 'Girone (Ritorno)',
@@ -298,7 +299,7 @@ export function generateRoundRobinMatches(teams, hasReturnMatch = false) {
     }
   }
 
-  return matches;
+  return [...matches, ...returns];
 }
 
 function sortTeamsForSeeding(teams = []) {

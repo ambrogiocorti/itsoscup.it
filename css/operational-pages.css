@@ -1,0 +1,45 @@
+/* Identical admin shell on dedicated management pages. */
+.tools-page,.athlete-profiles-page,.live-page{background:#f4f7fc}
+.operational-shell{height:100vh;min-height:100vh}
+.operational-shell .main-pane{min-width:0;overflow:auto;background:#f4f7fc;padding:0}
+.operational-shell>.sidebar{overflow-y:auto}
+.operational-shell .sidebar nav{padding-bottom:18px}
+.operational-shell .sidebar-user{display:grid;gap:5px}
+.operational-shell .sidebar-user strong{font-size:.95rem;color:#fff}
+.operational-shell .sidebar-user small{font-size:.8rem;color:#cbd5e1}
+.operational-shell .sidebar-link{display:flex;align-items:center;gap:10px;text-decoration:none}
+.operational-shell .tt-shell{max-width:1280px!important;width:100%;box-sizing:border-box;padding:24px 26px}
+.tools-page .tt-head{display:flex;align-items:center;background:#0f172a;border-radius:16px;padding:24px 28px;color:#fff}
+.tools-page .tt-head .tt-muted{color:#cbd5e1}
+.tools-page .tt-card{border:1px solid #dbe4f2;border-radius:17px;box-shadow:0 9px 28px #0f172a09;background:#fff}
+.tools-page .tt-grid label{min-width:0}
+.tools-page .tt-scheduler h2{font-size:1.27rem}
+.tools-page .tt-steps{margin-bottom:20px}
+.tools-page .tt-step{background:#dbeafe;border:1px solid #bfdbfe}
+.tools-page .tt-scheduler-stats>div{background:#f2f7ff}
+.tools-page .tt-table{min-width:630px}
+.tools-page .tt-table td{font-variant-numeric:tabular-nums}
+.tools-page .tt-buttons{gap:10px}
+.tools-page #tt-publish{background:#059669}
+.tools-page #tt-publish:disabled{background:#64748b}
+.tools-page .tt-unassigned{margin-top:16px}
+.tools-page .tt-phase-tag{display:inline-block;padding:5px 9px;border-radius:8px;background:#e0e7ff;color:#1e40af;font-size:.76rem;font-weight:800}
+.tools-page .tt-phase-tag.return{background:#fef3c7;color:#92400e}
+.athlete-profiles-page .athlete-shell{max-width:1400px;margin:0 auto;padding:25px 27px}
+.athlete-profiles-page .athlete-header{box-shadow:0 12px 35px -21px #1e40af66}
+.athlete-profiles-page .athlete-cards{grid-template-columns:repeat(auto-fill,minmax(350px,1fr))}
+.athlete-profiles-page .athlete-card{border:1px solid #dce5f1;border-radius:18px;box-shadow:0 9px 24px #0f172a0c}
+.athlete-profiles-page .athlete-card header{background:#fff;padding:22px;border-bottom:1px solid #e4ebf5}
+.athlete-profiles-page .athlete-card header h2{font-size:1.17rem;line-height:1.25;margin:0 0 6px}
+.athlete-profiles-page .athlete-event{padding:17px 21px}
+.athlete-profiles-page .athlete-attempts{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:9px}
+.athlete-profiles-page .athlete-attempts li{display:flex;flex-direction:column;gap:3px;border:1px solid #dbeafe;background:#eff6ff;border-radius:11px;padding:10px 12px}
+.athlete-profiles-page .athlete-attempts .attempt-number{font-size:.71rem;color:#64748b;letter-spacing:.04em;text-transform:uppercase}
+.athlete-profiles-page .athlete-attempts .attempt-value{font-size:1rem;font-weight:850}
+.athlete-profiles-page .athlete-attempts li.best{background:#ecfdf5;border-color:#a7f3d0}
+.athlete-profiles-page .athlete-best{border-left:3px solid #10b981;padding:8px 12px;background:#f0fdf4;border-radius:7px}
+.athlete-profiles-page .athlete-controls{border-radius:17px}
+.athlete-profiles-page .athlete-controls input,.athlete-profiles-page .athlete-controls select{width:100%}
+.live-page .operational-shell .live-shell{width:min(1280px,calc(100% - 32px))}
+@media(max-width:950px){.operational-shell{display:block}.operational-shell .main-pane{height:100vh}.operational-shell .sidebar{position:fixed;z-index:1500;inset:0 auto 0 0;transform:translateX(-105%);transition:transform .2s;width:260px}.operational-shell .sidebar.open{transform:translateX(0)}.operational-shell .mobile-sidebar-toggle{display:flex!important}.operational-shell .sidebar-backdrop{display:none}.operational-shell .sidebar-open .sidebar-backdrop{display:block}.operational-shell .main-pane{padding-top:48px}.athlete-profiles-page .athlete-shell{padding:24px 16px}.operational-shell .tt-shell{padding:24px 13px}}
+@media print{.operational-shell{display:block;height:auto}.operational-shell>.sidebar,.operational-shell>#btn-mobile-menu,.operational-shell>#sidebar-backdrop{display:none!important}.operational-shell .main-pane{overflow:visible;height:auto;padding:0!important}.athlete-shell{max-width:none!important}}

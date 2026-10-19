@@ -1,5 +1,6 @@
 ﻿import { APP_CONFIG } from './app-config.js';
 import { canEditMatches, requireAdmin } from './auth.js';
+import {mountOperationalSidebar} from './operational-sidebar.js';
 import { canOperateMatch } from './match-assignments.js';
 import { validateMatchClosure, createUndoSnapshot, applyUndoSnapshot } from './live-safety.js';
 import { db, run } from './db.js';
@@ -550,7 +551,7 @@ function applySportSpecificControls() {
 
   if (isVolley) {
     getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · Set`;
-  } else if (isSoccer) {
+  } else if (isSoccer || getSportType()==='pallamano') {
     getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · Goal`;
   }
 
@@ -1062,7 +1063,7 @@ function useTimeout(team) {
 }
 
 function validateBeforeFinalization() {
-  if (['calcio', 'basket', 'pallavolo'].includes(getSportType())) {
+  if (['calcio', 'basket', 'pallavolo', 'pallamano'].includes(getSportType())) {
     const minPlayers = Math.max(1, Number(state.config?.min_players ?? 1));
     const homePresences = state.homePlayers.filter((player) => Boolean(ensurePlayer(player.id).played)).length;
     const awayPresences = state.awayPlayers.filter((player) => Boolean(ensurePlayer(player.id).played)).length;
@@ -1662,6 +1663,7 @@ async function init() {
 
   state.user = guard.user;
   state.admin = guard.admin;
+ mountOperationalSidebar({active:'live',role:state.admin?.ruolo});
   await promptDeviceLabel();
 
   state.matchId = getMatchIdFromQuery();

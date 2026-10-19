@@ -16,12 +16,13 @@ export const ROLES = {
   REPORT_VIEWER: 'report_viewer',
 };
 
-export const TEAM_SPORTS = ['calcio', 'basket', 'pallavolo'];
+export const TEAM_SPORTS = ['calcio', 'basket', 'pallavolo', 'pallamano'];
 
 export const SPORT_LABELS = {
   calcio: 'Calcio',
   basket: 'Basket',
   pallavolo: 'Pallavolo',
+  pallamano: 'Pallamano',
   atletica: 'Atletica',
 };
 

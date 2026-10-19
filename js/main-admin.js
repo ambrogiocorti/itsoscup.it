@@ -232,6 +232,7 @@ const SPORT_TYPE_LABELS = {
   calcio: 'Calcio',
   basket: 'Basket',
   pallavolo: 'Pallavolo',
+  pallamano: 'Pallamano',
   atletica: 'Atletica',
 };
 
@@ -4374,7 +4375,7 @@ async function handleGenerateMatches() {
   if (!sportId) return showToast('Seleziona un torneo per la generazione.', 'error');
   const sport = getSportById(sportId);
   const inserted = await generateMatchesForSport(sportId, Boolean(sport?.has_return_match));
-  showToast(`${inserted.message ?? 'Calendario generato.'} Partite create: ${inserted.inserted}.`, 'success');
+  showToast(`${inserted.message ?? 'Incontri creati.'} Nuovi accoppiamenti: ${inserted.inserted}. Assegna ora campi e orari da «Pianifica calendario».`, 'success');
   await loadMatchesTable();
 }
 
