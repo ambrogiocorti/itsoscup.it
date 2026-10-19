@@ -31,7 +31,10 @@ async function load(){
  for(const r of results||[]){
  const athlete=rows.get(r.player_id),event=eventMap.get(r.event_id);if(!athlete||!event)continue;
  // Zero, falli e tentativi non validi rimangono visibili: non alterare la cronologia.
- const attempts=Array.isArray(r.attempt_values)?r.attempt_values:[];
+ const recorded=Array.isArray(r.attempt_values)?r.attempt_values:[];
+ const total=Math.max(recorded.length,Math.min(100,Math.max(0,Number(r.attempt_count)||0)));
+ const attempts=Array.from({length:total},(_,i)=>recorded[i]??'Non registrato');
+ if(!attempts.length&&r.value!=null&&String(r.value).trim())attempts.push(r.value);
  athlete.events.push({event,attempts,best:r.value});
  }
  profiles=[...rows.values()].sort((a,b)=>a.name.localeCompare(b.name,'it'));
