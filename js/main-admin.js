@@ -4506,7 +4506,7 @@ function getSettingsVisibility(sportType, format) {
   return {
     comuni_team: !isAthletics,
     classifica_gironi: !isAthletics && usesStandings,
-    basket_live: sportType === 'basket',
+    basket_live: sportType === 'basket' || sportType === 'pallamano',
     calcio_discipline: sportType === 'calcio',
     pallavolo_live: sportType === 'pallavolo',
     athletics_rules: isAthletics,
@@ -4518,6 +4518,12 @@ function applySettingsVisibility(sport) {
   const sportType = sport?.sport_type ?? '';
   const format = sport?.format ?? '';
   const visibility = getSettingsVisibility(sportType, format);
+  const sportTimeHeading = document.querySelector('[data-settings-group="basket_live"] .settings-section-title');
+  if(sportTimeHeading)sportTimeHeading.textContent = sportType==='pallamano' ? 'Tempi e timeout Pallamano' : 'Regole Basket Live';
+  const countRow=getEl('set-quarters')?.closest('.field');
+  if(countRow)countRow.classList.toggle('hidden',sportType==='pallamano');
+  const durationLabel=document.querySelector('label[for="set-quarter-duration"]');
+  if(durationLabel)durationLabel.textContent=sportType==='pallamano'?'Durata tempo (secondi)':'Durata quarto (sec)';
 
   document
     .querySelectorAll('[data-settings-group]')

@@ -156,6 +156,9 @@ function isVolleyMatch() {
 function isSoccerMatch() {
   return getSportType() === 'calcio';
 }
+function isHandballMatch() {
+  return getSportType() === 'pallamano';
+}
 
 function getMaxFouls() {
   return Math.max(1, Number(state.config?.max_fouls ?? 3));
@@ -211,7 +214,7 @@ function renderHeader() {
   getEl('live-home-score').textContent = String(state.homeScore);
   getEl('live-away-score').textContent = String(state.awayScore);
   getEl('live-timer').textContent = formatDuration(state.duration);
-  getEl('live-quarter').textContent = `Q${state.quarter}`;
+  getEl('live-quarter').textContent = isHandballMatch() ? `Tempo ${Math.min(state.quarter,2)} / 2` : `Q${state.quarter}`;
   getEl('live-match-title').textContent = `${state.match.home?.name ?? 'Casa'} vs ${state.match.away?.name ?? 'Ospite'}`;
   getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · ${getScheduleLabel()}`;
   const timeoutLimit = getTimeoutLimit();
@@ -536,11 +539,11 @@ function applySportSpecificControls() {
   const isVolley = isVolleyMatch();
   const isSoccer = isSoccerMatch();
 
-  const quarterVisible = isBasket;
+  const quarterVisible = isBasket || isHandballMatch();
   getEl('live-quarter')?.classList.toggle('hidden', !quarterVisible);
   getEl('quarter-controls')?.classList.toggle('hidden', !quarterVisible);
-  getEl('timeouts-controls')?.classList.toggle('hidden', !isBasket);
-  getEl('timeout-limit-label')?.classList.toggle('hidden', !isBasket);
+  getEl('timeouts-controls')?.classList.toggle('hidden', !(isBasket || isHandballMatch()));
+  getEl('timeout-limit-label')?.classList.toggle('hidden', !(isBasket || isHandballMatch()));
 
   document.querySelectorAll('[data-score-delta="2"], [data-score-delta="3"]').forEach((btn) => {
     btn.classList.toggle('hidden', !isBasket);
@@ -566,6 +569,11 @@ function applySportSpecificControls() {
     getEl('live-lock-status').className = 'lock-banner locked';
     getEl('live-lock-status').textContent = 'Match già finalizzato: modalità sola lettura.';
   }
+  document.querySelectorAll('#quarter-controls button').forEach(button => {
+    button.innerHTML = isHandballMatch()
+      ? (button.id==='btn-quarter-prev' ? '<i class="fa-solid fa-chevron-left"></i> Tempo' : 'Tempo <i class="fa-solid fa-chevron-right"></i>')
+      : (button.id==='btn-quarter-prev' ? '<i class="fa-solid fa-chevron-left"></i> Quarto' : 'Quarto <i class="fa-solid fa-chevron-right"></i>');
+  });
   renderLiveEvents();
 }
 function buildLivePayload() {
@@ -926,14 +934,14 @@ function updateScore(team, delta) {
 }
 
 function nextQuarter() {
-  if (!state.editable || !isBasketMatch()) return;
-  state.quarter = Math.min(Number(state.config.quarters_count ?? 4), state.quarter + 1);
+  if (!state.editable || !(isBasketMatch() || isHandballMatch())) return;
+  state.quarter = Math.min(isHandballMatch() ? 2 : Number(state.config.quarters_count ?? 4), state.quarter + 1);
   renderHeader();
   autosaveSnapshot();
 }
 
 function prevQuarter() {
-  if (!state.editable || !isBasketMatch()) return;
+  if (!state.editable || !(isBasketMatch() || isHandballMatch())) return;
   state.quarter = Math.max(1, state.quarter - 1);
   renderHeader();
   autosaveSnapshot();
@@ -943,7 +951,7 @@ function startTimer() {
   if (!state.editable || state.timerInterval) return;
   const quarterLimit = Math.max(0, Number(state.config?.quarter_duration_sec ?? 0));
   state.timerInterval = window.setInterval(() => {
-    if (isBasketMatch() && quarterLimit > 0 && state.duration >= quarterLimit) {
+    if ((isBasketMatch() || isHandballMatch()) && quarterLimit > 0 && state.duration >= quarterLimit) {
       stopTimer();
       showToast('Tempo del quarto terminato.', 'success');
       return;
