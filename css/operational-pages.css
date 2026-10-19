@@ -43,3 +43,12 @@
 .live-page .operational-shell .live-shell{width:min(1280px,calc(100% - 32px))}
 @media(max-width:950px){.operational-shell{display:block}.operational-shell .main-pane{height:100vh}.operational-shell .sidebar{position:fixed;z-index:1500;inset:0 auto 0 0;transform:translateX(-105%);transition:transform .2s;width:260px}.operational-shell .sidebar.open{transform:translateX(0)}.operational-shell .mobile-sidebar-toggle{display:flex!important}.operational-shell .sidebar-backdrop{display:none}.operational-shell .sidebar-open .sidebar-backdrop{display:block}.operational-shell .main-pane{padding-top:48px}.athlete-profiles-page .athlete-shell{padding:24px 16px}.operational-shell .tt-shell{padding:24px 13px}}
 @media print{.operational-shell{display:block;height:auto}.operational-shell>.sidebar,.operational-shell>#btn-mobile-menu,.operational-shell>#sidebar-backdrop{display:none!important}.operational-shell .main-pane{overflow:visible;height:auto;padding:0!important}.athlete-shell{max-width:none!important}}
+
+/* Athlete identity cards and clear statistics. */
+.athlete-person-row{display:flex;align-items:center;gap:14px}
+.athlete-avatar{flex:none;width:54px;height:54px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#1d4ed8,#0f172a);color:#fff;font-size:1.2rem;font-weight:900;letter-spacing:.02em}
+.athlete-kicker{margin:0 0 4px!important;color:#2563eb!important;font-size:.67rem;font-weight:850;text-transform:uppercase;letter-spacing:.09em}
+.athlete-profile-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:17px}
+.athlete-profile-metrics>span{display:flex;align-items:baseline;gap:7px;padding:10px 13px;background:#f4f7fd;border:1px solid #e3eaf6;border-radius:10px;color:#64748b;font-weight:700;font-size:.78rem}
+.athlete-profile-metrics strong{color:#0f172a;font-size:1.2rem}
+.athlete-profiles-page #athlete-status{font-weight:700;color:#475569}

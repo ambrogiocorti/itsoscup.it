@@ -8,7 +8,7 @@ const status=(s)=>{$('athlete-status').textContent=s};
 function render(){
  const query=$('athlete-search').value.trim().toLocaleLowerCase('it');
  const visible=profiles.filter(p=>(p.name+' '+p.className).toLocaleLowerCase('it').includes(query));
- $('athlete-cards').innerHTML=visible.map(p=>'<article class="athlete-card"><header><h2>'+esc(p.name)+'</h2><p>Classe: '+esc(p.className)+' · '+p.events.length+' eventi</p></header>'+
+ $('athlete-cards').innerHTML=visible.map(p=>'<article class="athlete-card"><header><div class="athlete-person-row"><span class="athlete-avatar" aria-hidden="true">'+esc(p.name.split(/\\s+/).filter(Boolean).slice(0,2).map(v=>v[0]||'').join('').toUpperCase())+'</span><div><p class="athlete-kicker">Scheda atleta</p><h2>'+esc(p.name)+'</h2><p>Classe '+esc(p.className)+'</p></div></div><div class="athlete-profile-metrics"><span><strong>'+p.events.length+'</strong> eventi</span><span><strong>'+p.events.reduce((n,e)=>n+e.attempts.length,0)+'</strong> tentativi</span></div></header>'+
  p.events.map(e=>'<section class="athlete-event"><h3>'+esc(e.event.name)+'</h3><small>'+e.attempts.length+' tentativi registrati'+(e.event.unit?' · '+esc(e.event.unit):'')+'</small>'+
  '<ol class="athlete-attempts">'+e.attempts.map((val,i)=>'<li class="'+(String(val)!=='Non registrato'&&String(val)===String(e.best)?'best':'')+'"><span class="attempt-number">Tentativo '+(i+1)+'</span><span class="attempt-value">'+esc(val)+'</span></li>').join('')+'</ol>'+
  '<p class="athlete-best">Migliore: '+esc(e.best??'—')+'</p></section>').join('')+'</article>').join('')||'<p>Nessun atleta corrispondente.</p>';

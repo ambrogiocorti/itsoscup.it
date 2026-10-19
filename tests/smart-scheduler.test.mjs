@@ -40,3 +40,16 @@ test('different teams may play simultaneously, not same team',()=>{
   if(common)assert.notEqual(a.scheduled_start,b.scheduled_start);
  }
 });
+
+test('returns are blocked when the first leg cannot fit',()=>{
+ const result=buildSmartSchedule({...options,end:date(180),venues:[{id:11}]});
+ assert.ok(result.missed.some(x=>isReturnMatch(x.match)));
+ assert.equal(result.scheduled.filter(isReturnMatch).length,0);
+});
+test('a fixed first-leg match holds back return fixtures',()=>{
+ const fixed={...games[0],scheduled_start:date(540),scheduled_end:date(570),venue_id:11};
+ const pending=games.filter(x=>x.id!==fixed.id);
+ const result=buildSmartSchedule({...options,matches:[fixed,...pending],end:date(840)});
+ const returns=result.scheduled.filter(isReturnMatch);
+ for(const match of returns)assert.ok(Date.parse(match.scheduled_start)>=Date.parse(fixed.scheduled_end));
+});
