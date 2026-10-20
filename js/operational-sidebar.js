@@ -1,4 +1,5 @@
 import {signOutAdmin} from './auth.js';
+import {initAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261021';
 import {canAccessAdminView} from './admin-role-views.js';
 
 const viewUrl=(id)=>'admin?view='+encodeURIComponent(id);
@@ -61,4 +62,6 @@ export async function mountOperationalSidebar({active='',role='',admin=null}={})
  aside.addEventListener('click',e=>{if(e.target.closest('a'))setOpen(false)});
  window.addEventListener('resize',()=>{if(window.innerWidth>1024)setOpen(false)});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false)});
+ // All callers reach this point only after successful requireAdmin authorization.
+ initAdminJotformAssistant();
 }
