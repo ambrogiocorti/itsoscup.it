@@ -21,7 +21,7 @@ test('assistant only lives in the admin dashboard',()=>{
  const admin=read('admin/index.html');
  assert.match(admin,/id="view-dashboard"/);
  assert.doesNotMatch(admin,/id="btn-open-jotform-admin"|id="jotform-admin-panel"/);
- assert.match(read('js/main-admin.js'),/if\(viewId!=='dashboard'\)closeAdminJotformAssistant/);
+ assert.ok(read('js/main-admin.js').includes("if(viewId==='dashboard')initAdminJotformAssistant()"));
  assert.equal(JOTFORM_AGENT_SCRIPT_URL,'https://cdn.jotfor.ms/agent/embedjs/01a158834f78700087a259d6a403ec77e377/embed.js');
  assert.doesNotMatch(admin,/cdn\.jotfor\.ms\/agent\/embedjs/);
  assert.doesNotMatch(read('index.html'),/jotform-admin-assistant/);
@@ -37,10 +37,10 @@ test('Jotform URLs are strictly restricted to HTTPS Jotform domains',()=>{
 test('Jotform uses its own floating launcher instead of a custom chat button',()=>{
  assert.equal(isApprovedJotformEmbedScriptUrl(JOTFORM_AGENT_SCRIPT_URL),true);
  const loader=read('js/jotform-admin-assistant.js');
- assert.match(loader,/document.createElement\\('script'\\)/);
+ assert.match(loader,/document.createElement\('script'\)/);
  assert.match(loader,/script.src=JOTFORM_AGENT_SCRIPT_URL/);
- assert.doesNotMatch(loader,/document.createElement\\('iframe'\\)|buildJotformFrameDocument/);
- assert.match(loader,/if\\(!isDashboard\\(\\)\\)return/);
+ assert.doesNotMatch(loader,/document.createElement\('iframe'\)|buildJotformFrameDocument/);
+ assert.match(loader,/if\(!isDashboard\(\)\)return/);
  assert.match(loader,/widgetRoots/);
  assert.doesNotMatch(read('admin/index.html'),/btn-open-jotform-admin/);
 });

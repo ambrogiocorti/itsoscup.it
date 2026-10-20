@@ -8,14 +8,14 @@ export function isApprovedJotformUrl(source){
  try{
   const url=new URL(String(source));
   return url.protocol==='https:'&&!url.username&&!url.password &&
-    /(?:^|\\.)(?:jotform\\.com|jotfor\\.ms)$/.test(url.hostname);
+    /(?:^|\.)(?:jotform\.com|jotfor\.ms)$/.test(url.hostname);
  }catch{return false}
 }
 export function isApprovedJotformEmbedScriptUrl(source){
  if(!isApprovedJotformUrl(source))return false;
  const url=new URL(source);
  return url.hostname==='cdn.jotfor.ms' &&
-  /^\\/agent\\/embedjs\\/[a-zA-Z0-9_-]+\\/embed\\.js$/.test(url.pathname) &&
+  /^\/agent\/embedjs\/[a-zA-Z0-9_-]+\/embed\.js$/.test(url.pathname) &&
   !url.search&&!url.hash;
 }
 function isDashboard(){
@@ -26,7 +26,7 @@ function widgetMarker(node){
  if(node.id==='itsos-jotform-loader')return false;
  const descriptor=[node.id,typeof node.className==='string'?node.className:'',node.getAttribute('src')||''].join(' ').toLowerCase();
  // Inspect only the exact Jotform provider IDs/frames. Do not hide arbitrary admin UI.
- return /jotform|jotfor\\.ms|jotfor_|jotformagent|jotform-agent/.test(descriptor);
+ return /jotform|jotfor\.ms|jotfor_|jotformagent|jotform-agent/.test(descriptor);
 }
 function trackWidget(node){
  if(!(node instanceof Element))return;
