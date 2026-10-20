@@ -30,10 +30,10 @@ export function buildJotformFrameDocument(source){
   '<style>html,body{box-sizing:border-box;width:100%;height:100%;margin:0;padding:0;background:#f8fafc;overflow:hidden}'+
   'body{font-family:system-ui,sans-serif}#agent-status{padding:18px 20px;color:#64748b;font-size:14px}'+
   '</style></head><body><div id="agent-status" role="status">Caricamento assistente Jotform…</div>'+
-  '<script src="'+source+'" async referrerpolicy="no-referrer"><\\/script>'+
+  '<script src="'+source+'" async referrerpolicy="no-referrer"></script>'+
   '<script>window.addEventListener("load",function(){'+
   'var n=document.getElementById("agent-status");if(n)n.remove();'+
-  '});<\\/script></body></html>';
+  '});</script></body></html>';
 }
 
 export function closeAdminJotformAssistant(){

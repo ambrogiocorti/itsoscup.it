@@ -39,6 +39,8 @@ test('the supplied Jotform embed script is lazy-loaded in a sandboxed dashboard 
  const frame=buildJotformFrameDocument(JOTFORM_AGENT_SCRIPT_URL);
  assert.match(frame,/cdn\.jotfor\.ms\/agent\/embedjs/);
  assert.match(frame,/<script src=/);
+ assert.match(frame,/<\/script>/);
+ assert.doesNotMatch(frame,/<\\\/script>/);
  const loader=read('js/jotform-admin-assistant.js');
  assert.match(loader,/sandbox.*allow-scripts allow-forms allow-popups/);
  assert.doesNotMatch(loader,/allow-same-origin/);
