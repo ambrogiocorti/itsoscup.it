@@ -2,6 +2,7 @@
 // This page deliberately permits local offline operations without a live Supabase session.
 import {getCurrentUser,getAdminProfile} from './auth.js';
 import {initAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261021';
+void (async()=>{
 try {
  if(navigator.onLine && !window.ITSOSCUP_DESKTOP){
   const user=await getCurrentUser();
@@ -15,3 +16,4 @@ try {
  // Offline and expired sessions remain functional; an unauthenticated
  // workspace must not load any third-party Jotform script.
 }
+})();
