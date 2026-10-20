@@ -1,4 +1,5 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
+import {initAdminJotformAssistant,closeAdminJotformAssistant} from './jotform-admin-assistant.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
 import {
@@ -1502,6 +1503,7 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
+  if(viewId!=='dashboard')closeAdminJotformAssistant();
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
   const url = new URL(window.location.href);
   url.searchParams.set('view', viewId);
@@ -6119,6 +6121,7 @@ async function init() {
   }
   setAdminAuthStatus(`Accesso autorizzato: ${formatRoleLabel(state.admin.ruolo)}.`);
   document.body.classList.remove('auth-pending');
+  initAdminJotformAssistant();
   getEl('admin-name').textContent = formatAdminDisplayName(state.admin);
   getEl('admin-role').textContent = formatRoleLabel(state.admin?.ruolo);
   await promptDeviceLabel();

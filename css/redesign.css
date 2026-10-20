@@ -323,3 +323,21 @@ body:has(>.tt-shell){background:#f3f6fc!important}
 .tt-unassigned{margin-top:16px;border:1px solid #fecaca;padding:15px;border-radius:12px;background:#fff7f7}
 .tt-unassigned h3{color:#991b1b;margin:0 0 8px}
 @media(max-width:600px){.tt-scheduler-stats{gap:6px}.tt-scheduler-stats>div{padding:9px}.tt-scheduler-stats strong{font-size:1.45rem}}
+
+/* Coordinator handover area, deliberately restrained and dashboard-only. */
+.itsos-help-card{margin-top:17px;border:1px solid #d9e3f0;background:#fff}
+.itsos-help-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:24px;align-items:stretch}
+.itsos-help-copy{padding:3px 0}
+.itsos-help-eyebrow{font-size:.73rem;font-weight:850;letter-spacing:.07em;text-transform:uppercase;color:#2563eb}
+.itsos-help-copy h2{font-size:clamp(1.12rem,2vw,1.45rem);margin:10px 0;color:#0f172a;letter-spacing:-.025em}
+.itsos-help-copy p,.itsos-help-agent p{font-size:.88rem;line-height:1.5;color:#475569;margin:6px 0 16px}
+.itsos-help-agent{padding:18px;border:1px solid #dbeafe;background:#f3f7ff;border-radius:13px}
+.itsos-help-agent-head{display:flex;align-items:center;gap:12px;font-size:.97rem}
+.itsos-help-agent-head i{display:grid;place-items:center;width:37px;height:37px;color:#2563eb;background:#dbeafe;border-radius:10px}
+.itsos-jotform-panel{padding:12px 22px 20px;border-top:1px solid #e2e8f0}
+.itsos-jotform-panel[hidden],.itsos-help-card [hidden]{display:none!important}
+.itsos-jotform-panel-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.itsos-jotform-frame iframe{display:block;width:100%;height:min(68vh,650px);min-height:420px;background:#fff;border:1px solid #e2e8f0;border-radius:13px}
+.itsos-ai-disclaimer{font-size:.8rem;color:#64748b;margin:12px 0 0}
+@media(max-width:850px){.itsos-help-grid{grid-template-columns:1fr}.itsos-help-agent{padding:16px}}
+@media print{.itsos-help-card{display:none!important}}
