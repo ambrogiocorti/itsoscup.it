@@ -100,3 +100,13 @@ di ripristino e backup fuori da documenti pubblicamente accessibili.
 
 Questo testo è descrittivo: non costituisce accesso automatico ai dati di produzione,
 non assegna ruoli e non esegue operazioni senza un account autorizzato.
+
+## Novità operative: configurazione guidata e continuità (20 ottobre 2026)
+- `/tournament-setup.html`: il Super Admin seleziona o crea un torneo in un percorso di cinque fasi; scadenza, verifica squadre, creazione accoppiamenti e pianificazione si svolgono nelle sezioni protette.
+- Nella Dashboard è visibile una checklist dei dati del torneo selezionato. È informativa: il docente deve confermare i controlli prima della gara.
+- `/tournament-demo.html`: laboratorio protetto con squadre, calendari e punteggi fittizi, nessuna scrittura al database. Consigliato per formare i nuovi coordinatori.
+- `/tournament-insights.html`: riepiloghi per sport e anno di creazione; l'anno indicato non equivale automaticamente all'anno scolastico. CSV senza nominativi degli studenti.
+- La conferma definitiva delle rose si effettua in Squadre -> Iscrizioni delle classi: il Super Admin sigilla la rosa dopo l'approvazione; la riapertura richiede motivazione e registro. Dopo il sigillo il database blocca modifiche alle squadre e ai giocatori.
+- In Atletica si possono iscrivere gli studenti agli eventi anche prima del primo tentativo. Schede atleti include questi eventi e distingue le iscrizioni dai risultati.
+- La Pallamano usa due tempi e supporta nella cronologia gli eventi Esclusione 2 minuti e Tiro da 7 metri; non sostituisce il regolamento adottato dalla scuola.
+- La pianificazione mostra una matrice campi/orari e indicatori di attesa, insieme ai vincoli applicati dal database.
