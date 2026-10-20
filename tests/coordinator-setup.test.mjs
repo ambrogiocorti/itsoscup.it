@@ -74,3 +74,11 @@ test('security releases and migrations are described for school successors',()=>
  assert.match(readme,/Non eseguire alla cieca/);
  assert.match(runbook,/Problemi aperti rilevati dagli advisor Supabase/);
 });
+
+test('tournament name field has clear label, accessible help and focus styling',()=>{
+ const page=read('tournament-setup.html'),css=read('css/setup-wizard.css');
+ assert.match(page,/id="setup-name"[^>]*aria-describedby="setup-name-help"/);
+ assert.match(page,/id="setup-name-help"/);
+ assert.match(page,/class="setup-name-control"/);
+ assert.match(css,/\.setup-page \.setup-name-control:focus-within/);
+});
