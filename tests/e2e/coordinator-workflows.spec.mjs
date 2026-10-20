@@ -12,6 +12,7 @@ async function mockAdmin(page,role='super_admin'){
    teams:[{id:1,sport_id:42,name:'4A'},{id:2,sport_id:42,name:'4B'}],
    matches:[{id:11,sport_id:42,home_team_id:1,away_team_id:2,round_name:'Girone (Andata)',
      status:'finished',is_finished:true,home_score:2,away_score:1,venue_id:1,
+     sport:{sport_type:'basket',name:'Basket Quarte'},home:{name:'4A'},away:{name:'4B'},venue:{id:1,name:'Campo 1'},
      scheduled_start:'2026-10-20T08:30:00Z',scheduled_end:'2026-10-20T09:00:00Z'}],
    class_invites:[{id:15,sport_id:42,is_active:true}],
    class_registrations:[{invite_id:15,sport_id:42,status:'approved'}],
@@ -104,8 +105,16 @@ test('non-privileged role cannot create new tournaments in the wizard',async({pa
 });
 
 test('existing admin calendar exposes read-only quality matrix beside the calendar button',async({page})=>{
+ // Isolate the calendar component from unrelated DB-dependent Admin startup work.
+ await page.route('**/js/main-admin.js*',route=>route.fulfill({status:200,contentType:'text/javascript',body:'export {};'}));
  await mockAdmin(page);
  await page.goto('/admin?view=matches');
+ await page.evaluate(async()=>{
+  document.body.classList.remove('auth-pending');
+  document.getElementById('view-matches').classList.add('active');
+  const {initCalendarQuality}=await import('/js/admin-calendar-quality.js?v=1');
+  await initCalendarQuality({adminRole:'super_admin',onMatchDetail:()=>{}});
+ });
  await expect(page.locator('#btn-toggle-matches-view')).toBeVisible();
  await expect(page.locator('#btn-toggle-calendar-quality')).toBeVisible();
  await page.locator('#btn-toggle-calendar-quality').click();
