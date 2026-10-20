@@ -50,14 +50,23 @@ function download(){
  const csv='\ufeff'+cells.map(row=>row.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(';')).join('\r\n');
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download='itsoscup-analisi-tornei.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+async function readAll(table,columns){
+ const all=[];
+ for(let offset=0;offset<50000;offset+=1000){
+  const {data}=await run(db.from(table).select(columns).range(offset,offset+999),'Analisi '+table);
+  const page=data||[];all.push(...page);
+  if(page.length<1000)return all;
+ }
+ throw new Error('Analisi troppo grande: esportare i dati dal sistema di report amministrativo.');
+}
 async function reload(){
  status('Caricamento statistiche…');
  const [a,b,c]=await Promise.all([
-  run(db.from('sports').select('id,name,sport_type,created_at'),'Tornei'),
-  run(db.from('teams').select('sport_id'),'Squadre'),
-  run(db.from('matches').select('sport_id,is_finished'),'Partite')
+  readAll('sports','id,name,sport_type,created_at'),
+  readAll('teams','sport_id'),
+  readAll('matches','sport_id,is_finished')
  ]);
- sports=a.data||[];teams=b.data||[];matches=c.data||[];
+ sports=a;teams=b;matches=c;
  $('insights-year').replaceChildren(new Option('Tutti gli anni','all'),...[...new Set(sports.map(s=>new Date(s.created_at).getFullYear()))].sort((a,b)=>b-a).map(x=>new Option(String(x),x)));
  $('insights-type').replaceChildren(new Option('Tutti gli sport','all'),...[...new Set(sports.map(s=>s.sport_type))].sort().map(x=>new Option(labels[x]||x,x)));
  aggregate();

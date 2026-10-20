@@ -19,7 +19,7 @@ async function refresh(){
  target.textContent='Verifica in corso…';
  try{
   const [sport,teams,matches,registrations]=await Promise.all([
-    run(db.from('sports').select('id,name,registration_deadline').eq('id',id).single(),'Torneo'),
+    run(db.from('sports').select('id,name,registration_deadline,roster_confirmed_at').eq('id',id).single(),'Torneo'),
     run(db.from('teams').select('id').eq('sport_id',id),'Squadre'),
     run(db.from('matches').select('id,venue_id,scheduled_start,scheduled_end').eq('sport_id',id),'Incontri'),
     db.from('class_registrations').select('status').eq('sport_id',id)
@@ -32,7 +32,8 @@ async function refresh(){
    [Boolean(sport.data),'Torneo','Configurazione base verificata','admin?view=sports'],
    [Boolean(sport.data?.registration_deadline),'Scadenza iscrizioni',sport.data?.registration_deadline?new Date(sport.data.registration_deadline).toLocaleString('it-IT'):'Scadenza non definita','admin?view=teams'],
    [(teams.data||[]).length>=2,'Squadre',(teams.data||[]).length+' presenti','admin?view=teams'],
-   [approved,'Rose inviate e approvate',registrations.error?'Stato non accessibile':registered.length?registered.filter(r=>r.status==='approved').length+'/'+registered.length+' approvate':'Nessuna proposta ricevuta','admin?view=teams'],
+   [approved,'Proposte delle classi',registrations.error?'Stato non accessibile':registered.length?registered.filter(r=>r.status==='approved').length+'/'+registered.length+' approvate':'Nessuna proposta ricevuta','admin?view=teams'],
+   [Boolean(sport.data?.roster_confirmed_at),'Rose definitive',sport.data?.roster_confirmed_at?'Confermate il '+new Date(sport.data.roster_confirmed_at).toLocaleString('it-IT'):'In attesa di conferma del Super Admin','admin?view=teams'],
    [count>0,'Accoppiamenti',count+' partite create','admin?view=matches'],
    [count>0&&scheduled===count,'Orari e campi',scheduled+'/'+count+' partite pianificate','tournament-tools.html?sport='+id]
   ];

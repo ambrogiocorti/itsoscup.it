@@ -128,6 +128,9 @@ async function init(){
   await mountOperationalSidebar({active:'tools',role:state.admin?.ruolo,admin:state.admin});
   state.sports=await loadSports();state.venues=await loadVenues();
   $('tt-sport').innerHTML=state.sports.filter(s=>s.sport_type!=='atletica').map(s=>'<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('');
+  const preferred=Number(new URLSearchParams(location.search).get('sport'));
+  if(preferred&&[...$('tt-sport').options].some(option=>Number(option.value)===preferred))
+    $('tt-sport').value=String(preferred);
   $('tt-date').value=new Date().toLocaleDateString('en-CA');
   $('tt-venues').innerHTML=state.venues.map(v=>'<label><input data-tt-venue type="checkbox" value="'+v.id+'" checked> '+escapeHtml(v.name)+'</label>').join('');
   $('tt-app').classList.remove('tt-hide');await reload();

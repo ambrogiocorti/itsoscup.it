@@ -21,7 +21,8 @@ async function refresh(){
  $('setup-deadline').textContent=s.registration_deadline?'Scadenza: '+new Date(s.registration_deadline).toLocaleString('it-IT'):'Scadenza non impostata: configurala prima di distribuire gli inviti.';
  $('setup-team-count').textContent=teams.length+' squadre registrate. Controlla eventuali proposte ancora da approvare.';
  $('setup-match-count').textContent=matches.length+' incontri esistenti; '+teams.length+' squadre.';
- $('setup-generate').disabled=teams.length<2||s.sport_type==='atletica'||role!=='super_admin';
+ $('setup-generate').disabled=teams.length<2||s.sport_type==='atletica'||role!=='super_admin'||!s.roster_confirmed_at;
+ if(!s.roster_confirmed_at)message('Conferma le rose definitive in Squadre → Iscrizioni prima di creare gli incontri.');
  $('setup-scheduled-count').textContent=matches.filter(m=>m.scheduled_start&&m.scheduled_end&&m.venue_id).length+' su '+matches.length+' incontri pianificati.';
  }catch(e){message('Verifica dati non riuscita: '+e.message,true)}
 }
