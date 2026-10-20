@@ -1,0 +1,15 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Chiusura del torneo · ITSOSCup</title>
+<link rel="stylesheet" href="css/style.css?v=71"><link rel="stylesheet" href="css/redesign.css?v=20261020"><link rel="stylesheet" href="css/operational-pages.css?v=2"><link rel="stylesheet" href="css/tournament-closeout.css?v=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head><body class="admin-page closeout-page">
+<div class="admin-shell operational-shell"><button id="btn-mobile-menu" type="button" class="mobile-sidebar-toggle" aria-controls="admin-sidebar" aria-label="Apri menu" aria-expanded="false">Menu</button><div class="sidebar-backdrop" id="sidebar-backdrop"></div><aside class="sidebar" id="admin-sidebar" data-operational-sidebar></aside><main class="main-pane">
+<div class="closeout-wrap"><header class="closeout-header"><div><span>ITSOSCup · Verifica amministrativa</span><h1>Controllo finale del torneo</h1><p>Individua partite, firme e risultati ancora da verificare prima dell'archiviazione.</p></div><a href="admin?view=dashboard" class="btn btn-ghost">Dashboard</a></header>
+<section class="card closeout-controls"><div class="card-body"><div class="field"><label for="closeout-sport">Seleziona torneo</label><select id="closeout-sport"><option value="">Caricamento…</option></select></div>
+<button id="closeout-refresh" type="button" class="btn btn-ghost"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Aggiorna verifiche</button>
+<button id="closeout-print" type="button" class="btn btn-primary"><i class="fa-solid fa-print" aria-hidden="true"></i> Stampa riepilogo</button></div></section>
+<p id="closeout-status" role="status" aria-live="polite">Verifica dell'accesso…</p>
+<div id="closeout-overview" class="closeout-overview"></div><section class="card"><div class="card-header">Verifiche di completezza</div><div class="card-body"><div id="closeout-checks" class="closeout-checks"></div></div></section>
+<section class="card closeout-issues"><div class="card-header">Partite ed eventi da controllare</div><div class="card-body" id="closeout-issues"></div></section>
+<section class="card closeout-signoff"><div class="card-header">Verifica del coordinatore</div><div class="card-body"><p>Il riepilogo è informativo: <strong>non</strong> modifica la classifica, non archivia il torneo e non sostituisce i referti firmati.</p>
+<div class="closeout-signature"><span>Coordinatore: _________________________</span><span>Data: ___________________</span><span>Firma: _________________________</span></div>
+<a class="btn btn-ghost" href="admin?view=archive">Apri archivio tornei</a></div></section>
+</div></main></div><script type="module" src="js/tournament-closeout.js?v=1"></script></body></html>
