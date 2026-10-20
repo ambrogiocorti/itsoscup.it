@@ -40,3 +40,11 @@ test('the operational manual and PWA cannot claim supported offline scoring',()=
  assert.match(worker,/status: 503/);
  assert.match(read('js/jotform-admin-config.js'),/NON dentro un frame sandbox/);
 });
+
+test('roster signoff preflight considers all active class invitations',()=>{
+ const r=read('js/roster-seal.js'),dash=read('js/admin-preparation.js');
+ assert.match(r,/class_invites/);
+ assert.match(r,/incompleteInvites/);
+ assert.match(dash,/missingInvites/);
+ assert.match(read('sql/059_approval_all_invites.sql'),/Inviti di classe non completati/);
+});

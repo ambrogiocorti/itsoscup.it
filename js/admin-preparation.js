@@ -18,21 +18,24 @@ async function refresh(){
  if(!id){target.textContent='Seleziona un torneo.';return}
  target.textContent='Verifica in corso…';
  try{
-  const [sport,teams,matches,registrations]=await Promise.all([
+  const [sport,teams,matches,registrations,invites]=await Promise.all([
     run(db.from('sports').select('id,name,registration_deadline,roster_confirmed_at').eq('id',id).single(),'Torneo'),
     run(db.from('teams').select('id').eq('sport_id',id),'Squadre'),
     run(db.from('matches').select('id,venue_id,scheduled_start,scheduled_end').eq('sport_id',id),'Incontri'),
-    db.from('class_registrations').select('status').eq('sport_id',id)
+    db.from('class_registrations').select('invite_id,status').eq('sport_id',id),
+    db.from('class_invites').select('id,is_active').eq('sport_id',id)
   ]);
   // A permission error cannot be misrepresented as an approved roster.
   const registered=registrations.data||[];
-  const approved=!registrations.error&&registered.length>0&&registered.every(x=>x.status==='approved');
+  const activeInvites=(invites.data||[]).filter(x=>x.is_active);
+  const missingInvites=activeInvites.filter(i=>!registered.some(r=>Number(r.invite_id)===Number(i.id)&&r.status==='approved')).length;
+  const approved=!registrations.error&&!invites.error&&registered.every(x=>x.status==='approved')&&missingInvites===0&&(registered.length>0||activeInvites.length===0);
   const count=(matches.data||[]).length,scheduled=(matches.data||[]).filter(m=>m.venue_id&&m.scheduled_start&&m.scheduled_end).length;
   const steps=[
    [Boolean(sport.data),'Torneo','Configurazione base verificata','admin?view=sports'],
    [Boolean(sport.data?.registration_deadline),'Scadenza iscrizioni',sport.data?.registration_deadline?new Date(sport.data.registration_deadline).toLocaleString('it-IT'):'Scadenza non definita','admin?view=teams'],
    [(teams.data||[]).length>=2,'Squadre',(teams.data||[]).length+' presenti','admin?view=teams'],
-   [approved,'Proposte delle classi',registrations.error?'Stato non accessibile':registered.length?registered.filter(r=>r.status==='approved').length+'/'+registered.length+' approvate':'Nessuna proposta ricevuta','admin?view=teams'],
+   [approved,'Iscrizioni delle classi',registrations.error||invites.error?'Stato non accessibile':missingInvites?missingInvites+' inviti attivi ancora da completare':registered.length?registered.filter(r=>r.status==='approved').length+'/'+registered.length+' approvate':'Nessuna proposta ricevuta','admin?view=teams'],
    [Boolean(sport.data?.roster_confirmed_at),'Rose definitive',sport.data?.roster_confirmed_at?'Confermate il '+new Date(sport.data.roster_confirmed_at).toLocaleString('it-IT'):'In attesa di conferma del Super Admin','admin?view=teams'],
    [count>0,'Accoppiamenti',count+' partite create','admin?view=matches'],
    [count>0&&scheduled===count,'Orari e campi',scheduled+'/'+count+' partite pianificate','tournament-tools.html?sport='+id]

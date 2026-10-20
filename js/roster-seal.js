@@ -10,21 +10,26 @@ async function refresh(){
  const label=document.querySelector('.roster-reopen-label');
  if(!sid){msg('Seleziona un torneo nella sezione Iscrizioni delle classi.');confirm.disabled=true;reopen.hidden=true;label.hidden=true;return}
  try{
-  const [sport,teams,registrations]=await Promise.all([
+  const [sport,teams,registrations,invites]=await Promise.all([
    run(db.from('sports').select('id,roster_confirmed_at,registration_deadline').eq('id',sid).single(),'Torneo'),
    run(db.from('teams').select('id').eq('sport_id',sid),'Squadre'),
-   run(db.from('class_registrations').select('status').eq('sport_id',sid),'Proposte')
+   run(db.from('class_registrations').select('invite_id,status').eq('sport_id',sid),'Proposte'),
+   run(db.from('class_invites').select('id,is_active').eq('sport_id',sid),'Inviti')
   ]);
+  const activeInvites=(invites.data||[]).filter(i=>i.is_active);
+  const incompleteInvites=activeInvites.filter(i=>!(registrations.data||[]).some(r=>Number(r.invite_id)===Number(i.id)&&r.status==='approved'));
+  const incomplete=registrations.data?.some(r=>r.status!=='approved')||incompleteInvites.length>0;
   const sealed=Boolean(sport.data.roster_confirmed_at);
   $('roster-seal-badge').textContent=sealed?'Rose confermate':'Da confermare';
   $('roster-seal-badge').classList.toggle('sealed',sealed);
   confirm.hidden=sealed;reopen.hidden=!sealed;label.hidden=!sealed;
-  confirm.disabled=role!=='super_admin'||busy||!sport.data.registration_deadline||!teams.data?.length||registrations.data?.some(r=>r.status!=='approved');
+  confirm.disabled=role!=='super_admin'||busy||!sport.data.registration_deadline||!teams.data?.length||incomplete;
   reopen.disabled=role!=='super_admin'||busy;
   msg(sealed
    ?'Rose ufficialmente confermate il '+new Date(sport.data.roster_confirmed_at).toLocaleString('it-IT')+'. Modifiche bloccate fino a riapertura motivata.'
    :!sport.data.registration_deadline?'Prima imposta una scadenza per le iscrizioni.'
-   :registrations.data?.some(r=>r.status!=='approved')?'Ci sono proposte da approvare o respingere prima della conferma.'
+   :incompleteInvites.length?'Ci sono '+incompleteInvites.length+' inviti attivi senza una proposta approvata. Verifica tutte le classi prima della conferma.'
+   :incomplete?'Ci sono proposte da approvare o correggere prima della conferma.'
    :!teams.data?.length?'Nessuna squadra presente.':'Tutte le condizioni preliminari risultano soddisfatte. Puoi confermare la rosa.');
  }catch(error){msg('Verifica rose non riuscita: '+error.message);confirm.disabled=true;reopen.hidden=true}
 }
