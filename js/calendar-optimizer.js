@@ -19,11 +19,11 @@ export function proposeCalendarOptimization(matches,minimumRest=15,maxDelay=240)
   let next=start;
   if(conflicts(next)){
    for(next=start+5*ms;next<=start+limit;next+=5*ms){
-    if(calendarLocalDay(next)!==calendarLocalDay(start))break;
+    if(calendarLocalDay(new Date(next).toISOString())!==calendarLocalDay(new Date(start).toISOString()))break;
     if(!conflicts(next))break;
    }
   }
-  if(conflicts(next)||calendarLocalDay(next)!==calendarLocalDay(start)||next>start+limit){
+  if(conflicts(next)||calendarLocalDay(new Date(next).toISOString())!==calendarLocalDay(new Date(start).toISOString())||next>start+limit){
    next=start;unresolved.push(Number(match.id));
   }else if(next!==start){
    changes.push({id:Number(match.id),originalStart:match.scheduled_start,originalEnd:match.scheduled_end,start:new Date(next).toISOString(),end:new Date(next+duration).toISOString(),venueId:Number(match.venue_id)});
