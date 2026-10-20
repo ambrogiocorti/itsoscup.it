@@ -1,7 +1,8 @@
 /* ITSOSCup: deterministic, fairness-aware schedule proposal (no database writes). */
 const MINUTE=60_000;
 export const isReturnMatch=m=>/ritorno/i.test(String(m?.round_name||''));
-export const isFirstLeg=m=>!isReturnMatch(m);
+export const isKnockoutMatch=m=>/semifinale|finale|quarti|ottavi|play.?off|eliminazione|bracket/i.test(String(m?.round_name||''))&&!isReturnMatch(m);
+export const isFirstLeg=m=>!isReturnMatch(m)&&!isKnockoutMatch(m);
 const validTime=x=>{const t=Date.parse(String(x||''));return Number.isFinite(t)?t:null};
 const teamIds=m=>[Number(m.home_team_id),Number(m.away_team_id)].filter(Boolean);
 const sharedTeam=(a,b)=>teamIds(a).some(id=>teamIds(b).includes(id));
@@ -44,10 +45,16 @@ export function verifyTournamentSchedule(matches,restMinutes=0){
   }
  }
  const first=ordered.filter(isFirstLeg),returns=ordered.filter(isReturnMatch);
+ const knockouts=ordered.filter(isKnockoutMatch);
  if(returns.length&&first.length){
   const lastFirst=Math.max(...first.map(m=>validTime(m.scheduled_end)||0));
   const firstReturn=Math.min(...returns.map(m=>validTime(m.scheduled_start)));
   if(firstReturn<lastFirst)errors.push('Il ritorno inizia prima che tutte le partite di andata siano terminate');
+ }
+ if(knockouts.length&&(first.length||returns.length)){
+  const lastGroup=Math.max(...[...first,...returns].map(m=>validTime(m.scheduled_end)||0));
+  const firstKnockout=Math.min(...knockouts.map(m=>validTime(m.scheduled_start)));
+  if(firstKnockout<lastGroup)errors.push('Le eliminatorie iniziano prima della conclusione dei gironi');
  }
  return errors;
 }
@@ -68,17 +75,20 @@ export function buildSmartSchedule({matches=[],venues=[],start,end,durationMinut
  for(let time=beginning;time+stride<=finish;time+=stride)waves.push(time);
  const assigned=[],remaining=[...pending],failures=[];
  const proposals=[];
- const phases=[remaining.filter(isFirstLeg),remaining.filter(isReturnMatch)];
+ const phases=[remaining.filter(isFirstLeg),remaining.filter(isReturnMatch),remaining.filter(isKnockoutMatch)];
  let lastFirstLeg=Math.max(beginning,...scheduled.filter(isFirstLeg).map(m=>validTime(m.scheduled_end)||beginning));
+ let lastReturnLeg=Math.max(beginning,...scheduled.filter(isReturnMatch).map(m=>validTime(m.scheduled_end)||beginning));
  let nextWave=0;
  for(let phase=0;phase<phases.length;phase++){
   const queue=phases[phase];
   // Return fixtures must never begin until every first-leg fixture has a slot.
   if(phase===1&&phases[0].length){for(const m of queue)failures.push({match:m,reason:'Andata non completata: ritorno bloccato'});continue}
+  if(phase===2&&(phases[0].length||phases[1].length)){for(const m of queue)failures.push({match:m,reason:'Gironi non completati: eliminatorie bloccate'});continue}
   for(;nextWave<waves.length&&queue.length;nextWave++){
    const startAt=waves[nextWave],endAt=startAt+stride;
    if(phase===0&&endAt>returnLimit)continue;
    if(phase===1&&startAt<lastFirstLeg)continue;
+   if(phase===2&&startAt<Math.max(lastFirstLeg,lastReturnLeg))continue;
    for(const venueId of fields){
     const candidates=[];
     for(const m of queue){
@@ -111,6 +121,7 @@ export function buildSmartSchedule({matches=[],venues=[],start,end,durationMinut
       original_start:chosen.m.scheduled_start||null,original_end:chosen.m.scheduled_end||null,original_venue_id:chosen.m.venue_id||null});
     queue.splice(queue.indexOf(chosen.m),1);
     if(phase===0)lastFirstLeg=Math.max(lastFirstLeg,endAt);
+    if(phase===1)lastReturnLeg=Math.max(lastReturnLeg,endAt);
    }
   }
   if(phase===0&&queue.length){
@@ -118,6 +129,9 @@ export function buildSmartSchedule({matches=[],venues=[],start,end,durationMinut
   }
   if(phase===1&&queue.length){
    for(const m of queue)failures.push({match:m,reason:'Spazi insufficienti dopo la conclusione dell’andata'});
+  }
+  if(phase===2&&queue.length){
+   for(const m of queue)failures.push({match:m,reason:'Spazi insufficienti per la fase a eliminazione'});
   }
  }
  // Never publish a partial first leg together with a return leg.
@@ -127,4 +141,30 @@ export function buildSmartSchedule({matches=[],venues=[],start,end,durationMinut
  if(errors.length)throw new Error('Verifica di sicurezza fallita: '+errors[0]);
  return {scheduled:assigned,proposal:proposals,missed:failures,
    total:pending.length,fields:fields.length,checks:{firstLeg:assigned.filter(isFirstLeg).length,returnLeg:assigned.filter(isReturnMatch).length}};
+}
+
+/** Pure schedule diagnostics. Durations and gaps are reported, not guessed. */
+export function analyzeScheduleQuality(matches=[]){
+ const scheduled=matches.filter(m=>m.scheduled_start&&m.scheduled_end);
+ const players=new Map();
+ for(const m of scheduled)for(const id of teamIds(m)){
+  if(!players.has(id))players.set(id,[]);
+  players.get(id).push(m);
+ }
+ let doubleTurns=0,longWaits=0,maximumWait=0,minimumRest=Infinity;
+ const teamSummaries=[];
+ for(const [id,fixtures] of players){
+  fixtures.sort((a,b)=>validTime(a.scheduled_start)-validTime(b.scheduled_start));
+  const gaps=[];
+  for(let i=1;i<fixtures.length;i++){
+   const gap=Math.max(0,(validTime(fixtures[i].scheduled_start)-validTime(fixtures[i-1].scheduled_end))/MINUTE);
+   gaps.push(gap);minimumRest=Math.min(minimumRest,gap);maximumWait=Math.max(maximumWait,gap);
+   const previousDuration=(validTime(fixtures[i-1].scheduled_end)-validTime(fixtures[i-1].scheduled_start))/MINUTE;
+   if(gap<=previousDuration)doubleTurns++;
+   if(gap>=150)longWaits++;
+  }
+  teamSummaries.push({teamId:id,matches:fixtures.length,waitsMinutes:gaps});
+ }
+ return {teams:teamSummaries.length,doubleTurns,longWaits,maximumWaitMinutes:maximumWait,
+  minimumRestMinutes:Number.isFinite(minimumRest)?minimumRest:null,teamSummaries};
 }
