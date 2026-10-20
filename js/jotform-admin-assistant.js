@@ -18,8 +18,8 @@ export function isApprovedJotformEmbedScriptUrl(source){
   /^\/agent\/embedjs\/[a-zA-Z0-9_-]+\/embed\.js$/.test(url.pathname) &&
   !url.search&&!url.hash;
 }
-function isDashboard(){
- return Boolean(document.getElementById('view-dashboard')?.classList.contains('active'));
+function isAssistantEnabled(){
+ return document.body.classList.contains('itsos-jotform-enabled');
 }
 function widgetMarker(node){
  if(!(node instanceof Element))return false;
@@ -44,7 +44,7 @@ function trackWidget(node){
   if(root===document.body||widgetRoots.has(root))continue;
   widgetRoots.add(root);
   root.setAttribute('data-itsos-jotform-widget','');
-  if(!isDashboard())root.style.setProperty('display','none','important');
+  if(!isAssistantEnabled())root.style.setProperty('display','none','important');
  }
 }
 function watchProviderNodes(){
@@ -55,18 +55,18 @@ function watchProviderNodes(){
  observer.observe(document.body,{childList:true,subtree:true});
 }
 export function closeAdminJotformAssistant(){
- document.body.classList.remove('itsos-jotform-dashboard');
+ document.body.classList.remove('itsos-jotform-enabled');
  for(const element of widgetRoots)if(element.isConnected)element.style.setProperty('display','none','important');
 }
 // Jotform's own embed creates its *round chat launcher*. No first-party launcher.
 export function initAdminJotformAssistant(){
- if(!isDashboard())return;
+ if(!document.body.classList.contains('admin-page'))return;
  const status=document.getElementById('jotform-admin-status');
  if(!isApprovedJotformEmbedScriptUrl(JOTFORM_AGENT_SCRIPT_URL)){
   if(status)status.textContent='Script Jotform non disponibile. Il manuale operativo rimane consultabile.';
   return;
  }
- document.body.classList.add('itsos-jotform-dashboard');
+ document.body.classList.add('itsos-jotform-enabled');
  for(const element of widgetRoots)if(element.isConnected)element.style.removeProperty('display');
  if(started)return;
  started=true;

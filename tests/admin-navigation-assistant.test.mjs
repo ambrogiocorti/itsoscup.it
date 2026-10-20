@@ -17,11 +17,15 @@ test('admin sidebar is source for operational pages',()=>{
   assert.match(read(page),/data-operational-sidebar/,page);
  }
 });
-test('assistant only lives in the admin dashboard',()=>{
+test('assistant is shared across authenticated admin views',()=>{
  const admin=read('admin/index.html');
  assert.match(admin,/id="view-dashboard"/);
  assert.doesNotMatch(admin,/id="btn-open-jotform-admin"|id="jotform-admin-panel"/);
- assert.match(read('js/main-admin.js'),/if\(viewId==='dashboard'\)\s*\{\s*initAdminJotformAssistant\(\)/);
+ assert.match(read('js/main-admin.js'),/initAdminJotformAssistant\(\)/);
+ assert.doesNotMatch(read('js/main-admin.js'),/else closeAdminJotformAssistant\(\)/);
+ assert.match(read('js/operational-sidebar.js'),/initAdminJotformAssistant\(\)/);
+ assert.match(read('offline-workspace.html'),/offline-admin-jotform\.js/);
+ assert.match(read('js/offline-admin-jotform.js'),/getAdminProfile/);
  assert.equal(JOTFORM_AGENT_SCRIPT_URL,'https://cdn.jotfor.ms/agent/embedjs/01a158834f78700087a259d6a403ec77e377/embed.js');
  assert.doesNotMatch(admin,/cdn\.jotfor\.ms\/agent\/embedjs/);
  assert.doesNotMatch(read('index.html'),/jotform-admin-assistant/);
@@ -40,7 +44,8 @@ test('Jotform uses its own floating launcher instead of a custom chat button',()
  assert.match(loader,/document.createElement\('script'\)/);
  assert.match(loader,/script.src=JOTFORM_AGENT_SCRIPT_URL/);
  assert.doesNotMatch(loader,/document.createElement\('iframe'\)|buildJotformFrameDocument/);
- assert.match(loader,/if\(!isDashboard\(\)\)return/);
+ assert.doesNotMatch(loader,/if\(!isDashboard\(\)\)return/);
+ assert.match(loader,/itsos-jotform-enabled/);
  assert.match(loader,/widgetRoots/);
  assert.doesNotMatch(read('admin/index.html'),/btn-open-jotform-admin/);
 });

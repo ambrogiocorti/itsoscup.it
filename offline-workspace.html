@@ -94,6 +94,7 @@
     </main>
   </div>
   <script type="module" src="./js/offline-workspace-shell.js"></script><script type="module" src="./js/offline-workspace.js"></script>
+  <script type="module">if(navigator.onLine&&!window.ITSOSCUP_DESKTOP)import("./js/offline-admin-jotform.js").catch(()=>{});</script>
   <script>if('serviceWorker' in navigator&&window.isSecureContext&&!window.ITSOSCUP_DESKTOP)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
 </body>
 </html>
