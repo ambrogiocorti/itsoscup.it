@@ -1,6 +1,7 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import {initAdminJotformAssistant,closeAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261020';
 import {initAdminPreparation} from './admin-preparation.js';
+import {initCalendarQuality,scheduleCalendarQualityRefresh,getQualityMatch} from './admin-calendar-quality.js?v=1';
 import {initRosterSeal} from './roster-seal.js';
 import {initAthleticsEnrollment} from './athletics-enrollment.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
@@ -460,7 +461,7 @@ function getMatchTeamsLabel(match) {
 }
 
 function getMatchById(matchId) {
-  return state.adminMatches.find((item) => Number(item.id) === Number(matchId)) ?? null;
+  return state.adminMatches.find((item) => Number(item.id) === Number(matchId)) ?? getQualityMatch(matchId) ?? null;
 }
 
 const OPERATIONAL_STATUS_LABELS = {
@@ -2697,6 +2698,7 @@ async function loadMatchesTable() {
     ? rows
     : rows.filter((match) => getMatchCalendarStatus(match).key === statusFilter);
   renderMatchesViews(state.adminMatches);
+  scheduleCalendarQualityRefresh();
 }
 
 function openMatchDetail(matchId) {
@@ -5455,6 +5457,7 @@ function bindCoreActions() {
     state.matchesViewMode = state.matchesViewMode === 'calendar' ? 'table' : 'calendar';
     renderMatchesViews();
   });
+  void initCalendarQuality({adminRole:state.admin?.ruolo,onMatchDetail:openMatchDetail});
   getEl('btn-download-finished-match-reports')?.addEventListener('click', () => {
     try {
       const printWindow = openMatchReportPrintWindow();

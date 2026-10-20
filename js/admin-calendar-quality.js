@@ -6,7 +6,8 @@ const $=id=>document.getElementById(id);
 const fmtTime=value=>new Intl.DateTimeFormat('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 const txt=(tag,value,className)=>{const el=document.createElement(tag);el.textContent=String(value);if(className)el.className=className;return el};
 const matchName=m=>(m.home?.name||'Squadra #'+m.home_team_id)+' – '+(m.away?.name||'Squadra #'+m.away_team_id);
-let setup=false,opened=false,role='',onMatchClick=null,job=0,lastSchedule=null,pending=null,restThreshold=0;
+let setup=false,opened=false,role='',onMatchClick=null,job=0,lastSchedule=null,pending=null,restThreshold=0,lastMatches=[];
+export function getQualityMatch(id){return lastMatches.find(m=>Number(m.id)===Number(id))||null}
 const indicator=(title,value,detail)=>{
  const box=document.createElement('div');box.className='mcq-metric';box.append(txt('strong',value),txt('span',title),txt('small',detail));return box;
 };
@@ -96,6 +97,7 @@ async function refresh(){
   ]);
   if(thisJob!==job||!opened)return;
   const fixtures=mine?data.filter(m=>mine.has(Number(m.id))):data;
+  lastMatches=fixtures;
   restThreshold=Number(config.min_rest_minutes)||0;
   const report=inspectExistingCalendar(fixtures,restThreshold);
   lastSchedule=report;drawSummary(report);

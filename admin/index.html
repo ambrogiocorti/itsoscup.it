@@ -47,6 +47,7 @@
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
     <link rel="stylesheet" href="css/push-experience.css?v=2">
     <link rel="stylesheet" href="css/redesign.css?v=20261020c" />
+    <link rel="stylesheet" href="css/admin-calendar-quality.css?v=1" />
   </head>
   <body class="admin-page auth-pending">
     <div class="admin-auth-guard" role="status" aria-live="polite">
@@ -393,6 +394,9 @@
               <button class="btn btn-ghost icon-only-action" id="btn-toggle-matches-view" type="button" aria-pressed="false" title="Vista calendario" aria-label="Vista calendario">
                 <i class="fa-solid fa-calendar-days"></i>
               </button>
+              <button class="btn btn-ghost icon-only-action" id="btn-toggle-calendar-quality" type="button" aria-pressed="false" aria-expanded="false" aria-controls="matches-calendar-quality" title="Analisi pause e calendario" aria-label="Analisi pause e calendario">
+                <i class="fa-solid fa-chart-gantt" aria-hidden="true"></i>
+              </button>
               <button class="icon-btn filter-toggle" id="btn-toggle-match-filters" type="button" aria-label="Mostra filtri calendario" aria-expanded="false" aria-controls="match-filters">
                 <i class="fa-solid fa-filter"></i>
               </button>
@@ -408,6 +412,26 @@
             <div class="field"><label for="filter-match-status">Stato</label><select id="filter-match-status"><option value="all">Tutti</option><option value="unscheduled">Da programmare</option><option value="scheduled">Programmato</option><option value="in_progress">In corso</option><option value="finished">Concluso</option></select></div>
           </div>
 
+          <section id="matches-calendar-quality" class="card mcq-panel" hidden aria-labelledby="mcq-panel-heading">
+            <div class="card-body">
+              <div class="mcq-heading">
+                <div><h2 id="mcq-panel-heading"><i class="fa-solid fa-chart-gantt" aria-hidden="true"></i> Anteprima calendario e qualità delle pause</h2>
+                  <p>Analizza le partite già create su tutti i campi del torneo. Nessun orario verrà modificato.</p></div>
+                <button type="button" class="btn btn-ghost" id="matches-quality-refresh"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Aggiorna</button>
+              </div>
+              <div class="mcq-filters">
+                <div class="mcq-field"><label for="matches-quality-sport">Torneo da analizzare</label><select id="matches-quality-sport"><option value="">Caricamento…</option></select></div>
+                <div class="mcq-field"><label for="matches-quality-day">Giornata della griglia</label><select id="matches-quality-day"><option value="">Seleziona una giornata</option></select></div>
+              </div>
+              <p id="matches-quality-status" role="status" aria-live="polite">Apri l’analisi per controllare pause e partite.</p>
+              <div class="mcq-metrics" id="matches-quality-metrics" aria-label="Indicatori della pianificazione"></div>
+              <p class="mcq-overview" id="matches-quality-overview"></p>
+              <div class="mcq-warnings" id="matches-quality-warnings" aria-label="Conflitti e pause critiche"></div>
+              <h3 class="mcq-grid-heading">Griglia orari × campi</h3>
+              <div id="matches-quality-grid"></div>
+              <section id="matches-quality-team-rest" class="mcq-rest" aria-label="Pause squadra per squadra"></section>
+            </div>
+          </section>
           <section class="card" id="matches-table-view">
             <div class="card-body table-wrap">
               <table class="matches-admin-table">

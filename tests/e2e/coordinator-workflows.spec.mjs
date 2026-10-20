@@ -102,3 +102,16 @@ test('non-privileged role cannot create new tournaments in the wizard',async({pa
  await page.goto('/tournament-setup.html');
  await expect(page.locator('#setup-status')).toContainText('riservata al Super Admin');
 });
+
+test('existing admin calendar exposes read-only quality matrix beside the calendar button',async({page})=>{
+ await mockAdmin(page);
+ await page.goto('/admin?view=matches');
+ await expect(page.locator('#btn-toggle-matches-view')).toBeVisible();
+ await expect(page.locator('#btn-toggle-calendar-quality')).toBeVisible();
+ await page.locator('#btn-toggle-calendar-quality').click();
+ await expect(page.locator('#matches-calendar-quality')).toBeVisible();
+ await expect(page.locator('#matches-quality-status')).toContainText('partite esaminate');
+ await expect(page.locator('.mcq-grid-table')).toBeVisible();
+ await expect(page.locator('.mcq-game')).toContainText('4A');
+ expect(await page.evaluate(()=>window.__testWrites)).toEqual([]);
+});
