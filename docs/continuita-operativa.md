@@ -110,3 +110,22 @@ Il successore ha superato la formazione soltanto se riesce autonomamente, in un 
 - Data del prossimo collaudo annuale: _da fissare_
 
 La mancanza di un referente identificato in queste righe è un'attività organizzativa da completare prima del passaggio di consegne.
+
+## 11. Stato dell'audit di sicurezza del database al 20 ottobre 2026
+
+Correzioni già applicate alla produzione ITSOSCup:
+- Le viste `v_team_standings` e `v_player_ranking` sono `security_invoker=true`; una lettura effettiva con il ruolo `anon` ha restituito dati di classifica, quindi le pagine pubbliche non sono state intenzionalmente chiuse.
+- Le RPC amministrative selezionate nella migrazione `061` non possono più essere chiamate come ruolo `anon`. `class_portal`, `submit_class_registration` e `get_public_platform_settings` rimangono volutamente utilizzabili dai visitatori.
+- Le due funzioni trigger di aggiornamento timestamp hanno `search_path` esplicito.
+- Le nuove registrazioni atletica e il registro conferma rose dispongono di indici dedicati.
+
+**Problemi aperti rilevati dagli advisor Supabase:**
+- Alcune funzioni `SECURITY DEFINER` sono ancora invocabili da `anon`: diverse sono necessarie per portale classe, notifiche pubbliche o policy RLS, altre sono helper trigger. Il referente tecnico deve catalogarle singolarmente, senza revoche di massa che rompano l'app.
+- `pg_net` risulta nell'area `public`: valutarne la migrazione solo dopo l'analisi delle dipendenze.
+- Risulta non attivata la verifica delle password compromesse in Supabase Auth: l'amministratore deve valutare piano, requisiti e impostazioni disponibili nel proprio progetto.
+- Alcune tabelle push hanno RLS senza policy: potrebbe essere intenzionale se riservate a un ruolo server, ma va verificato anche il livello dei `GRANT`.
+- Gli advisor di prestazioni segnalano indici FK mancanti, policy permissive multiple e indici duplicati. Eseguire profilazione e ottimizzazioni selettive, non applicare indici massivamente senza analisi.
+
+Fonti delle linee guida: [database linter Supabase](https://supabase.com/docs/guides/database/database-linter), [RLS Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security). La presenza di un avviso `SECURITY DEFINER` non dimostra di per sé un accesso abusivo: servono prove per ciascuna funzione e i suoi controlli interni.
+
+Il controllo tecnico deve essere ripetuto periodicamente e dopo ogni nuova migrazione SQL.

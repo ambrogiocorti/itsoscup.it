@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { renderMatchReportDocument } from '../../js/match-report.js';
 import { matchReportFixture } from '../fixtures/match-reports.mjs';
 
-for (const sport of ['calcio', 'basket', 'pallavolo']) {
+for (const sport of ['calcio', 'basket', 'pallavolo', 'pallamano']) {
   test(`Referto A4: due pagine con rose complete e cronologia estesa (${sport})`, async ({ browser }) => {
     const page = await browser.newPage();
     try {

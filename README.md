@@ -69,7 +69,7 @@ Le regole lato UI sono in `js/auth.js`; la protezione reale va mantenuta con RLS
 
 1. Crea o apri il progetto Supabase.
 2. Apri SQL Editor.
-3. Esegui tutte le migrazioni `sql/*.sql` in ordine crescente.
+3. In un **ambiente di prova isolato**, esegui le migrazioni applicabili in ordine numerico, verificando prima quali siano già presenti. **Non eseguire alla cieca tutti i file su una produzione esistente.** Il file `002_seed_demo_tornei.sql` contiene dati fittizi e non va caricato nella produzione scolastica.
 4. Configura `js/app-config.js` con `supabaseUrl` e `supabaseAnonKey`.
 5. Deploya le Edge Functions Telegram se vuoi inviare messaggi automatici.
 6. Deploya `manage-admin-user` se vuoi creare/modificare admin dalla dashboard.
@@ -116,6 +116,17 @@ Per dati demo puoi eseguire `sql/002_seed_demo_tornei.sql` dopo lo schema base.
 - `037_regia_live_permissions.sql`: abilita correttamente Regia sulle RPC live storiche che usano `can_manage_matches`.
 - `038_disable_regia_emergency_controls.sql`: rimuove dalla superficie applicativa i controlli globali Emergenza/Riprendi evento.
 - `039_remove_regia_role.sql`: converte eventuali utenti Regia in Super Admin e rimuove il ruolo Regia dalla piattaforma.
+- `050_smart_schedule_atomic.sql`: pubblicazione transazionale del calendario.
+- `051_tournament_registration_deadlines.sql`: scadenze iscrizioni per torneo.
+- `052_enable_pallamano.sql`: sport pallamano.
+- `053_fair_schedule_guard.sql` e `054_schedule_explicit_legs.sql`: controlli server sui turni consecutivi e ordine delle fasi.
+- `055_roster_confirmation.sql`, `058_serialize_roster_lock.sql`, `059_approval_all_invites.sql`: sigillo rose, blocchi e inviti da verificare.
+- `056_athletics_enrollments.sql`: iscrizioni agli eventi atletici.
+- `057_handball_live_events.sql`: esclusioni da 2 minuti e tiri da 7 metri in cronologia.
+- `060_security_invoker_public_views.sql`: classifiche pubbliche soggette alla RLS dell'utente chiamante.
+- `061_revoke_anonymous_admin_rpc.sql`: riduzione dell'accesso anonimo alle funzioni amministrative.
+- `062_fixed_trigger_search_paths.sql`: percorsi sicuri delle funzioni di aggiornamento.
+- `063_new_module_indexes.sql`: indici sulle nuove iscrizioni atletica e audit rose.
 
 ## Telegram
 

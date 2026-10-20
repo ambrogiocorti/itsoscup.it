@@ -66,3 +66,11 @@ test('successor runbook documents staging, safe restoration and identity governa
  assert.match(guide,/RPO\/RTO/);
  assert.match(guide,/medesimo contesto JavaScript/);
 });
+
+test('security releases and migrations are described for school successors',()=>{
+ const readme=read('README.md'),runbook=read('docs/continuita-operativa.md');
+ assert.match(readme,/060_security_invoker_public_views/);
+ assert.match(readme,/061_revoke_anonymous_admin_rpc/);
+ assert.match(readme,/Non eseguire alla cieca/);
+ assert.match(runbook,/Problemi aperti rilevati dagli advisor Supabase/);
+});
