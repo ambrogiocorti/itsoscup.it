@@ -1,5 +1,5 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
-import {initAdminJotformAssistant,closeAdminJotformAssistant} from './jotform-admin-assistant.js';
+import {initAdminJotformAssistant,closeAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261020';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
 import {

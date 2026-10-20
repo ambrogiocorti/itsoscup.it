@@ -1,4 +1,4 @@
-import {JOTFORM_AGENT_SCRIPT_URL} from './jotform-admin-config.js';
+import {JOTFORM_AGENT_SCRIPT_URL} from './jotform-admin-config.js?v=20261020';
 
 let started=false;
 let observer=null;

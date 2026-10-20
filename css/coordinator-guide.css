@@ -93,3 +93,5 @@
  .guide-table tr{break-inside:avoid}
  .guide-footer{border-top:1px solid #ccc}
 }
+
+@media(max-width:1024px){.coordinator-guide-page .coordinator-guide{padding-top:78px}}
