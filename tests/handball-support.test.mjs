@@ -20,3 +20,12 @@ test('dashboard hero links to the actual admin routes',()=>{
  assert.match(html,/href="\/admin\?view=matches"/);
  assert.match(html,/href="\/admin\?view=operations"/);
 });
+
+test('handball exclusions and 7-meter events are captured in live chronology and reports',()=>{
+ const ui=read('live.html'),live=read('js/main-live.js'),report=read('js/match-report.js');
+ assert.match(ui,/value="two_minute"/);assert.match(ui,/value="seven_meter"/);
+ assert.match(live,/option.hidden=!isHandballMatch/);
+ assert.match(live,/isHandballMatch\(\) \|\| Boolean\(state.config/);
+ assert.match(report,/two_minutes/);
+ assert.match(report,/Esclusione 2 minuti/);
+});

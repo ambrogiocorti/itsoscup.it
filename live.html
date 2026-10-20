@@ -87,7 +87,7 @@
           <div class="inline-grid cols-3 live-event-form">
             <div class="field"><label for="live-event-team">Squadra</label><select id="live-event-team"></select></div>
             <div class="field"><label for="live-event-player">Giocatore</label><select id="live-event-player"></select></div>
-            <div class="field"><label for="live-event-type">Evento</label><select id="live-event-type"><option value="score">Punto/Rete</option><option value="substitution">Sostituzione</option><option value="foul">Fallo</option><option value="yellow_card">Giallo</option><option value="red_card">Rosso</option><option value="timeout">Timeout</option><option value="note">Nota</option></select></div>
+            <div class="field"><label for="live-event-type">Evento</label><select id="live-event-type"><option value="score">Punto/Rete</option><option value="substitution">Sostituzione</option><option value="foul">Fallo</option><option value="yellow_card">Giallo</option><option value="red_card">Rosso</option><option value="timeout">Timeout</option><option value="two_minute" data-handball-event>Esclusione 2 minuti</option><option value="seven_meter" data-handball-event>Tiro da 7 metri</option><option value="note">Nota</option></select></div>
             <div class="field"><label for="live-event-minute">Minuto</label><input id="live-event-minute" type="number" min="0" /></div>
             <div class="field" style="grid-column: span 2"><label for="live-event-notes">Note</label><input id="live-event-notes" type="text" placeholder="Es. assist, cambio, motivazione" /></div>
             <div><button class="btn btn-primary" id="btn-add-live-event" type="button" data-requires-edit><i class="fa-solid fa-plus"></i> Aggiungi evento</button></div>

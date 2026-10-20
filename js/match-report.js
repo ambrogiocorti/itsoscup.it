@@ -7,7 +7,7 @@ const dateTime = (value) => {
   return new Intl.DateTimeFormat('it-IT', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Rome' }).format(new Date(value));
 };
 const duration = (value) => `${Math.floor(number(value) / 60)}:${String(Math.floor(number(value) % 60)).padStart(2, '0')}`;
-const eventLabels = { score: 'Punto / rete', presence: 'Presenza', foul: 'Fallo', yellow_card: 'Giallo', red_card: 'Rosso', timeout: 'Timeout', substitution: 'Sostituzione', period: 'Periodo / set', note: 'Nota', timer_start: 'Avvio cronometro', timer_stop: 'Pausa cronometro', timer_set: 'Correzione tempo' };
+const eventLabels = { score: 'Punto / rete', presence: 'Presenza', foul: 'Fallo', yellow_card: 'Giallo', red_card: 'Rosso', two_minute: 'Esclusione 2 minuti', seven_meter: 'Tiro da 7 metri', timeout: 'Timeout', substitution: 'Sostituzione', period: 'Periodo / set', note: 'Nota', timer_start: 'Avvio cronometro', timer_stop: 'Pausa cronometro', timer_set: 'Correzione tempo' };
 const staffLabels = [['referee', 'Arbitro'], ['scorekeeper', 'Segnapunti'], ['field_manager', 'Responsabile campo'], ['supervisor', 'Docente supervisore']];
 
 export const MATCH_REPORT_CSS = `
@@ -103,7 +103,12 @@ export const MATCH_REPORT_CSS = `
 export function getMatchReportColumns(sport, config = {}, stats = []) {
   const type = String(sport?.sport_type || sport?.name || sport || '').toLocaleLowerCase('it-IT');
   const columns = [{ key: 'played', label: 'Pres.', className: 'report-presence' }, { key: 'points_scored', label: (type.includes('calcio')||type.includes('pallamano')) ? 'Reti' : 'Punti' }];
-  if (type.includes('basket')) columns.push({ key: 'fouls', label: 'Falli' });
+  if (type.includes('pallamano')) {
+    columns.push({ key: 'two_minutes', label: '2 min' });
+    for (const [key,label,flag] of [['yellow_cards','Gialli','allow_yellow_cards'],['red_cards','Rossi','allow_red_cards']])
+      if(config[flag] !== false || stats.some(row=>number(row[key])>0))columns.push({key,label});
+  }
+  else if (type.includes('basket')) columns.push({ key: 'fouls', label: 'Falli' });
   else if (type.includes('calcio') || type.includes('calcetto') || type.includes('futsal') || type.includes('pallavolo') || type.includes('volley')) {
     for (const [key, label, flag] of [['yellow_cards', 'Gialli', 'allow_yellow_cards'], ['red_cards', 'Rossi', 'allow_red_cards']]) {
       if (config[flag] !== false || stats.some((row) => number(row[key]) > 0)) columns.push({ key, label });
@@ -139,7 +144,7 @@ function teamRows(model, side) {
   return [...source, ...historical].map((player) => {
     const stat = model.stats.find((row) => sameId(row.player_id, player.id)) || {};
     const signedCaptain = model.signatures.find((signature) => signature.team_side === side && signature.player_id != null);
-    return { ...stat, player_id: player.id, full_name: stat.player_name || player.full_name || `Giocatore #${player.id}`, is_captain: signedCaptain ? sameId(signedCaptain.player_id, player.id) : Boolean(player.is_captain) };
+    return { ...stat, two_minutes:model.events.filter(e=>e.event_type==='two_minute'&&sameId(e.player_id,player.id)).length, player_id: player.id, full_name: stat.player_name || player.full_name || `Giocatore #${player.id}`, is_captain: signedCaptain ? sameId(signedCaptain.player_id, player.id) : Boolean(player.is_captain) };
   });
 }
 

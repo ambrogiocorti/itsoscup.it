@@ -384,7 +384,7 @@ function renderRosters() {
 }
 
 function isAdvancedLiveEventsEnabled() {
-  return Boolean(state.config?.advanced_live_events_enabled);
+  return isHandballMatch() || Boolean(state.config?.advanced_live_events_enabled);
 }
 
 function getPlayerById(playerId) {
@@ -399,6 +399,9 @@ function renderLiveEventControls() {
   const teamSelect = getEl('live-event-team');
   const playerSelect = getEl('live-event-player');
   if (!teamSelect || !playerSelect) return;
+  document.querySelectorAll('[data-handball-event]').forEach(option=>{
+    option.hidden=!isHandballMatch();option.disabled=!isHandballMatch();
+  });
 
   const selectedTeamId = Number(teamSelect.value || state.match?.home_team_id || 0);
   teamSelect.innerHTML = [
@@ -423,6 +426,8 @@ function formatLiveEventType(type) {
     yellow_card: 'Giallo',
     red_card: 'Rosso',
     timeout: 'Timeout',
+    two_minute: 'Esclusione 2 minuti',
+    seven_meter: 'Tiro da 7 metri',
     note: 'Nota',
   };
   return labels[type] ?? type;
@@ -501,8 +506,13 @@ async function addLiveEventFromForm() {
   const player = getPlayerById(playerId);
   const minuteValue = Number(getEl('live-event-minute')?.value || 0);
 
+  const selectedType=getEl('live-event-type')?.value??'note';
+  if(['two_minute','seven_meter'].includes(selectedType)){
+    if(!isHandballMatch()){showToast('Evento riservato alla pallamano.','error');return}
+    if(!playerId){showToast('Seleziona il giocatore a cui associare l’evento.','error');return}
+  }
   const eventPayload = {
-    event_type: getEl('live-event-type')?.value ?? 'note',
+    event_type: selectedType,
     team_id: teamId,
     team_name: teamName,
     player_id: playerId,
@@ -557,8 +567,8 @@ function applySportSpecificControls() {
     getEl('live-match-meta').textContent = `${state.match.round_name ?? '-'} · ${state.match.sport?.name ?? '-'} · ${state.match.venue?.name ?? 'Campo da definire'} · Goal`;
   }
 
-  const showFouls = !isSoccer;
-  const showCards = isSoccer;
+  const showFouls = isBasket;
+  const showCards = isSoccer || isHandballMatch();
   document.querySelectorAll('[data-col="fouls"]').forEach((el) => el.classList.toggle('hidden', !showFouls));
   document.querySelectorAll('[data-col="cards"]').forEach((el) => el.classList.toggle('hidden', !showCards));
 
