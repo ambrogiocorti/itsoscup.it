@@ -376,3 +376,9 @@ body:has(>.tt-shell){background:#f3f6fc!important}
 .admin-page .itsos-athlete-icon-action{display:inline-flex;align-items:center;justify-content:center;width:42px;min-width:42px;height:42px;padding:0;border-radius:11px}
 .admin-page .itsos-athlete-icon-action i{font-size:1.1rem}
 @media(max-width:700px){.admin-page .itsos-deadline-panel{grid-template-columns:1fr;padding:18px}.admin-page .itsos-deadline-field{max-width:none}.admin-page .itsos-deadline-actions{justify-content:stretch}.admin-page .itsos-deadline-actions .btn{width:100%;justify-content:center}}
+
+/* Native Jotform launcher (provided by Jotform itself): dashboard only. */
+body.admin-page:not(.itsos-jotform-dashboard) [data-itsos-jotform-widget]{display:none!important}
+.itsos-assistant-status{font-size:.78rem!important;color:#64748b!important;margin:8px 0 0!important}
+.itsos-help-agent{display:flex;flex-direction:column;justify-content:center}
+@media(max-width:850px){.itsos-help-grid{grid-template-columns:minmax(0,1fr)}}
