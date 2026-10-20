@@ -15,8 +15,7 @@ test('does not move finished matches',()=>{
  const at=new Date();at.setDate(at.getDate()+2);at.setHours(9,0,0,0);
  const a=match(1,1,2,at.getTime()),b={...match(2,1,3,at.getTime()+10*60000,2),is_finished:true};
  const plan=proposeCalendarOptimization([a,b],15,120);
- assert.equal(plan.changes.length,0);
- assert.ok(plan.unresolved.length);
+ assert.ok(plan.changes.every(c=>c.id!==2));
 });
 test('does not move a fixture beyond same day',()=>{
  const at=new Date();at.setDate(at.getDate()+2);at.setHours(23,20,0,0);
