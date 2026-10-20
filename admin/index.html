@@ -87,10 +87,8 @@
 <li><button class="sidebar-link" data-view="teams" id="link-teams"><i class="fa-solid fa-users"></i> Squadre</button></li>
 <li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
 <li><button class="sidebar-link" data-view="events" id="link-events"><i class="fa-solid fa-person-running"></i> Atletica</button></li>
-<li><a class="sidebar-link" href="athletics-athletes.html"><i class="fa-solid fa-address-card" aria-hidden="true"></i> Schede atleti</a></li>
 <li class="sidebar-group-label" aria-hidden="true">Gestione gare</li>
 <li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
-<li><a class="sidebar-link" href="tournament-tools.html"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Pianificazione</a></li>
 <li class="sidebar-group-label" aria-hidden="true">Comunicazioni</li>
 <li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-brands fa-telegram"></i> Telegram</button></li>
 <li><button class="sidebar-link" data-view="archive" id="link-archive"><i class="fa-solid fa-landmark"></i> Albo</button></li>
@@ -612,10 +610,17 @@
               </div>
               <form id="class-deadline-form" class="itsos-deadline-panel" data-requires-admin-write>
                 <div><strong>Chiusura iscrizioni del torneo</strong><p>La scadenza vale per tutte le classi del torneo. Dopo questa data non è più possibile inviare o modificare la rosa.</p></div>
-                <label for="class-registration-deadline">Data e ora di chiusura</label>
-                <input id="class-registration-deadline" type="datetime-local" required />
-                <button type="submit" class="btn btn-primary">Salva scadenza</button>
-                <span id="class-deadline-status" role="status" aria-live="polite"></span>
+                <div class="itsos-deadline-field">
+                  <label for="class-registration-deadline"><i class="fa-regular fa-calendar-days" aria-hidden="true"></i> Data e ora di chiusura</label>
+                  <div class="itsos-deadline-input-wrap">
+                    <input id="class-registration-deadline" type="datetime-local" aria-describedby="class-deadline-status" required />
+                  </div>
+                  <small>La data e l’ora si riferiscono al fuso orario del dispositivo.</small>
+                </div>
+                <div class="itsos-deadline-actions">
+                  <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Salva scadenza</button>
+                </div>
+                <div id="class-deadline-status" class="itsos-deadline-status" role="status" aria-live="polite"></div>
               </form>
               <div class="itsos-flow-grid">
                 <section class="itsos-flow-panel">
@@ -642,7 +647,7 @@
           <div class="top-row">
             <h1 class="page-title">Atletica</h1>
             <div class="top-row-actions athletics-toolbar">
-              <a class="btn btn-primary" href="athletics-athletes.html"><i class="fa-solid fa-address-card"></i> Schede atleti e tentativi</a>
+              <a class="btn btn-primary btn-icon-only itsos-athlete-icon-action" href="athletics-athletes.html" title="Schede atleti e tentativi" aria-label="Apri schede atleti e tentativi"><i class="fa-solid fa-address-card" aria-hidden="true"></i></a>
               <button class="btn btn-ghost" id="btn-csv-athletics-events" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> CSV Eventi</button>
               <button class="btn btn-ghost" id="btn-csv-athletics-results" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> CSV Risultati</button>
               <button class="btn btn-ghost btn-icon-only" id="btn-print-athletics-sheets" type="button" title="Fogli gara" aria-label="Stampa fogli gara"><i class="fa-solid fa-print"></i></button>

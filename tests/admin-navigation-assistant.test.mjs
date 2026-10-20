@@ -13,7 +13,7 @@ test('admin sidebar is source for operational pages',()=>{
  const js=read('js/operational-sidebar.js');
  assert.match(js,/admin\/index\.html/);
  assert.match(js,/querySelector\('#admin-sidebar'\)/);
- for(const page of ['tournament-tools.html','live.html','athletics-athletes.html','guida-coordinatore.html']){
+ for(const page of ['tournament-tools.html','athletics-athletes.html','guida-coordinatore.html']){
   assert.match(read(page),/data-operational-sidebar/,page);
  }
 });
@@ -56,4 +56,22 @@ test('rejects untrusted or incorrectly shaped scripts',()=>{
   'https://evil.example/agent/embedjs/abc/embed.js',
   'https://cdn.jotfor.ms/something-else/abc.js'
  ])assert.equal(isApprovedJotformEmbedScriptUrl(url),false,url);
+});
+
+test('live scorekeeper page has no sidebar but retains return to admin',()=>{
+ const page=read('live.html');
+ assert.doesNotMatch(page,/data-operational-sidebar|id="admin-sidebar"|admin-shell operational-shell/);
+ assert.match(page,/id="btn-back-admin"/);
+ assert.doesNotMatch(read('js/main-live.js'),/mountOperationalSidebar/);
+});
+test('sidebar omits planning and athlete cards, but their contexts still link to tools',()=>{
+ const html=read('admin/index.html');
+ const nav=html.slice(html.indexOf('<ul class="sidebar-menu">'),html.indexOf('</ul>',html.indexOf('<ul class="sidebar-menu">')));
+ assert.doesNotMatch(nav,/athletics-athletes.html|tournament-tools.html/);
+ assert.match(html,/href="athletics-athletes.html" title="Schede atleti e tentativi" aria-label="Apri schede atleti e tentativi"/);
+});
+test('homepage overview heading has explicit white-on-dark contrast',()=>{
+ const css=read('css/redesign.css');
+ assert.match(css,/public-overview-heading\{color:#fff!important/);
+ assert.match(css,/#public-overview \.card-header\{[\s\S]*?background:transparent!important/);
 });

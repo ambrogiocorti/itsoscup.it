@@ -52,3 +52,8 @@
 .operational-shell .sidebar-menu{overflow-y:auto;flex:1 1 auto}
 .operational-shell .sidebar-link{text-decoration:none}
 @media(max-width:1024px){.operational-shell .sidebar{position:fixed;inset:0 auto 0 0;transform:translateX(-105%)}.operational-shell.menu-open .sidebar{transform:translateX(0)}.operational-shell.menu-open .sidebar-backdrop{opacity:1;pointer-events:auto}}
+
+/* Match Live is an isolated scorekeeper console, not an admin-side navigation view. */
+.live-page{min-height:100vh;background:#eef3fa}
+.live-page>.live-shell{width:min(1440px,calc(100% - 32px));margin:20px auto 35px;padding:0;box-sizing:border-box}
+@media(max-width:640px){.live-page>.live-shell{width:calc(100% - 14px);margin:8px auto 24px}}

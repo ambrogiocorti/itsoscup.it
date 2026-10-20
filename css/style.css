@@ -6453,3 +6453,8 @@ body.dialog-open {
 }
 @media(max-width:480px){.public-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.public-overview-tournament{padding:12px}.public-overview-tournament strong{font-size:.87rem}.public-overview-tournament small{font-size:.73rem}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Link styles: consistent text without decorative underlines throughout ITSOSCup. */
+a,a:link,a:visited,a:hover,a:active,a:focus-visible,
+.sidebar-link,.guide-index a,.tt-shell a,
+a :is(span,strong,small){text-decoration:none!important;text-decoration-line:none!important}

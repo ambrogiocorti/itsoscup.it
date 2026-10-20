@@ -1,6 +1,5 @@
 ﻿import { APP_CONFIG } from './app-config.js';
 import { canEditMatches, requireAdmin } from './auth.js';
-import {mountOperationalSidebar} from './operational-sidebar.js';
 import { canOperateMatch } from './match-assignments.js';
 import { validateMatchClosure, createUndoSnapshot, applyUndoSnapshot } from './live-safety.js';
 import { db, run } from './db.js';
@@ -1671,7 +1670,6 @@ async function init() {
 
   state.user = guard.user;
   state.admin = guard.admin;
- await mountOperationalSidebar({active:'live',role:state.admin?.ruolo,admin:state.admin});
   await promptDeviceLabel();
 
   state.matchId = getMatchIdFromQuery();
