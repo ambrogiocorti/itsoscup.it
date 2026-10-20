@@ -423,7 +423,7 @@
                 <div class="mcq-field"><label for="matches-quality-sport">Torneo da analizzare</label><select id="matches-quality-sport"><option value="">Caricamento…</option></select></div>
                 <div class="mcq-field"><label for="matches-quality-day">Giornata della griglia</label><select id="matches-quality-day"><option value="">Seleziona una giornata</option></select></div>
               </div>
-              <p id="matches-quality-status" role="status" aria-live="polite">Apri l’analisi per controllare pause e partite.</p>
+              <div class="mcq-filters" id="calendar-optimizer-controls"><label for="calendar-optimizer-rest">Riposo minimo (min)</label><select id="calendar-optimizer-rest"><option>10</option><option selected>15</option><option>20</option><option>30</option><option>45</option><option>60</option></select><label for="calendar-optimizer-delay">Slittamento massimo</label><select id="calendar-optimizer-delay"><option value="60">1 ora</option><option value="120">2 ore</option><option value="240" selected>4 ore</option></select><button type="button" class="btn btn-primary" id="calendar-optimizer-propose">Proponi riprogrammazione</button></div><div id="calendar-optimizer-preview" role="status" aria-live="polite"></div><p id="matches-quality-status" role="status" aria-live="polite">Apri l’analisi per controllare pause e partite.</p>
               <div class="mcq-metrics" id="matches-quality-metrics" aria-label="Indicatori della pianificazione"></div>
               <p class="mcq-overview" id="matches-quality-overview"></p>
               <div class="mcq-warnings" id="matches-quality-warnings" aria-label="Conflitti e pause critiche"></div>
