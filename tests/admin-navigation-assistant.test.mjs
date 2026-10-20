@@ -21,7 +21,7 @@ test('assistant only lives in the admin dashboard',()=>{
  const admin=read('admin/index.html');
  assert.match(admin,/id="view-dashboard"/);
  assert.doesNotMatch(admin,/id="btn-open-jotform-admin"|id="jotform-admin-panel"/);
- assert.ok(read('js/main-admin.js').includes("if(viewId==='dashboard')initAdminJotformAssistant()"));
+ assert.match(read('js/main-admin.js'),/if\(viewId==='dashboard'\)\s*\{\s*initAdminJotformAssistant\(\)/);
  assert.equal(JOTFORM_AGENT_SCRIPT_URL,'https://cdn.jotfor.ms/agent/embedjs/01a158834f78700087a259d6a403ec77e377/embed.js');
  assert.doesNotMatch(admin,/cdn\.jotfor\.ms\/agent\/embedjs/);
  assert.doesNotMatch(read('index.html'),/jotform-admin-assistant/);
