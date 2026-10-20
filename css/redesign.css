@@ -341,3 +341,8 @@ body:has(>.tt-shell){background:#f3f6fc!important}
 .itsos-ai-disclaimer{font-size:.8rem;color:#64748b;margin:12px 0 0}
 @media(max-width:850px){.itsos-help-grid{grid-template-columns:1fr}.itsos-help-agent{padding:16px}}
 @media print{.itsos-help-card{display:none!important}}
+
+/* Jotform embedded widget remains in the Dashboard's isolated panel. */
+.itsos-jotform-frame{border-radius:13px;background:#f8fafc;overflow:hidden}
+.itsos-jotform-frame iframe{width:100%;height:min(78vh,740px);min-height:520px}
+@media(max-width:700px){.itsos-jotform-panel{padding:10px 12px 17px}.itsos-jotform-frame iframe{height:72vh;min-height:460px}}

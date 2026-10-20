@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {isApprovedJotformUrl} from '../js/jotform-admin-assistant.js';
-import {JOTFORM_AGENT_EMBED_URL} from '../js/jotform-admin-config.js';
+import {isApprovedJotformUrl,isApprovedJotformEmbedScriptUrl,buildJotformFrameDocument} from '../js/jotform-admin-assistant.js';
+import {JOTFORM_AGENT_SCRIPT_URL} from '../js/jotform-admin-config.js';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 test('public pages no longer load a second sidebar',()=>{
  for(const file of ['index.html','team.html','class.html','gym.html','bracket-demo.html']){
@@ -22,7 +22,9 @@ test('assistant only lives in the admin dashboard',()=>{
  assert.match(admin,/id="view-dashboard"/);
  assert.match(admin,/id="jotform-admin-panel"/);
  assert.match(read('js/main-admin.js'),/if\(viewId!=='dashboard'\)closeAdminJotformAssistant/);
- assert.equal(JOTFORM_AGENT_EMBED_URL,'');
+ assert.equal(JOTFORM_AGENT_SCRIPT_URL,'https://cdn.jotfor.ms/agent/embedjs/01a158834f78700087a259d6a403ec77e377/embed.js');
+ assert.doesNotMatch(admin,/cdn\.jotfor\.ms\/agent\/embedjs/);
+ assert.doesNotMatch(read('index.html'),/jotform-admin-assistant/);
 });
 test('Jotform URLs are strictly restricted to HTTPS Jotform domains',()=>{
  assert.equal(isApprovedJotformUrl('https://agent.jotform.com/x'),true);
@@ -30,4 +32,26 @@ test('Jotform URLs are strictly restricted to HTTPS Jotform domains',()=>{
  for(const url of ['http://agent.jotform.com/x','https://jotform.com.evil.test/agent','javascript:alert(1)','https://evil.org/x']){
   assert.equal(isApprovedJotformUrl(url),false,url);
  }
+});
+
+test('the supplied Jotform embed script is lazy-loaded in a sandboxed dashboard frame',()=>{
+ assert.equal(isApprovedJotformEmbedScriptUrl(JOTFORM_AGENT_SCRIPT_URL),true);
+ const frame=buildJotformFrameDocument(JOTFORM_AGENT_SCRIPT_URL);
+ assert.match(frame,/cdn\.jotfor\.ms\/agent\/embedjs/);
+ assert.match(frame,/<script src=/);
+ const loader=read('js/jotform-admin-assistant.js');
+ assert.match(loader,/sandbox.*allow-scripts allow-forms allow-popups/);
+ assert.doesNotMatch(loader,/allow-same-origin/);
+ assert.match(loader,/view-dashboard/);
+ assert.match(loader,/container\.replaceChildren\(iframe\)/);
+ assert.match(loader,/container\?\.replaceChildren\(\)/);
+});
+test('rejects untrusted or incorrectly shaped scripts',()=>{
+ for(const url of [
+  'http://cdn.jotfor.ms/agent/embedjs/agent/embed.js',
+  'https://cdn.jotfor.ms/agent/embedjs/../../redirect',
+  'https://cdn.jotfor.ms/agent/embedjs/xyz/embed.js?callback=evil',
+  'https://evil.example/agent/embedjs/abc/embed.js',
+  'https://cdn.jotfor.ms/something-else/abc.js'
+ ])assert.equal(isApprovedJotformEmbedScriptUrl(url),false,url);
 });

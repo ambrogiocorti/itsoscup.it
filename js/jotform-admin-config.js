@@ -1,5 +1,4 @@
-// Publish -> Chatbot (or Page Embed) -> Copy Code in Jotform.
-// Insert ONLY the https://... URL from the provider's embed or iframe code.
-// Keep empty until the coordinator has created, trained and reviewed the AI Agent.
-// The widget is never initialized on the public site or on other admin views.
-export const JOTFORM_AGENT_EMBED_URL='';
+// Script consegnato dal proprietario di ITSOSCup (Jotform AI Agent -> Publish -> Chatbot).
+// Non caricarlo globalmente: viene eseguito solo quando un admin apre il pannello
+// Assistente nella Dashboard, all'interno di un frame isolato.
+export const JOTFORM_AGENT_SCRIPT_URL="https://cdn.jotfor.ms/agent/embedjs/01a158834f78700087a259d6a403ec77e377/embed.js";

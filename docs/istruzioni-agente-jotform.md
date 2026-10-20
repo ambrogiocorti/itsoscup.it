@@ -19,7 +19,9 @@ Prima della pubblicazione, testare almeno 15 domande FAQ, controllare le rispost
 1. Crea l'agente Jotform sotto l'account istituzionale designato dalla scuola.
 2. Carica il documento manuale-coordinatore-jotform.md nella Knowledge Base e incolla queste istruzioni nel prompt/agente.
 3. Configura risposte basate sulle fonti e privacy, disabilitando l'accesso pubblico indiscriminato quando possibile. L'embedding nella dashboard non equivale a proteggere direttamente l'URL del chatbot.
-4. Vai su Publish → Chatbot o Page Embed, copia il codice. Fornisci al manutentore l'URL https del suo iframe/Embed.
-5. Il file js/jotform-admin-config.js include JOTFORM_AGENT_EMBED_URL; sostituisci la stringa vuota con l'URL dopo aver verificato il dominio Jotform e il funzionamento iframe.
-6. L'assistente è montato solo in /admin?view=dashboard, su richiesta dell'amministratore; non nelle altre pagine.
-7. Effettua un test con docente autorizzato prima di attivarlo per tutti i coordinatori.
+4. Lo script Embed Chatbot dell'agente è già configurato in js/jotform-admin-config.js sotto JOTFORM_AGENT_SCRIPT_URL, usando il codice consegnato dal proprietario il 20 ottobre 2026.
+5. La Dashboard carica lo script nel riquadro isolato soltanto quando l'amministratore seleziona «Parla con l'assistente». La navigazione verso un'altra sezione chiude e rimuove il riquadro.
+6. Carica in Jotform la knowledge base manuale-coordinatore-jotform.md e le istruzioni operative: il codice di incorporamento, da solo, non addestra l'agente.
+7. Testa in un browser autenticato il corretto funzionamento del widget: il chatbot Jotform usa uno script di terze parti che può variare, e alcuni agenti potrebbero richiedere un tipo di embed diverso («Page Embed») per essere visualizzati dentro un riquadro.
+8. Il riquadro nella Dashboard limita la comparsa dello script sul sito, ma chi conosce un eventuale link pubblico dell'agente potrebbe ancora raggiungerlo su Jotform. Configura le restrizioni di accesso direttamente in Jotform.
+9. Effettua un test con docente autorizzato prima di attivarlo per tutti i coordinatori.
