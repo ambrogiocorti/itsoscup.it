@@ -11,7 +11,7 @@ function render(){
  $('athlete-cards').innerHTML=visible.map(p=>'<article class="athlete-card"><header><div class="athlete-person-row"><span class="athlete-avatar" aria-hidden="true">'+esc(p.name.split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]||'').join('').toUpperCase())+'</span><div class="athlete-identity"><p class="athlete-kicker">Profilo atleta</p><h2>'+esc(p.name)+'</h2><span class="athlete-class-badge"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Classe '+esc(p.className)+'</span></div></div><div class="athlete-profile-metrics"><span><strong>'+p.events.length+'</strong> eventi</span><span><strong>'+p.events.reduce((n,e)=>n+e.attempts.length,0)+'</strong> tentativi</span></div></header>'+
  p.events.map(e=>'<section class="athlete-event"><h3>'+esc(e.event.name)+'</h3><small>'+e.attempts.length+' tentativi registrati'+(e.event.unit?' · '+esc(e.event.unit):'')+'</small>'+
  '<ol class="athlete-attempts">'+e.attempts.map((val,i)=>'<li class="'+(String(val)!=='Non registrato'&&String(val)===String(e.best)?'best':'')+'"><span class="attempt-number">Tentativo '+(i+1)+'</span><span class="attempt-value">'+esc(val)+'</span></li>').join('')+'</ol>'+
- '<p class="athlete-best">Migliore: '+esc(e.best??'—')+'</p></section>').join('')+'</article>').join('')||'<p>Nessun atleta corrispondente.</p>';
+ '<p class="athlete-best">'+(e.attempts.length?'Migliore: '+esc(e.best??'—'):'Iscritto · Nessun tentativo ancora registrato')+'</p></section>').join('')+'</article>').join('')||'<p>Nessun atleta corrispondente.</p>';
  status(visible.length+' atleti visualizzati');
 }
 async function load(){
@@ -22,8 +22,12 @@ async function load(){
  const {data:events}=await run(db.from('events').select('id,name,unit,sort_order').eq('sport_id',sportId),'Eventi atletica');
  const ids=(events||[]).map(x=>x.id);
  if(!ids.length){profiles=[];render();return}
- const {data:results}=await run(db.from('event_results').select('event_id,player_id,value,attempt_count,attempt_values').in('event_id',ids),'Tentativi atletica');
- const playerIds=[...new Set((results||[]).map(x=>x.player_id).filter(Boolean))];
+ const [{data:results},{data:enrollments}]=await Promise.all([
+  run(db.from('event_results').select('event_id,player_id,value,attempt_count,attempt_values').in('event_id',ids),'Tentativi atletica'),
+  run(db.from('athletics_entries').select('event_id,player_id,status').eq('sport_id',sportId),'Iscrizioni atletica')
+ ]);
+ const activeEntries=(enrollments||[]).filter(x=>x.status==='registered');
+ const playerIds=[...new Set([...(results||[]).map(x=>x.player_id),...activeEntries.map(x=>x.player_id)].filter(Boolean))];
  const {data:players}=playerIds.length?await run(db.from('players').select('id,full_name,team_id').in('id',playerIds),'Atleti'): {data:[]};
  const teamIds=[...new Set((players||[]).map(x=>x.team_id).filter(Boolean))];
  const {data:teams}=teamIds.length?await run(db.from('teams').select('id,name').in('id',teamIds),'Classi'): {data:[]};
@@ -36,8 +40,14 @@ async function load(){
  const total=Math.max(recorded.length,Math.min(100,Math.max(0,Number(r.attempt_count)||0)));
  const attempts=Array.from({length:total},(_,i)=>recorded[i]??'Non registrato');
  if(!attempts.length&&r.value!=null&&String(r.value).trim())attempts.push(r.value);
- athlete.events.push({event,attempts,best:r.value});
+ athlete.events.push({event,attempts,best:r.value,registered:activeEntries.some(x=>Number(x.player_id)===Number(r.player_id)&&Number(x.event_id)===Number(r.event_id))});
  }
+ for(const entry of activeEntries){
+  const athlete=rows.get(entry.player_id),event=eventMap.get(entry.event_id);if(!athlete||!event)continue;
+  if(!athlete.events.some(e=>Number(e.event.id)===Number(entry.event_id)))
+    athlete.events.push({event,attempts:[],best:null,registered:true});
+ }
+ for(const athlete of rows.values())athlete.events.sort((a,b)=>(a.event.name||'').localeCompare(b.event.name||'','it'));
  profiles=[...rows.values()].sort((a,b)=>a.name.localeCompare(b.name,'it'));
  render();
  }catch(e){status('Caricamento non riuscito: '+e.message)}

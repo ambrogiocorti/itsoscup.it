@@ -2,6 +2,7 @@ import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessCont
 import {initAdminJotformAssistant,closeAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261020';
 import {initAdminPreparation} from './admin-preparation.js';
 import {initRosterSeal} from './roster-seal.js';
+import {initAthleticsEnrollment} from './athletics-enrollment.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
 import {
@@ -1528,7 +1529,10 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   if (viewId === 'archive') loadArchiveTable();
   if (viewId === 'telegram') await renderTelegramView();
   if (viewId === 'reports') loadReportData();
-  if (viewId === 'events') loadEventsSection();
+  if (viewId === 'events') {
+    loadEventsSection();
+    void initAthleticsEnrollment();
+  }
   if (viewId === 'settings') loadSettingsForSelectedSport();
 }
 

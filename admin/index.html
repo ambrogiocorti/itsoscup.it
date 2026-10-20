@@ -674,6 +674,19 @@
             </div>
           </div>
 
+          <section class="card itsos-athletics-entry-panel" aria-labelledby="ath-entry-title">
+            <div class="card-body"><div class="ath-entry-heading"><div><h2 id="ath-entry-title">Iscrizioni agli eventi</h2>
+              <p>Associa atleti a una disciplina prima che vengano registrati i loro tentativi. La partecipazione rimane distinta dai risultati.</p></div>
+              <button class="btn btn-ghost btn-compact" id="ath-entry-refresh" type="button">Aggiorna</button></div>
+              <form id="ath-entry-form" class="ath-entry-fields" data-requires-admin-write>
+                <div class="field"><label for="ath-entry-event">Evento</label><select id="ath-entry-event" required></select></div>
+                <div class="field"><label for="ath-entry-player">Atleta e classe</label><select id="ath-entry-player" required></select></div>
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Iscrivi atleta</button>
+              </form>
+              <p class="ath-entry-info" role="status" id="ath-entry-status" aria-live="polite">Seleziona il torneo per gestire le iscrizioni.</p>
+              <div class="ath-entry-list" id="ath-entry-list"></div>
+            </div>
+          </section>
           <button class="athletics-result-fab" id="btn-toggle-athletics-result" type="button" aria-label="Apri inserimento risultati" data-requires-admin-write>
             <i class="fa-solid fa-plus"></i>
           </button>

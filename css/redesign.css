@@ -414,3 +414,18 @@ body.admin-page:not(.itsos-jotform-dashboard) [data-itsos-jotform-widget]{displa
 .roster-reopen-label textarea{width:100%;background:#fff;min-height:73px;resize:vertical}
 .roster-seal-note{color:#475569;font-size:.81rem;line-height:1.55;margin:8px 0 0}
 @media(max-width:650px){.roster-seal-panel{padding:17px}.roster-seal-heading{flex-direction:column}}
+
+/* Distinct event registrations; deliberately separate from saving athletic results. */
+.itsos-athletics-entry-panel{margin:0 0 16px;border:1px solid #dbeafe!important}
+.ath-entry-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.ath-entry-heading h2{color:#0f172a;font-size:1.15rem;margin:0 0 7px}
+.ath-entry-heading p{font-size:.83rem;color:#64748b;margin:0}
+.ath-entry-fields{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:13px;margin:19px 0}
+.ath-entry-fields select{width:100%;min-height:46px;background:#f8fafc}
+.ath-entry-info{font-size:.81rem;font-weight:750;color:#1e40af}
+.ath-entry-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;max-height:380px;overflow:auto}
+.ath-entry-item{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid #e2e8f0;border-radius:10px;background:#f9fbff;padding:12px}
+.ath-entry-item>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ath-entry-item strong{font-size:.87rem;overflow-wrap:anywhere}
+.ath-entry-item small{font-size:.77rem;color:#64748b}
+@media(max-width:900px){.ath-entry-fields{grid-template-columns:1fr}.ath-entry-heading{align-items:flex-start;flex-direction:column}}
