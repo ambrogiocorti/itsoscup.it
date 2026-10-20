@@ -1,12 +1,13 @@
 import {loadSports,loadSportConfig,listMatchesForAdmin} from './matches.js';
 import {myAssignedMatches} from './match-assignments.js';
 import {inspectExistingCalendar,calendarLocalDay} from './calendar-quality-analysis.js';
+import {proposeCalendarOptimization,saveCalendarOptimization} from './calendar-optimizer.js';
 
 const $=id=>document.getElementById(id);
 const fmtTime=value=>new Intl.DateTimeFormat('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 const txt=(tag,value,className)=>{const el=document.createElement(tag);el.textContent=String(value);if(className)el.className=className;return el};
 const matchName=m=>(m.home?.name||'Squadra #'+m.home_team_id)+' – '+(m.away?.name||'Squadra #'+m.away_team_id);
-let setup=false,opened=false,role='',onMatchClick=null,job=0,lastSchedule=null,pending=null,restThreshold=0,lastMatches=[];
+let setup=false,opened=false,role='',onMatchClick=null,job=0,lastSchedule=null,pending=null,restThreshold=0,lastMatches=[],proposal=null;
 export function getQualityMatch(id){return lastMatches.find(m=>Number(m.id)===Number(id))||null}
 const indicator=(title,value,detail)=>{
  const box=document.createElement('div');box.className='mcq-metric';box.append(txt('strong',value),txt('span',title),txt('small',detail));return box;
@@ -97,7 +98,7 @@ async function refresh(){
   ]);
   if(thisJob!==job||!opened)return;
   const fixtures=mine?data.filter(m=>mine.has(Number(m.id))):data;
-  lastMatches=fixtures;
+  lastMatches=fixtures;proposal=null;const preview=$('calendar-optimizer-preview');if(preview)preview.replaceChildren();
   restThreshold=Number(config.min_rest_minutes)||0;
   const report=inspectExistingCalendar(fixtures,restThreshold);
   lastSchedule=report;drawSummary(report);
@@ -134,6 +135,29 @@ export async function initCalendarQuality({adminRole,onMatchDetail}={}){
  $('matches-quality-sport').addEventListener('change',()=>void refresh());
  $('matches-quality-day').addEventListener('change',()=>{if(lastSchedule)displayDay(lastSchedule)});
  $('matches-quality-refresh').addEventListener('click',()=>void refresh());
+ const propose=$('calendar-optimizer-propose');
+ if(propose){
+  if(role!=='super_admin'){propose.disabled=true;propose.title='Riservato al Super Admin';}
+  propose.addEventListener('click',()=>{
+   const root=$('calendar-optimizer-preview');root.replaceChildren();
+   const report=proposeCalendarOptimization(lastMatches,Number($('calendar-optimizer-rest').value),Number($('calendar-optimizer-delay').value));
+   proposal={report,sportId:Number($('matches-quality-sport').value),source:[...lastMatches]};
+   root.append(txt('p',report.changes.length+' spostamenti proposti · '+report.unresolved.length+' criticità non risolte · '+report.locked+' partite bloccate. Nessuna modifica salvata.'));
+   const list=document.createElement('ul');
+   for(const change of report.changes){const item=lastMatches.find(m=>Number(m.id)===change.id);list.append(txt('li',matchName(item)+' · '+fmtTime(change.originalStart)+' → '+fmtTime(change.start)));}
+   root.append(list);
+   if(report.changes.length){
+    const save=txt('button','Conferma e salva '+report.changes.length+' modifiche');save.type='button';save.className='btn btn-primary';
+    save.addEventListener('click',async()=>{
+     if(!proposal||!confirm('Applicare gli orari proposti alle partite non ancora iniziate?'))return;
+     save.disabled=true;
+     try{const count=await saveCalendarOptimization(proposal.sportId,proposal.report.changes,proposal.source);root.replaceChildren(txt('p',count+' partite aggiornate.'));proposal=null;await refresh();}
+     catch(e){root.prepend(txt('p','Salvataggio non completato: '+e.message,'mcq-issue'));save.disabled=false;}
+    });
+    root.append(save);
+   }
+  });
+ }
  $('matches-quality-grid').addEventListener('click',event=>{
   const button=event.target.closest('button[data-match-id]');
   if(button&&typeof onMatchClick==='function')onMatchClick(Number(button.dataset.matchId));

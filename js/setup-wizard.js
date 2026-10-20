@@ -1,3 +1,5 @@
+import {inspectExistingCalendar} from './calendar-quality-analysis.js';
+import {loadSportConfig} from './matches.js';
 import {requireAdmin} from './auth.js';
 import {mountOperationalSidebar} from './operational-sidebar.js';
 import {loadSports,saveSport,loadTeamsBySport,loadMatchesBySport,generateMatchesForSport} from './matches.js';
@@ -12,7 +14,7 @@ function paint(){
  $('setup-next').disabled=step===4||!sportId;
  $('setup-create-form').hidden=Boolean(sportId);
  $('setup-plan').href='tournament-tools.html?sport='+encodeURIComponent(sportId||'');
- if(sportId)void refresh();
+ if(sportId){void refresh();if(step===4)void previewCalendar();}
 }
 async function refresh(){
  const s=active();if(!s)return;
@@ -25,6 +27,18 @@ async function refresh(){
  if(!s.roster_confirmed_at)message('Conferma le rose definitive in Squadre → Iscrizioni prima di creare gli incontri.');
  $('setup-scheduled-count').textContent=matches.filter(m=>m.scheduled_start&&m.scheduled_end&&m.venue_id).length+' su '+matches.length+' incontri pianificati.';
  }catch(e){message('Verifica dati non riuscita: '+e.message,true)}
+}
+async function previewCalendar(){
+ const target=$('setup-calendar-report'),issues=$('setup-calendar-issues');
+ if(!sportId){target.textContent='Seleziona un torneo.';return}
+ target.textContent='Analisi in corso…';issues.replaceChildren();
+ try{
+  const [matches,config]=await Promise.all([loadMatchesBySport(sportId),loadSportConfig(sportId)]);
+  const rest=Number($('setup-rest').value)||Number(config.min_rest_minutes)||0;
+  const report=inspectExistingCalendar(matches,rest);
+  target.textContent=report.scheduled+' partite programmate su '+report.total+' · '+report.issues.length+' criticità · riposo minimo osservato: '+(report.minimumRestMinutes??'—')+' min';
+  for(const issue of report.issues.slice(0,20)){const li=document.createElement('li');li.textContent=issue.description;issues.append(li)}
+ }catch(e){target.textContent='Analisi non disponibile: '+e.message}
 }
 async function init(){
  const auth=await requireAdmin({redirectTo:'./'});if(!auth.allowed)return;
@@ -53,6 +67,8 @@ async function init(){
   try{const r=await generateMatchesForSport(sportId,Boolean(active()?.has_return_match));message('Incontri aggiunti: '+r.inserted);await refresh()}
   catch(e){message(e.message,true)}finally{button.disabled=false}
  });
+ $('setup-calendar-refresh').addEventListener('click',()=>void previewCalendar());
+ $('setup-rest').addEventListener('change',()=>void previewCalendar());
  paint();message('Seleziona un torneo o creane uno nuovo.');
 }
 init().catch(e=>message('Errore di avvio: '+e.message,true));
