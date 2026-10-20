@@ -7,8 +7,8 @@ export function proposeCalendarOptimization(matches,minimumRest=15,maxDelay=240)
  const rest=Math.max(0,Number(minimumRest)||0)*ms,limit=Math.max(0,Number(maxDelay)||0)*ms;
  const all=matches.filter(m=>m.scheduled_start&&m.scheduled_end&&m.venue_id&&Number.isFinite(time(m.scheduled_start))&&time(m.scheduled_end)>time(m.scheduled_start));
  const ordered=[...all].sort((a,b)=>time(a.scheduled_start)-time(b.scheduled_start)||Number(a.id)-Number(b.id));
- const placed=[],changes=[],unresolved=[];
- for(const match of ordered){
+ const placed=ordered.filter(locked).map(match=>({match,start:time(match.scheduled_start),end:time(match.scheduled_end)})),changes=[],unresolved=[];
+ for(const match of ordered.filter(m=>!locked(m))){
   const start=time(match.scheduled_start),duration=time(match.scheduled_end)-start;
   const conflicts=(candidate)=>placed.some(other=>{
    const sameVenue=Number(other.match.venue_id)===Number(match.venue_id);
@@ -17,7 +17,7 @@ export function proposeCalendarOptimization(matches,minimumRest=15,maxDelay=240)
    return (sameVenue||sameTeam)&&candidate<other.end+distance&&candidate+duration>other.start-distance;
   });
   let next=start;
-  if(conflicts(next)&&!locked(match)){
+  if(conflicts(next)){
    for(next=start+5*ms;next<=start+limit;next+=5*ms){
     if(calendarLocalDay(next)!==calendarLocalDay(start))break;
     if(!conflicts(next))break;
