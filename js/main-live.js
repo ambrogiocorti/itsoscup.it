@@ -1671,7 +1671,7 @@ async function init() {
 
   state.user = guard.user;
   state.admin = guard.admin;
- mountOperationalSidebar({active:'live',role:state.admin?.ruolo});
+ await mountOperationalSidebar({active:'live',role:state.admin?.ruolo,admin:state.admin});
   await promptDeviceLabel();
 
   state.matchId = getMatchIdFromQuery();

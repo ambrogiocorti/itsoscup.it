@@ -112,7 +112,7 @@ async function init(){
   const access=await requireAdmin({redirectTo:'./'});
   if(!access.allowed)return;
   state.admin=access.admin;
-  mountOperationalSidebar({active:'tools',role:state.admin?.ruolo});
+  await mountOperationalSidebar({active:'tools',role:state.admin?.ruolo,admin:state.admin});
   state.sports=await loadSports();state.venues=await loadVenues();
   $('tt-sport').innerHTML=state.sports.filter(s=>s.sport_type!=='atletica').map(s=>'<option value="'+s.id+'">'+escapeHtml(s.name)+'</option>').join('');
   $('tt-date').value=new Date().toLocaleDateString('en-CA');

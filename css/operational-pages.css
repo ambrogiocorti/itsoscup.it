@@ -2,12 +2,6 @@
 .tools-page,.athlete-profiles-page,.live-page{background:#f4f7fc}
 .operational-shell{height:100vh;min-height:100vh}
 .operational-shell .main-pane{min-width:0;overflow:auto;background:#f4f7fc;padding:0}
-.operational-shell>.sidebar{overflow-y:auto}
-.operational-shell .sidebar nav{padding-bottom:18px}
-.operational-shell .sidebar-user{display:grid;gap:5px}
-.operational-shell .sidebar-user strong{font-size:.95rem;color:#fff}
-.operational-shell .sidebar-user small{font-size:.8rem;color:#cbd5e1}
-.operational-shell .sidebar-link{display:flex;align-items:center;gap:10px;text-decoration:none}
 .operational-shell .tt-shell{max-width:1280px!important;width:100%;box-sizing:border-box;padding:24px 26px}
 .tools-page .tt-head{display:flex;align-items:center;background:#0f172a;border-radius:16px;padding:24px 28px;color:#fff}
 .tools-page .tt-head .tt-muted{color:#cbd5e1}
@@ -41,7 +35,7 @@
 .athlete-profiles-page .athlete-controls{border-radius:17px}
 .athlete-profiles-page .athlete-controls input,.athlete-profiles-page .athlete-controls select{width:100%}
 .live-page .operational-shell .live-shell{width:min(1280px,calc(100% - 32px))}
-@media(max-width:950px){.operational-shell{display:block}.operational-shell .main-pane{height:100vh}.operational-shell .sidebar{position:fixed;z-index:1500;inset:0 auto 0 0;transform:translateX(-105%);transition:transform .2s;width:260px}.operational-shell .sidebar.open{transform:translateX(0)}.operational-shell .mobile-sidebar-toggle{display:flex!important}.operational-shell .sidebar-backdrop{display:none}.operational-shell .sidebar-open .sidebar-backdrop{display:block}.operational-shell .main-pane{padding-top:48px}.athlete-profiles-page .athlete-shell{padding:24px 16px}.operational-shell .tt-shell{padding:24px 13px}}
+@media(max-width:1024px){.operational-shell .main-pane{padding-top:55px}.athlete-profiles-page .athlete-shell{padding:24px 16px}.operational-shell .tt-shell{padding:24px 13px}}
 @media print{.operational-shell{display:block;height:auto}.operational-shell>.sidebar,.operational-shell>#btn-mobile-menu,.operational-shell>#sidebar-backdrop{display:none!important}.operational-shell .main-pane{overflow:visible;height:auto;padding:0!important}.athlete-shell{max-width:none!important}}
 
 /* Athlete identity cards and clear statistics. */
@@ -52,3 +46,9 @@
 .athlete-profile-metrics>span{display:flex;align-items:baseline;gap:7px;padding:10px 13px;background:#f4f7fd;border:1px solid #e3eaf6;border-radius:10px;color:#64748b;font-weight:700;font-size:.78rem}
 .athlete-profile-metrics strong{color:#0f172a;font-size:1.2rem}
 .athlete-profiles-page #athlete-status{font-weight:700;color:#475569}
+
+/* Canonical sidebar: all operational pages use exactly the admin appearance and fixed grid column. */
+.operational-shell .sidebar{height:100vh;overflow:hidden}
+.operational-shell .sidebar-menu{overflow-y:auto;flex:1 1 auto}
+.operational-shell .sidebar-link{text-decoration:none}
+@media(max-width:1024px){.operational-shell .sidebar{position:fixed;inset:0 auto 0 0;transform:translateX(-105%)}.operational-shell.menu-open .sidebar{transform:translateX(0)}.operational-shell.menu-open .sidebar-backdrop{opacity:1;pointer-events:auto}}

@@ -44,7 +44,7 @@ async function load(){
 }
 async function init(){
  const session=await requireAdmin({redirectTo:'./'});if(!session.allowed)return;
- mountOperationalSidebar({active:'athletes',role:session.admin?.ruolo});
+ await mountOperationalSidebar({active:'athletes',role:session.admin?.ruolo,admin:session.admin});
  const {data:sports}=await run(db.from('sports').select('id,name').eq('sport_type','atletica').order('name'),'Tornei atletica');
  $('athlete-sport').replaceChildren(...(sports||[]).map(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;return o}));
  $('athlete-sport').addEventListener('change',load);$('athlete-search').addEventListener('input',render);

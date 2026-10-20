@@ -1,31 +1,64 @@
-/* Shared navigation for authenticated operational screens; links keep permission checks in /admin. */
-const sections=[
- ['Panoramica',[['dashboard','Dashboard','fa-house'],['operations','Centro di controllo','fa-tower-broadcast']]],
- ['Organizzazione',[['sports','Tornei','fa-trophy'],['teams','Squadre','fa-users'],['venues','Campi','fa-location-dot'],['matches','Calendario','fa-calendar-days']]],
- ['Gestione partite',[['tools','Pianificazione','fa-wand-magic-sparkles'],['live','Match Live','fa-stopwatch']]],
- ['Atletica',[['events','Eventi','fa-person-running'],['athletes','Schede atleti','fa-address-card']]],
- ['Comunicazioni',[['telegram','Telegram','fa-paper-plane']]],
- ['Analisi e sistema',[['reports','Report','fa-chart-line'],['archive','Albo','fa-landmark'],['settings','Impostazioni','fa-gears']]]
-];
-const baseLink=view=>['tools','athletes','live'].includes(view)
- ? ({tools:'tournament-tools.html',athletes:'athletics-athletes.html',live:'admin?view=matches'})[view]
- : 'admin?view='+view;
-export function mountOperationalSidebar({active='',role=''}={}){
+import {signOutAdmin} from './auth.js';
+import {canAccessAdminView} from './admin-role-views.js';
+
+const viewUrl=(id)=>'admin?view='+encodeURIComponent(id);
+const displayRole={super_admin:'Super Admin',match_manager:'Gestione gare',report_viewer:'Consultazione'};
+
+export async function mountOperationalSidebar({active='',role='',admin=null}={}){
  const aside=document.querySelector('[data-operational-sidebar]');
- if(!aside)return;
- const isManager=role==='match_manager',isViewer=role==='report_viewer';
- const usable=link=>link[0]!=='operations'||role==='super_admin';
- aside.innerHTML='<a class="sidebar-brand" href="admin?view=dashboard"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ITSOSCup.it</a>'+
-   '<div class="sidebar-user"><strong>Area di gestione</strong><small>'+({super_admin:'Super Admin',match_manager:'Gestione gare',report_viewer:'Consultazione'}[role]||'Account autorizzato')+'</small></div>'+
-   '<nav aria-label="Navigazione amministrativa"><ul class="sidebar-menu">'+sections.map(([label,items])=>
-    '<li class="sidebar-group-label">'+label+'</li>'+items.filter(usable).map(([id,title,icon])=>
-    '<li><a class="sidebar-link'+(active===id?' active':'')+'"'+(active===id?' aria-current="page"':'')+
-    ' href="'+baseLink(id)+'"><i class="fa-solid '+icon+'" aria-hidden="true"></i> '+title+'</a></li>').join('')).join('')+'</ul></nav>'+
-   '<div class="sidebar-logout"><a href="./" class="btn btn-ghost">Sito pubblico</a></div>';
+ const shell=document.querySelector('.admin-shell');
+ if(!aside||!shell)return;
+ const response=await fetch(new URL('admin/index.html',document.baseURI),{cache:'no-cache',credentials:'same-origin'});
+ if(!response.ok)throw new Error('Navigazione amministrativa non disponibile ('+response.status+')');
+ const html=new DOMParser().parseFromString(await response.text(),'text/html');
+ const original=html.querySelector('#admin-sidebar');
+ if(!original)throw new Error('Sidebar ufficiale non disponibile');
+ // Reuse the actual sidebar source: same brand, icons, order, groups, user and footer.
+ aside.innerHTML=original.innerHTML;
+ aside.querySelector('#admin-name').textContent=admin?.nome||admin?.email||'Amministratore';
+ aside.querySelector('#admin-role').textContent=displayRole[role]||'Ruolo amministrativo';
+ const device=aside.querySelector('#sidebar-device-label');
+ if(device)device.textContent='Postazione di gestione';
+ aside.querySelectorAll('button.sidebar-link[data-view]').forEach(button=>{
+  const view=button.dataset.view;
+  const item=button.closest('li');
+  if(!canAccessAdminView(role,view)){item?.remove();return}
+  const a=document.createElement('a');
+  a.className='sidebar-link';
+  a.href=viewUrl(view);
+  a.innerHTML=button.innerHTML;
+  if((active===view)||(active==='live'&&view==='matches')){a.classList.add('active');a.setAttribute('aria-current','page')}
+  button.replaceWith(a);
+ });
+ aside.querySelectorAll('a.sidebar-link').forEach(a=>{
+  if(a.href.endsWith('tournament-tools.html')&&active==='tools'||a.href.endsWith('athletics-athletes.html')&&active==='athletes'){
+    a.classList.add('active');a.setAttribute('aria-current','page');
+  }
+ });
+ const preferences=aside.querySelector('[data-open-push-preferences]');
+ if(preferences){
+  const link=document.createElement('a');link.className='sidebar-link';
+  link.href='admin?view=settings';link.innerHTML=preferences.innerHTML;
+  preferences.replaceWith(link);
+ }
+ const logout=aside.querySelector('#btn-logout');
+ logout?.addEventListener('click',async()=>{
+  logout.disabled=true;
+  try{await signOutAdmin();location.assign('./')}
+  catch(error){logout.disabled=false;window.alert('Logout non riuscito: '+error.message)}
+ });
  const toggle=document.querySelector('#btn-mobile-menu'),backdrop=document.querySelector('#sidebar-backdrop');
- const setOpen=open=>{aside.classList.toggle('open',open);document.body.classList.toggle('sidebar-open',open);toggle?.setAttribute('aria-expanded',String(open))};
- toggle?.addEventListener('click',()=>setOpen(!aside.classList.contains('open')));
+ const setOpen=open=>{
+  const actual=Boolean(open)&&window.matchMedia('(max-width:1024px)').matches;
+  shell.classList.toggle('menu-open',actual);
+  document.body.classList.toggle('no-scroll',actual);
+  toggle?.setAttribute('aria-expanded',String(actual));
+  const icon=toggle?.querySelector('i');
+  icon?.classList.toggle('fa-bars',!actual);icon?.classList.toggle('fa-xmark',actual);
+ };
+ toggle?.addEventListener('click',()=>setOpen(!shell.classList.contains('menu-open')));
  backdrop?.addEventListener('click',()=>setOpen(false));
- window.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false)});
  aside.addEventListener('click',e=>{if(e.target.closest('a'))setOpen(false)});
+ window.addEventListener('resize',()=>{if(window.innerWidth>1024)setOpen(false)});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false)});
 }
