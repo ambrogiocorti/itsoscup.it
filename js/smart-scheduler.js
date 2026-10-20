@@ -157,6 +157,8 @@ export function analyzeScheduleQuality(matches=[]){
   fixtures.sort((a,b)=>validTime(a.scheduled_start)-validTime(b.scheduled_start));
   const gaps=[];
   for(let i=1;i<fixtures.length;i++){
+   const localDay=m=>new Date(m.scheduled_start).toLocaleDateString('en-CA',{timeZone:'Europe/Rome'});
+   if(localDay(fixtures[i])!==localDay(fixtures[i-1]))continue;
    const gap=Math.max(0,(validTime(fixtures[i].scheduled_start)-validTime(fixtures[i-1].scheduled_end))/MINUTE);
    gaps.push(gap);minimumRest=Math.min(minimumRest,gap);maximumWait=Math.max(maximumWait,gap);
    const previousDuration=(validTime(fixtures[i-1].scheduled_end)-validTime(fixtures[i-1].scheduled_start))/MINUTE;

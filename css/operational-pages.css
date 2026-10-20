@@ -57,3 +57,21 @@
 .live-page{min-height:100vh;background:#eef3fa}
 .live-page>.live-shell{width:min(1440px,calc(100% - 32px));margin:20px auto 35px;padding:0;box-sizing:border-box}
 @media(max-width:640px){.live-page>.live-shell{width:calc(100% - 14px);margin:8px auto 24px}}
+
+/* Calendar quality summary and visual, scrollable field/time matrix */
+.tools-page .tt-quality{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.tools-page .tt-quality>div{display:flex;flex-direction:column;gap:6px;background:#f8fafc;border:1px solid #dbe5f2;border-radius:12px;padding:14px}
+.tools-page .tt-quality strong{font-size:1.4rem;font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums}
+.tools-page .tt-quality span{font-size:.75rem;color:#64748b;font-weight:700}
+.tools-page .tt-matrix-section{margin:16px 0}.tools-page .tt-matrix-section h3{font-size:1rem;color:#0f172a}
+.tools-page .tt-matrix-scroll{max-width:100%;overflow-x:auto;border:1px solid #dbe4f2;border-radius:12px}
+.tools-page table.tt-matrix{width:100%;min-width:650px;border-collapse:separate;border-spacing:0;background:#fff}
+.tools-page .tt-matrix caption{text-align:left;caption-side:bottom;padding:8px 12px;color:#64748b;font-size:.75rem}
+.tools-page .tt-matrix th{background:#eff6ff;text-align:left;padding:12px;font-size:.77rem;color:#1e40af;border-bottom:1px solid #dbeafe}
+.tools-page .tt-matrix tbody th{white-space:nowrap;color:#334155;background:#f8fafc;font-variant-numeric:tabular-nums}
+.tools-page .tt-matrix td{padding:7px;min-width:130px;border-bottom:1px solid #eef2f7;border-left:1px solid #eef2f7}
+.tools-page .tt-matrix-match{display:flex;flex-direction:column;gap:5px;background:#e8f0ff;border-left:3px solid #2563eb;padding:10px;border-radius:9px}
+.tools-page .tt-matrix-match small{font-size:.68rem;color:#475569}
+.tools-page .tt-matrix-match strong{font-size:.82rem;color:#0f172a}
+.tools-page .tt-free-cell{font-size:.73rem;color:#94a3b8}
+@media(max-width:780px){.tools-page .tt-quality{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -3,7 +3,7 @@ import { db, run } from './db.js';
 import { loadSports, loadMatchesBySport, loadTeamsBySport, loadSportConfig, computeStandings } from './matches.js';
 import { loadVenues } from './schedule.js';
 import { escapeHtml } from './utils.js';
-import {buildSmartSchedule,isReturnMatch} from './smart-scheduler.js';
+import {buildSmartSchedule,isReturnMatch,isKnockoutMatch,analyzeScheduleQuality} from './smart-scheduler.js';
 import {mountOperationalSidebar} from './operational-sidebar.js';
 
 const $ = id => document.getElementById(id);
@@ -35,6 +35,7 @@ async function reload(){
   ]);
   $('tt-overview').textContent=state.matches.length+' partite disponibili. Non verranno modificati i risultati.';
   $('tt-preview-list').replaceChildren();
+  $('tt-quality').replaceChildren();
   status('Dati aggiornati dal database.');
 }
 function checkedVenues(){return [...document.querySelectorAll('[data-tt-venue]:checked')].map(x=>state.venues.find(v=>Number(v.id)===Number(x.value))).filter(Boolean);}
@@ -54,7 +55,19 @@ function makeProposal(mode){
  $('tt-overview').textContent=draft.scheduled.length+' incontri collocati su '+draft.total+'. '+
   (draft.missed.length?'Partite non collocate: modifica la fascia oraria, i campi o la durata.':'Vincoli rispettati: anteprima pronta.');
  const field=id=>state.venues.find(v=>Number(v.id)===Number(id))?.name||'Campo';
- $('tt-preview-list').innerHTML='<div class="tt-preview-advice">Le partite di andata terminano prima dell’inizio dei ritorni. Nessuna squadra può occupare tre turni consecutivi.</div>'+
+ const quality=analyzeScheduleQuality(draft.scheduled);
+ $('tt-quality').innerHTML='<div><strong>'+quality.teams+'</strong><span>Squadre coinvolte</span></div>'+
+   '<div><strong>'+quality.doubleTurns+'</strong><span>Presenze ravvicinate</span></div>'+
+   '<div><strong>'+(quality.minimumRestMinutes===null?'—':Math.round(quality.minimumRestMinutes)+' min')+'</strong><span>Riposo minimo osservato</span></div>'+
+   '<div><strong>'+quality.longWaits+'</strong><span>Attese sopra 150 minuti</span></div>';
+ const starts=[...new Set(draft.scheduled.map(m=>m.scheduled_start))].sort();
+ const matrix='<section class="tt-matrix-section"><h3>Griglia visiva: orari e campi</h3><div class="tt-matrix-scroll"><table class="tt-matrix"><caption>Partite della proposta, per ora e campo; tutti i campi sono considerati per le pause</caption><thead><tr><th>Orario</th>'+
+  selected.map(v=>'<th>'+escapeHtml(v.name)+'</th>').join('')+'</tr></thead><tbody>'+
+  starts.map(start=>'<tr><th>'+escapeHtml(format(start))+'</th>'+selected.map(v=>{
+   const m=draft.scheduled.find(x=>x.scheduled_start===start&&Number(x.venue_id)===Number(v.id));
+   return '<td>'+(m?'<div class="tt-matrix-match"><small>'+escapeHtml(m.round_name||'Girone')+'</small><strong>'+escapeHtml(name(m.home_team_id)+' – '+name(m.away_team_id))+'</strong></div>':'<span class="tt-free-cell">Libero</span>')+'</td>';
+  }).join('')+'</tr>').join('')+'</tbody></table></div></section>';
+ $('tt-preview-list').innerHTML='<div class="tt-preview-advice">Le partite di andata terminano prima dell’inizio dei ritorni. Nessuna squadra può occupare tre turni consecutivi.</div>'+matrix+
   (draft.scheduled.length?'<table class="tt-table"><thead><tr><th>Fase</th><th>Incontro</th><th>Data e ora</th><th>Campo</th></tr></thead><tbody>'+
    [...draft.scheduled].sort((a,b)=>a.scheduled_start.localeCompare(b.scheduled_start)).map(m=>
     '<tr><td><span class="tt-phase-tag'+(isReturnMatch(m)?' return':'')+'">'+escapeHtml(m.round_name||'Andata')+'</span></td><td>'+
