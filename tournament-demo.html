@@ -1,0 +1,29 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Laboratorio di prova · ITSOSCup</title>
+<link rel="stylesheet" href="css/style.css?v=71"><link rel="stylesheet" href="css/redesign.css?v=20261020"><link rel="stylesheet" href="css/operational-pages.css?v=2"><link rel="stylesheet" href="css/setup-wizard.css?v=1"><link rel="stylesheet" href="css/tournament-demo.css?v=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head><body class="admin-page demo-page">
+<div class="admin-shell operational-shell"><button id="btn-mobile-menu" type="button" class="mobile-sidebar-toggle" aria-label="Apri menu" aria-controls="admin-sidebar" aria-expanded="false">Menu</button><div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+<aside class="sidebar" id="admin-sidebar" data-operational-sidebar></aside><main class="main-pane"><div class="setup-wrap">
+<header class="setup-hero"><div><small>Laboratorio di formazione · nessun dato reale</small><h1>Prova ITSOSCup senza rischi</h1><p>Crea un calendario fittizio, analizza riposi e simula un risultato. Nessun dato viene salvato su Supabase.</p></div><a href="guida-coordinatore.html" class="btn btn-ghost">Guida operativa</a></header>
+<div class="demo-safety" role="note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> SIMULAZIONE: squadre, partite, orari e punteggi sono fittizi. Le modifiche non raggiungono il database.</div>
+<section class="setup-card"><h2>1. Crea una simulazione</h2><form id="demo-config" class="demo-controls">
+<div class="setup-field"><label for="demo-teams">Squadre</label><select id="demo-teams"><option value="4">4 squadre</option><option value="6" selected>6 squadre</option><option value="8">8 squadre</option></select></div>
+<div class="setup-field"><label for="demo-fields">Campi disponibili</label><select id="demo-fields"><option value="1">1 campo</option><option value="2" selected>2 campi</option><option value="3">3 campi</option></select></div>
+<div class="setup-field"><label for="demo-duration">Durata partita</label><select id="demo-duration"><option value="20">20 minuti</option><option value="30" selected>30 minuti</option><option value="40">40 minuti</option><option value="60">60 minuti</option></select></div>
+<div class="setup-field"><label for="demo-window">Ore disponibili</label><select id="demo-window"><option value="3">3 ore</option><option value="6">6 ore</option><option value="10" selected>10 ore</option><option value="16">16 ore</option></select></div>
+<label class="setup-check"><input id="demo-return" type="checkbox" checked> Andata e ritorno</label>
+<button class="btn btn-primary" type="submit">Genera il calendario di prova</button></form>
+<p id="demo-status" role="status" aria-live="polite">Configura la simulazione e premi «Genera».</p>
+<div class="demo-metrics" id="demo-metrics"></div>
+<div class="demo-table-wrap" id="demo-schedule"></div></section>
+<section class="setup-card demo-report"><h2>2. Simula un risultato</h2><p>Un'esercitazione semplice per imparare a verificare un risultato prima della chiusura del referto.</p>
+<form id="demo-score" class="demo-score-form"><div class="setup-field"><label for="demo-home">Reti/punti squadra casa</label><input type="number" id="demo-home" min="0" max="999" step="1" required value="2"></div>
+<div class="setup-field"><label for="demo-away">Reti/punti squadra ospite</label><input type="number" id="demo-away" min="0" max="999" step="1" required value="1"></div>
+<button type="submit" class="btn btn-primary">Verifica risultato</button></form><p id="demo-score-output" role="status"></p></section>
+<section class="setup-card demo-training"><h2>3. Verifica di aver compreso le operazioni</h2>
+<label><input type="checkbox"> So distinguere «Crea incontri» da «Pianifica calendario».</label>
+<label><input type="checkbox"> Ho controllato pause e sovrapposizioni su campi differenti.</label>
+<label><input type="checkbox"> So che il ritorno inizia dopo la conclusione dell'andata.</label>
+<label><input type="checkbox"> So come verificare e approvare le iscrizioni reali.</label>
+<label><input type="checkbox"> So che questa esercitazione non modifica risultati reali.</label>
+<p>Quando hai completato la simulazione, continua con la <a href="tournament-setup.html">procedura guidata reale</a>, utilizzando un account autorizzato.</p></section>
+</div></main></div><script type="module" src="js/tournament-demo.js?v=1"></script></body></html>
