@@ -1,74 +1,47 @@
-# ITSOSCup — operatività senza Internet e senza rete locale
+# ITSOSCup: stato del lavoro offline e procedura di collaudo
 
-Questa procedura non richiede Wi-Fi scolastico né collegamento tra i campi.
-La soluzione è progettata per **postazioni autonome** e per il passaggio dei file
-attraverso un supporto rimovibile controllato dalla scuola.
+> **Stato ottobre 2026:** la PWA ufficiale è **online-first**. Il service worker non memorizza pagine amministrative né Match Live per navigazione offline e, se manca la connessione, restituisce una pagina esplicita di errore 503.
+>
+> Il seguente flusso USB è una **procedura storica/sperimentale** ancora presente nel repository. Non considerarla pronta per una giornata reale finché non è stata collaudata con tutti i PC Windows della scuola. Non promette l'utilizzo completo del sito senza connessione.
 
-## Preparazione (quando Internet è ancora disponibile)
+## La distinzione fondamentale
 
-1. Dalla dashboard aprire **Calendario** e usare **Prepara offline** per
-   memorizzare sul dispositivo i match non conclusi e le relative rose.
-2. Aprire **Postazione offline**; verificare che le partite compaiano nella lista.
-3. Scegliere una password forte (almeno 12 caratteri), che non sarà salvata.
-4. Cliccare **Esporta partite** e copiare il file cifrato su USB.
-5. Su ogni postazione già predisposta aprire **Postazione offline**, importare il
-   pacchetto cifrato con la password e verificare i match assegnati.
-6. Provare realmente il distacco totale della rete e la riapertura della pagina.
-   Una prima apertura da browser mai installato senza rete **non è supportata**:
-   tutti gli asset devono essere stati installati con il service worker prima
-   dell'evento. In futuro serve un installer locale distribuibile via USB.
+| Funzione | Sito/PWA ufficiale | Workspace USB legacy |
+|---|---|---|
+| Aprire una pagina Admin nuova senza rete | Non supportato | Dipende da installazione/cache provata |
+| Login e autorizzazione Supabase senza rete | Non supportato | Nessuna revoca/identità indipendente garantita |
+| Creare/modificare calendario ufficiale | Richiede rete | Non previsto |
+| Cronometro, punteggio e annotazioni isolate | Richiede app già caricata; salvataggio ufficiale online | Bozze locali nella modalità storica |
+| Firme e referto ufficiale | Online | Non completamente supportati |
+| Sincronizzare, verificare conflitti e pubblicare | Online | Importazione successiva con revisione umana |
 
-## Sul campo: nessuna rete
+## Collaudo richiesto prima dell'uso come sistema offline
 
-1. Aprire **Postazione offline** (la pagina usa solo asset locali in cache).
-2. Selezionare il match già preparato o ricevuto via file USB.
-3. Registrare punteggio, tempo, periodo e annotazioni.
-4. Premere **Salva sul dispositivo** e verificare l'avvenuta registrazione.
-5. Periodicamente, e certamente alla fine delle partite, scegliere
-   **Esporta risultati** per salvare un file cifrato su USB.
-6. Mantenere almeno due copie controllate del pacchetto e **non eliminare** i
-   dati del dispositivo fino alla riconciliazione confermata.
+1. Preparare PC A, PC B e PC coordinatore su profili Windows della scuola, senza dati veri di studenti.
+2. Verificare sul sistema scolastico gli asset necessari, il browser supportato e la disponibilità della pagina locale.
+3. Disattivare sia Internet sia rete locale, chiudere completamente il browser e riaprire la postazione.
+4. Registrare due partite fittizie e un'interruzione di corrente/spegnimento; verificare che i dati non vadano persi.
+5. Esportare ciascun pacchetto cifrato su USB; mantenere copie gestite dal coordinatore, mai esporre password nei messaggi.
+6. Provare un conflitto intenzionale tra due pacchetti della medesima gara. Deve essere segnalato, mai risolto sovrascrivendo automaticamente.
+7. Ricollegare il PC coordinatore; importare e verificare contro il risultato ufficiale fittizio, controllando l'audit.
+8. Simulare un file danneggiato, una password errata e una chiavetta rimossa durante l'esportazione.
+9. Documentare per ogni postazione data della prova, versione del software, docente responsabile ed esito.
+10. Ripetere il test dopo qualunque modifica a storage, service worker, cifratura o live.
 
-## Dopo il ritorno di Internet
+## Modalità di emergenza approvata in assenza di collaudo
 
-1. Su una postazione con account **super_admin** o **match_manager** abilitato,
-   importare i file ricevuti dai campi.
-2. Controllare il registro e i punteggi delle operazioni in attesa.
-3. Usare **Verifica e sincronizza**, verificare il riepilogo e confermare.
-4. Ogni operazione controlla il match remoto: partita non conclusa,
-   versione invariata e acquisizione del lock. Se qualche condizione fallisce,
-   l'operazione diventa **conflitto** e non sovrascrive il cloud.
-5. Confrontare manualmente i conflitti; non cancellare i pacchetti prima
-   di aver controllato il referto ufficiale.
+- Fermare le modifiche online e passare a un referto cartaceo numerato e firmato.
+- Annotare campo, torneo, squadre, ora, risultato e incidenti, con gestione sicura dei dati personali.
+- Non usare un dispositivo locale non collaudato come unica fonte dei dati.
+- Al ritorno della rete, il docente autorizzato confronta cartaceo, centrale e dati locali; poi procede alla registrazione.
+- Conservare il cartaceo secondo le regole di trattamento dati definite dalla scuola.
 
-## Sicurezza dei pacchetti
+## Sicurezza delle vecchie esportazioni USB
 
-- I file esportati sono cifrati tramite AES-GCM a 256 bit, con chiave derivata
-  dalla password con PBKDF2-SHA256 (260.000 iterazioni), IV e salt casuali.
-- Nessuna password del pacchetto viene memorizzata.
-- Il file può contenere dati degli studenti: conservare su dispositivi gestiti
-  dalla scuola e distribuire password e file attraverso canali distinti.
-- IndexedDB conserva i dati **in chiaro nel profilo locale del browser**:
-  la postazione deve essere protetta da account del sistema operativo,
-  cifratura del disco e controllo degli accessi fisici.
-- Il codice utilizza identificativi delle operazioni e importazione
-  idempotente; le revisioni concorrenti dello stesso match sono bloccate.
-- I file non sono firme digitali dell'organizzatore. La password protegge
-  riservatezza e integrità del file, ma un operatore che conosce la password
-  può generare un altro pacchetto valido; l'accettazione resta responsabilità
-  dell'account amministrativo autorizzato.
+Le esportazioni storiche hanno previsto AES-GCM 256 e derivazione PBKDF2, ma una scelta crittografica corretta **non certifica da sola** il corretto funzionamento dell'intero flusso. I dati IndexedDB possono essere in chiaro nel profilo del browser e i file contengono potenzialmente dati di minorenni. Chi custodisce il supporto deve essere autorizzato dalla scuola.
 
-## Limiti attuali (non dichiarare offline completo)
+Una password protegge il contenuto, non equivale a una firma istituzionale. È indispensabile convalidare ogni importazione con permessi backend e confronto del referto.
 
-Questa versione realizza una **prima modalità autonoma per le bozze dei risultati**.
-Non sostituisce in assenza di rete:
-- gestione completa del calendario/nuove partite;
-- statistiche individuali live, referti ufficiali firmati e firme digitali
-  dei capitani nell'editor autonomo;
-- autenticazione autonoma, revoca credenziali e profili offline;
-- propagazione in tempo reale tra postazioni;
-- risoluzione automatica di modifiche concorrenti.
+## Evoluzione necessaria
 
-La sincronizzazione attuale riguarda snapshot delle partite preparate, non tutti
-i tipi di record del database. Il sistema deve ancora essere ampliato e
-collaudato su dispositivi reali prima dell'utilizzo come unica fonte ufficiale.
+Per una modalità offline di produzione serve un programma Windows distribuibile e collaudato, con dati di partita esplicitamente assegnati, storage cifrato/protetto, aggiornamenti verificati, coda di operazioni, controllo revisioni, trasferimento sicuro, firme e riconciliazione con conferma manuale. Il solo PWA install non soddisfa questi requisiti.

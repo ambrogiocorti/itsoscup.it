@@ -31,3 +31,12 @@ test('final roster approval and athletics enrollment are independent guarded wor
  assert.match(read('js/athlete-profiles.js'),/athletics_entries/);
  assert.match(read('admin/index.html'),/id="btn-roster-seal"/);
 });
+
+test('the operational manual and PWA cannot claim supported offline scoring',()=>{
+ const readme=read('README.md'),worker=read('sw.js'),guide=read('docs/offline-senza-rete.md');
+ assert.match(readme,/online-first, NON una postazione/);
+ assert.match(guide,/PWA ufficiale è \*\*online-first\*\*/);
+ assert.match(worker,/ONLINE-ONLY navigation/);
+ assert.match(worker,/status: 503/);
+ assert.match(read('js/jotform-admin-config.js'),/NON dentro un frame sandbox/);
+});

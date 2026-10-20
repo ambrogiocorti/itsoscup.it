@@ -30,7 +30,7 @@ Dal Calendario dell'amministrazione, apri **Strumenti torneo** (`tournament-tool
 - **Maxischermo**: in `gym.html` scegli Palestra o Atrio; visualizza ora, punteggi, calendario e comunicazioni urgenti. Schermo intero su richiesta.
 - **Notifiche**: è riutilizzato il sistema Web Push esistente, con consenso esplicito e opzione «Solo squadre seguite». La pubblicazione di variazioni usa i trigger già presenti.
 
-**Database**: applicare `sql/050_smart_schedule_atomic.sql` dopo verifica sul progetto Supabase associato a ITSOSCup. Non eseguire la migrazione su copie di test o sul progetto Plateform. Le modifiche al calendario sono transazionali e passano attraverso i trigger di validazione esistenti. Non e' inclusa alcuna app Android.
+**Database**: le migrazioni da `050` a `059` aggiungono generazione sicura del calendario, iscrizioni, pallamano, rose definitive e iscrizioni atletica. Sono già state applicate al progetto Supabase della piattaforma; su nuove installazioni vanno eseguite in ordine e verificate in ambiente separato prima della produzione. Non è inclusa alcuna app Android.
 
 ## Funzionalita principali
 
@@ -147,29 +147,28 @@ Secrets richiesti per la funzione:
 supabase secrets set SUPABASE_URL="https://nalxfsbjeinptjflvndp.supabase.co" SUPABASE_ANON_KEY="ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="SERVICE_ROLE_KEY" --project-ref nalxfsbjeinptjflvndp
 ```
 
-## Uso online/offline
+## Modalità online e offline: stato ufficiale
 
-### Preparazione online
+**La PWA distribuita da https://itsoscup.it è online-first, NON una postazione di arbitraggio totalmente offline.** Il suo service worker (`sw.js`) rifiuta esplicitamente di usare vecchie pagine admin/live in cache: in caso di navigazione senza Internet compare una schermata 503 «Connessione Internet necessaria». I salvataggi ufficiali dei risultati, l'autenticazione e la chiusura dei referti richiedono connessione al backend Supabase.
 
-1. Entra in `/admin/` da ogni dispositivo.
-2. Verifica nome postazione e login.
-3. Crea tornei, squadre, campi e calendario.
-4. Nel calendario clicca `Prepara offline`.
-5. Verifica che i match live necessari si aprano almeno una volta sul dispositivo.
+Il repository contiene ancora un workspace per chiavette USB e una vecchia procedura basata su cache e file cifrati. È una funzione **legacy/sperimentale**, non parte del percorso ufficialmente supportato dalla PWA. Non promettere al personale che la sola preparazione della pagina garantisca la riapertura offline o che gli snapshot salvati nel browser vengano sempre sincronizzati. L'utilizzo durante un evento reale richiede un collaudo su PC Windows scolastici, isolando davvero Internet e rete locale e verificando esportazione, importazione e riconciliazione. Vedi `docs/offline-senza-rete.md`.
 
-### Evento offline
+Se la connessione viene meno durante un evento ufficiale:
+1. Bloccare nuove modifiche alla partita e documentare il punteggio con la procedura cartacea approvata dall'istituto.
+2. Non chiudere schede o cancellare dati locali se compare un avviso di operazioni non sincronizzate.
+3. Quando la rete è disponibile, verificare la versione centrale e gli eventuali conflitti **prima** di confermare o sovrascrivere.
+4. Inserire/riconciliare solo attraverso l'account autorizzato, controllando l'esito in Calendario, Referti e Registro modifiche.
 
-1. Apri il live match dal dispositivo preparato.
-2. Se Supabase non risponde, il live usa la cache IndexedDB.
-3. Salva snapshot: la bozza resta locale e viene messa in coda.
-4. In emergenza usa anche il referto cartaceo.
+### Funzioni nuove per i coordinatori
 
-### Ritorno online
+- `/tournament-setup.html`: percorso guidato per il Super Admin (crea torneo, scadenze, rose, incontri, calendario).
+- `/tournament-demo.html`: esercitazione isolata **solo per simulazioni in memoria**, senza scritture su Supabase.
+- `/tournament-insights.html`: confronto dei tornei per sport e anno di creazione, senza nominativi degli studenti.
+- Dashboard → **Preparazione del torneo**: controlli informativi di iscrizioni, rose e partite.
+- Squadre → **Conferma definitiva delle rose**: sigillo protetto dal database, riapertura motivata e registrata.
+- Atletica → **Iscrizioni agli eventi**: distingue partecipazione e risultati; le schede includono gli atleti iscritti prima del primo tentativo.
+- Match Live → Pallamano: esclusioni da due minuti e tiri da sette metri nel registro; la validazione sportiva dell'evento e la firma del referto restano responsabilità dell'operatore.
 
-1. Riapri il live quando Internet torna disponibile.
-2. La bozza viene sincronizzata.
-3. Se il match e cambiato anche online, scegli dal popup conflitto.
-4. Controlla registro modifiche e chiudi con firme capitani.
 
 ## Test
 
