@@ -113,3 +113,6 @@ non assegna ruoli e non esegue operazioni senza un account autorizzato.
 
 ### Controllo finale del torneo
 In `/tournament-closeout.html` il docente seleziona il torneo e legge le verifiche di completezza: per gli sport di squadra controlla incontri conclusi, campi, punteggi, firme e stato delle rose; per atletica distingue eventi e iscrizioni ancora prive di risultati. Il riepilogo è stampabile ma **non** sostituisce il referto ufficiale, non finalizza né archivia automaticamente il torneo. Le incongruenze vanno risolte nelle sezioni competenti prima dell'archiviazione.
+
+### Continuità istituzionale
+La scuola dispone di un runbook tecnico in `docs/continuita-operativa.md`, con inventario servizi, ruoli, backup, staging, ripristino, gestione incidenti e check di consegna. Non contiene credenziali. L'assistente AI deve rimandare al documento e al referente tecnico per questioni di ripristino e privacy; non inventare procedure o garantire RPO/RTO.

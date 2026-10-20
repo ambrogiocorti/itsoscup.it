@@ -232,3 +232,7 @@ CI GitHub: `.github/workflows/ci.yml` esegue static checks, sintassi JavaScript 
 |-- tests/
 `-- vendor/
 ```
+
+## Continuità e responsabilità della scuola
+
+Leggere [il runbook operativo e di passaggio di consegne](docs/continuita-operativa.md). Descrive ambienti, ruoli, collaudi, backup/ripristino, responsabilità e misure di emergenza. Il laboratorio in memoria **non è un database staging** e non equivale a un collaudo di ripristino.

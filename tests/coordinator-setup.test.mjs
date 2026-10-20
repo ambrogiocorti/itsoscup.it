@@ -58,3 +58,11 @@ test('tournament closeout is an authenticated read-only administrative checklist
  assert.doesNotMatch(js,/\.update\(|\.insert\(|\.delete\(|db\.rpc\(/);
  assert.match(read('admin/index.html'),/href="tournament-closeout.html"/);
 });
+
+test('successor runbook documents staging, safe restoration and identity governance',()=>{
+ const guide=read('docs/continuita-operativa.md');
+ assert.match(guide,/Staging completo da predisporre/);
+ assert.match(guide,/test di ripristino sovrascrivendo la produzione/);
+ assert.match(guide,/RPO\/RTO/);
+ assert.match(guide,/medesimo contesto JavaScript/);
+});
