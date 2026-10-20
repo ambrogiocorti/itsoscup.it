@@ -130,6 +130,17 @@
             <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-person-running"></i></div><div class="stat-label">Eventi Atletica</div><div class="stat-value" id="count-events">0</div></article>
           </div>
 
+          <section class="card itsos-preparation-card" aria-labelledby="itsos-preparation-title">
+            <div class="card-body">
+              <div class="itsos-preparation-header"><div>
+                <span class="itsos-help-eyebrow">Percorso coordinatore</span><h2 id="itsos-preparation-title">Preparazione del torneo</h2>
+                <p>Verifica le attività ancora da completare prima della giornata di gara.</p></div>
+                <a href="tournament-setup.html" class="btn btn-primary"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Configurazione guidata</a>
+              </div>
+              <div class="itsos-preparation-picker"><label for="itsos-preparation-sport">Torneo</label><select id="itsos-preparation-sport"><option value="">Caricamento…</option></select></div>
+              <div id="itsos-preparation-checklist" role="status" aria-live="polite">Controllo dei dati in corso…</div>
+            </div>
+          </section>
           <section class="itsos-help-card card" aria-labelledby="coordinator-support-title">
             <div class="card-body itsos-help-grid">
               <div class="itsos-help-copy">
