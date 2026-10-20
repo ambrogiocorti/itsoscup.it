@@ -50,3 +50,53 @@ La scuola dovrebbe avere un referente principale e uno sostituto, account indivi
 - Cosa posso fare se manca Internet?
 - Che cosa devo consegnare al nuovo coordinatore?
 - Chi devo contattare se un dato non viene sincronizzato?
+
+
+## Manuale operativo esteso e passaggio di consegne (aggiornamento 20 ottobre 2026)
+La versione dettagliata per i coordinatori è disponibile, dopo accesso amministrativo, in /guida-coordinatore.html.
+I capitoli coprono: scopo e glossario; accessi e ruoli; preparazione iniziale; creazione torneo;
+iscrizioni e chiusura per torneo; squadre e capitani; creazione accoppiamenti; pianificazione;
+verifica sovrapposizioni e pause; gestione della giornata; Match Live e referti; atletica e
+tutti i tentativi registrati; differenze calcio/basket/pallavolo/pallamano; comunicazioni;
+flussi online-first e postazioni offline; problemi frequenti; privacy; manutenzione;
+passaggio di consegne; checklist prima/dopo gli eventi; FAQ.
+
+L'assistente Jotform è visibile nella sola Dashboard Admin come cerchio flottante in basso
+a destra, creato dallo script Jotform. Non esiste un pulsante ITSOSCup separato per
+aprire la conversazione. Il manuale rimane operativo senza Jotform.
+
+### Flusso rigoroso per coordinatore
+1. Accedi a /admin?view=dashboard e controlla il ruolo.
+2. Crea/configura un torneo da /admin?view=sports; verifica sport e formato.
+3. Censisci i campi da /admin?view=venues.
+4. In /admin?view=teams apri Iscrizioni delle classi: imposta data e ora scadenza,
+   genera link classe, raccogli e approva rose e capitani.
+5. In /admin?view=matches «1. Crea incontri» genera gli accoppiamenti.
+6. In /tournament-tools.html «2. Pianifica calendario» distribuisce giorno/ora/campo.
+7. Verifica che non ci siano sovrapposizioni anche tra campi, non più di due turni
+   consecutivi, andata prima del ritorno, nessun incontro lasciato non collocato
+   prima della pubblicazione completa.
+8. Verifica rete e operatori. In /live.html i segnapunti registrano punti/reti
+   ed eventi nella partita aperta; non c'è sidebar su Match Live.
+9. Prima di chiudere la gara verifica risultato, presenze, referto e firme
+   richieste, poi controlla la classifica aggiornata.
+
+### Assistenza su dati mancanti o errori
+- Se una classe non riesce a compilare: scadenza, codice e stato iscrizione sono
+  le prime verifiche. I docenti possono approvare proposte già presentate.
+- Se una partita non può essere pianificata: aumentare fasce/campi, non ridurre
+  i riposi in modo arbitrario o forzare tre turni consecutivi.
+- Se compare un conflitto offline: non scegliere quale versione sovrascrivere
+  prima di averla confrontata con il referto.
+- Se lo studente di atletica non ha un tentativo registrato: non inventarlo.
+- Se il servizio Jotform non funziona: il personale deve poter usare il manuale.
+- Le credenziali e le chiavi API non devono mai comparire nel manuale né nella chat.
+
+### Regole per il successore
+La scuola nomina un coordinatore e un sostituto, assegna account individuali,
+documenta i responsabili di dominio/GitHub Pages/Supabase/Jotform e organizza ogni
+anno una prova guidata dall'iscrizione alla chiusura del referto. Conserva procedure
+di ripristino e backup fuori da documenti pubblicamente accessibili.
+
+Questo testo è descrittivo: non costituisce accesso automatico ai dati di produzione,
+non assegna ruoli e non esegue operazioni senza un account autorizzato.

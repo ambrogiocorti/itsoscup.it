@@ -6,6 +6,7 @@ async function init(){
  if(!session.allowed)return;
  await mountOperationalSidebar({active:'',role:session.admin?.ruolo,admin:session.admin});
  document.body.classList.remove('auth-pending');
+ document.getElementById('guide-print')?.addEventListener('click',()=>window.print());
  status?.remove();
 }
 init().catch(error=>{

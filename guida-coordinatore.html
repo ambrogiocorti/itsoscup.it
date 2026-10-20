@@ -1,62 +1,294 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>Guida del coordinatore | ITSOSCup</title>
-<link rel="stylesheet" href="css/style.css?v=70"><link rel="stylesheet" href="css/redesign.css?v=20261019-r2">
-<link rel="stylesheet" href="css/operational-pages.css?v=2"><link rel="stylesheet" href="css/coordinator-guide.css?v=1">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>body.auth-pending .admin-shell{display:none}</style></head>
+<html lang="it">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+ <title>Manuale operativo per i coordinatori | ITSOSCup</title>
+ <link rel="stylesheet" href="css/style.css?v=71">
+ <link rel="stylesheet" href="css/redesign.css?v=20261020">
+ <link rel="stylesheet" href="css/operational-pages.css?v=2">
+ <link rel="stylesheet" href="css/coordinator-guide.css?v=2">
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+ <style>body.auth-pending .admin-shell{display:none!important}</style>
+</head>
 <body class="admin-page coordinator-guide-page auth-pending">
-<div id="guide-auth-status" class="admin-auth-guard" role="status">Verifica accesso amministrativo…</div>
-<div class="admin-shell operational-shell"><button type="button" class="mobile-sidebar-toggle" id="btn-mobile-menu" aria-label="Apri menu" aria-controls="admin-sidebar" aria-expanded="false"><i class="fa-solid fa-bars"></i> Menu</button>
-<div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
-<aside class="sidebar" id="admin-sidebar" data-operational-sidebar aria-label="Navigazione amministrativa"></aside>
-<main class="main-pane"><div class="coordinator-guide">
-<header class="coordinator-guide-header"><div><span class="coordinator-guide-kicker">Manuale per il personale autorizzato</span><h1>Guida operativa ITSOSCup</h1><p>Gestione di un torneo, dalla preparazione alla chiusura. Pensata anche per chi utilizza ITSOSCup per la prima volta.</p></div><a class="btn btn-ghost" href="admin?view=dashboard">Torna alla Dashboard</a></header>
-<nav class="guide-index" aria-label="Indice della guida">
-<a href="#preparazione">Preparazione</a><a href="#iscrizioni">Iscrizioni</a><a href="#calendario">Calendario</a>
-<a href="#gara">Match Live</a><a href="#atletica">Atletica</a><a href="#controlli">Controlli</a><a href="#passaggio">Passaggio di consegne</a>
-</nav>
-<section class="guide-section" id="preparazione"><h2>1. Preparare il torneo</h2><ol>
-<li>Accedi alla sezione <a href="admin?view=sports">Tornei</a> e crea un torneo, selezionando sport, anno, formato e modalità andata/ritorno.</li>
-<li>Prepara i <a href="admin?view=venues">campi</a> disponibili, verificando che siano attivi e utilizzabili durante la giornata.</li>
-<li>Apri <a href="admin?view=teams">Squadre</a> per gestire le classi, la rosa e i capitani.</li>
-<li>Prima della pubblicazione, controlla tutte le configurazioni e organizza una gara di prova.</li>
-</ol><p class="guide-note">Non distribuire codici di accesso o credenziali tramite documenti pubblici.</p></section>
-<section class="guide-section" id="iscrizioni"><h2>2. Iscrizioni delle squadre</h2>
-<p>In <strong>Squadre → Iscrizioni delle classi</strong> imposta prima la scadenza del torneo. Genera poi il link o il codice della classe da consegnare ai responsabili.</p>
-<ol><li>La classe apre il proprio modulo e indica i componenti e il capitano.</li><li>La proposta arriva nell'area amministrativa e deve essere verificata/approvata da un docente.</li><li>Alla scadenza del torneo, il database impedisce nuove iscrizioni e modifiche alle rose.</li></ol>
-<p>Se le squadre comunicano la rosa poco prima del torneo, imposta una scadenza compatibile con il tempo necessario per verificare i dati.</p></section>
-<section class="guide-section" id="calendario"><h2>3. Calendario automatico: due passaggi distinti</h2>
-<p><strong>Crea incontri</strong> genera gli accoppiamenti tra squadre. <strong>Pianifica calendario</strong> distribuisce gli incontri su campi e fasce orarie.</p>
-<ol><li>Vai a <a href="admin?view=matches">Calendario</a>, scegli un torneo e usa <strong>1. Crea incontri</strong>.</li>
-<li>Apri <a href="tournament-tools.html">2. Pianifica calendario</a>: specifica data, inizio, fine, durata, riposo minimo e campi.</li>
-<li>Esamina l'anteprima: lo scheduler evita sovrapposizioni, limita i turni consecutivi per squadra e tiene l'andata prima del ritorno.</li>
-<li>Se rimangono incontri non collocati, allarga la fascia o aggiungi campi; non forzare un calendario impossibile.</li>
-<li>Pubblica soltanto dopo aver verificato tutte le partite. La pubblicazione richiede i permessi necessari.</li></ol>
-<p class="guide-note">La pianificazione automatica non sposta automaticamente le partite concluse.</p></section>
-<section class="guide-section" id="gara"><h2>4. Durante una partita</h2>
-<p>Dal Calendario apri <strong>Match Live</strong>. Controlla campo, squadre, roster, cronometro e stato della sincronizzazione prima di registrare eventi.</p>
-<ol><li>Verifica le presenze e il capitano di ciascuna squadra.</li><li>Registra punti/reti ed eventuali eventi disciplinari secondo lo sport.</li>
-<li>Se commetti un errore usa i controlli di correzione e salva, senza chiudere prematuramente il match.</li>
-<li>Al termine verifica risultato e referto; completa la chiusura con le conferme e le firme richieste.</li></ol>
-<p class="guide-note">Il sito web funziona online-first: la presenza di una connessione Internet affidabile è necessaria per le operazioni amministrative ufficiali.</p></section>
-<section class="guide-section" id="atletica"><h2>5. Atletica e tentativi</h2>
-<p>In <a href="admin?view=events">Atletica</a> configura eventi e risultati. Per ogni atleta usa <a href="athletics-athletes.html">Schede atleti e tentativi</a> per consultare gli eventi a cui ha partecipato, ogni tentativo registrato e il miglior risultato.</p>
-<p>Non inserire risultati ipotetici quando mancano dati. Controlla unità di misura, numero di tentativi e regole specifiche dell'evento.</p></section>
-<section class="guide-section" id="controlli"><h2>6. Risolvere problemi frequenti</h2><dl>
-<dt>Una squadra gioca troppo spesso?</dt><dd>Rigenera l'anteprima con più riposo o una fascia più ampia; controlla tutte le assegnazioni, anche su campi differenti.</dd>
-<dt>Non posso modificare un torneo o pubblicare il calendario.</dt><dd>Verifica il tuo ruolo. Alcune funzioni sono riservate al Super Admin.</dd>
-<dt>Il modulo iscrizioni è chiuso.</dt><dd>Verifica la data di scadenza impostata in Squadre → Iscrizioni delle classi e controlla che il codice sia attivo.</dd>
-<dt>Un referto mostra dati inattesi.</dt><dd>Verifica i dati originali e la cronologia delle correzioni prima di pubblicare nuovamente.</dd>
-<dt>Non riesco ad accedere.</dt><dd>Controlla la connessione, l'account autorizzato e l'assegnazione del ruolo. Non aggirare le autorizzazioni.</dd>
-</dl></section>
-<section class="guide-section" id="passaggio"><h2>7. Passaggio di consegne</h2><ol>
-<li>Designa almeno due referenti della scuola: uno principale e un sostituto.</li>
-<li>Assegna account amministrativi personali, senza condividere password.</li>
-<li>Documenta chi gestisce hosting, dominio, repository GitHub, database Supabase e Jotform.</li>
-<li>Prepara un torneo di prova annuale e verifica creazione, iscrizioni, calendario, referti e pubblicazione.</li>
-<li>Conserva un piano di backup, una procedura di ripristino e un registro degli interventi.</li>
-<li>Aggiorna il manuale e la knowledge base dell'assistente dopo modifiche importanti.</li>
-</ol><p class="guide-note">L'assistente virtuale è un supporto informativo: non sostituisce autorizzazioni, verifiche dei docenti o documentazione di gestione tecnica.</p></section>
-<footer class="guide-footer"><a href="admin?view=dashboard">Torna alla Dashboard</a><span>ITSOSCup · Manuale operativo</span></footer>
-</div></main></div><script type="module" src="js/coordinator-guide.js?v=1"></script></body></html>
+ <div id="guide-auth-status" class="admin-auth-guard" role="status" aria-live="polite">Verifica accesso amministrativo…</div>
+ <div class="admin-shell operational-shell">
+  <button class="mobile-sidebar-toggle" type="button" id="btn-mobile-menu" aria-label="Apri menu" aria-controls="admin-sidebar" aria-expanded="false"><i class="fa-solid fa-bars"></i> Menu</button>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+  <aside class="sidebar" id="admin-sidebar" data-operational-sidebar aria-label="Navigazione amministrativa"></aside>
+  <main class="main-pane" id="guide-main">
+<div class="coordinator-guide">
+  <header class="coordinator-guide-header">
+    <div>
+      <span class="coordinator-guide-kicker"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Manuale ufficiale di utilizzo · personale scolastico</span>
+      <h1>Guida operativa ITSOSCup</h1>
+      <p>Manuale di gestione dei tornei scolastici: preparazione, iscrizioni, calendario, diretta, risultati, referti, atletica e continuità del servizio.</p>
+      <div class="guide-meta"><span><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Procedure per coordinatori e operatori</span><span><i class="fa-solid fa-calendar" aria-hidden="true"></i> Revisione ottobre 2026</span></div>
+    </div>
+    <div class="guide-header-actions">
+      <a class="btn btn-ghost" href="admin?view=dashboard"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Dashboard</a>
+      <button class="btn btn-ghost" type="button" id="guide-print"><i class="fa-solid fa-print" aria-hidden="true"></i> Stampa guida</button>
+    </div>
+  </header>
+
+  <section class="guide-start-panel" aria-labelledby="guide-start-title">
+    <div class="guide-start-icon" aria-hidden="true"><i class="fa-solid fa-compass"></i></div>
+    <div><h2 id="guide-start-title">Da dove cominciare?</h2><p>Se gestisci ITSOSCup per la prima volta, segui nell'ordine <strong>Configurazione → Iscrizioni → Incontri → Calendario → Partite → Referti</strong>. Prima di operare con dati reali, svolgi una prova completa su un torneo di test.</p></div>
+  </section>
+  <div class="guide-layout">
+    <aside class="guide-toc" aria-label="Indice dei capitoli">
+      <strong>Indice della guida</strong>
+      <nav>
+        <a href="#introduzione">01 · Principi e glossario</a>
+        <a href="#ruoli">02 · Ruoli e permessi</a>
+        <a href="#preparazione">03 · Preparazione iniziale</a>
+        <a href="#tornei">04 · Creare un torneo</a>
+        <a href="#iscrizioni">05 · Iscrizioni delle classi</a>
+        <a href="#squadre">06 · Gestione squadre</a>
+        <a href="#calendario">07 · Generazione calendario</a>
+        <a href="#verifica">08 · Controllo del calendario</a>
+        <a href="#giornata">09 · Preparare la giornata</a>
+        <a href="#live">10 · Match Live e referti</a>
+        <a href="#atletica">11 · Atletica e tentativi</a>
+        <a href="#pallamano">12 · Differenze tra sport</a>
+        <a href="#comunicazioni">13 · Comunicazioni</a>
+        <a href="#offline">14 · Connessione e offline</a>
+        <a href="#anomalie">15 · Problemi frequenti</a>
+        <a href="#privacy">16 · Privacy e sicurezza</a>
+        <a href="#manutenzione">17 · Manutenzione</a>
+        <a href="#passaggio">18 · Passaggio di consegne</a>
+        <a href="#checklist">19 · Checklist operativa</a>
+        <a href="#faq">20 · Domande frequenti</a>
+      </nav>
+    </aside>
+
+    <div class="guide-chapters">
+      <section class="guide-section" id="introduzione">
+        <div class="guide-chapter-label">CAPITOLO 01</div><h2>Che cos'è ITSOSCup e come è organizzato</h2>
+        <p>ITSOSCup è la piattaforma della scuola per organizzare tornei, squadre, campi, calendari, incontri, risultati, classifiche, referti e prove di atletica. Offre una parte pubblica per gli studenti e una parte amministrativa, protetta, per il personale autorizzato.</p>
+        <h3>Glossario operativo</h3>
+        <div class="guide-definition-grid">
+          <div><strong>Torneo</strong><p>Competizione con sport, classi/squadre, regole e calendario propri.</p></div>
+          <div><strong>Incontro</strong><p>Accoppiamento tra due squadre. Può esistere senza giorno o campo assegnato.</p></div>
+          <div><strong>Pianificazione</strong><p>Assegnazione di data, ora e campo agli incontri già creati.</p></div>
+          <div><strong>Match Live</strong><p>Postazione operativa per registrare il punteggio, gli eventi e chiudere il referto.</p></div>
+          <div><strong>Referto</strong><p>Riepilogo formale della gara, da verificare e confermare prima della chiusura.</p></div>
+          <div><strong>Registro tentativi</strong><p>Risultati dei singoli tentativi effettuati da un atleta in un evento.</p></div>
+        </div>
+        <p class="guide-note"><strong>Regola generale:</strong> la modifica dei dati ufficiali deve avvenire dall'area autorizzata, mai modificando direttamente il database o un file esportato senza una procedura approvata.</p>
+      </section>
+
+      <section class="guide-section" id="ruoli">
+        <div class="guide-chapter-label">CAPITOLO 02</div><h2>Utenti, permessi e accesso</h2>
+        <p>Per entrare nell'area amministrativa utilizza <a href="admin?view=dashboard">Dashboard Admin</a> con l'account personale assegnato dalla scuola. Se una voce o un'azione non è visibile, non è necessariamente un errore: la piattaforma applica permessi differenti.</p>
+        <div class="guide-table-wrap"><table class="guide-table"><thead><tr><th>Ruolo</th><th>Responsabilità tipica</th><th>Precauzione</th></tr></thead><tbody>
+          <tr><td><strong>Super Admin</strong></td><td>Configurazione completa, calendario, scadenze, coordinamento e gestione del sistema.</td><td>Usare privilegi elevati soltanto quando necessari.</td></tr>
+          <tr><td><strong>Match Manager</strong></td><td>Operatività sulle gare e sui risultati consentiti dalla propria autorizzazione.</td><td>Controllare sempre partita e postazione assegnate.</td></tr>
+          <tr><td><strong>Report Viewer</strong></td><td>Consultazione dei report e degli elementi previsti dal ruolo.</td><td>Non cercare di aggirare permessi di modifica assenti.</td></tr>
+        </tbody></table></div>
+        <h3>Verifica dopo l'accesso</h3><ol><li>Controlla nome e ruolo mostrati nella barra laterale.</li><li>Verifica di essere nel torneo giusto prima di effettuare modifiche.</li><li>Quando lasci una postazione condivisa, esegui il logout e verifica che la sessione sia terminata.</li><li>Non condividere password o sessioni tra docenti e segnapunti.</li></ol>
+      </section>
+
+      <section class="guide-section" id="preparazione">
+        <div class="guide-chapter-label">CAPITOLO 03</div><h2>Preparazione prima del torneo</h2>
+        <p>La parte più importante dell'organizzazione avviene prima della prima partita. La preparazione riduce errori di calendario, rinvii e problemi ai referti.</p>
+        <ol>
+          <li><strong>Definisci il formato:</strong> sport, anno scolastico, squadre previste, girone semplice o andata/ritorno, eventuali semifinali e finale.</li>
+          <li><strong>Raccogli disponibilità:</strong> giorni utilizzabili, apertura e chiusura delle palestre, numero di campi e durata ragionevole delle partite.</li>
+          <li><strong>Definisci i responsabili:</strong> un coordinatore, almeno un sostituto e gli operatori di gara, con i rispettivi permessi.</li>
+          <li><strong>Stabilisci le iscrizioni:</strong> scadenza, modalità di comunicazione alle classi e tempi per approvare le rose.</li>
+          <li><strong>Testa i dispositivi:</strong> connessione, browser, accesso alla Dashboard e leggibilità su monitor o tablet.</li>
+          <li><strong>Prepara un piano alternativo:</strong> persone da contattare, procedura cartacea se autorizzata e modalità di recupero in caso di guasto.</li>
+        </ol>
+        <div class="guide-callout"><strong>Verifica preliminare</strong><p>Non aprire il torneo agli studenti finché nome, formato, campi e scadenza non sono stati verificati dal coordinatore.</p></div>
+      </section>
+
+      <section class="guide-section" id="tornei">
+        <div class="guide-chapter-label">CAPITOLO 04</div><h2>Creazione e configurazione di un torneo</h2>
+        <ol><li>Apri <a href="admin?view=sports">Amministrazione → Tornei</a> e seleziona la funzione di creazione.</li><li>Inserisci un nome riconoscibile (sport, categoria, anno scolastico) e scegli lo sport disponibile.</li><li>Imposta anno e formato del torneo. Se utilizzi l'andata/ritorno, controlla che sia previsto dal formato selezionato.</li><li>Salva il torneo e verifica che appaia nell'elenco senza duplicati.</li><li>Apri <a href="admin?view=venues">Campi</a> per censire le risorse utilizzabili, distinguendo eventuali campi multipli della stessa palestra.</li><li>Riapri la configurazione e controlla i parametri sport-specifici: durata, punteggio, set/tempi, regole e numero di tentativi se atletica.</li></ol>
+        <h3>Convenzioni consigliate per i nomi</h3><p>Utilizza una convenzione stabile, per esempio «Basket M — Quarte» oppure «Pallavolo F — Terze». Evita abbreviazioni non documentate e due tornei diversi con nomi praticamente identici.</p>
+        <p class="guide-note">Se modifiche al formato avvengono dopo aver creato partite, verifica con attenzione gli incontri esistenti prima di rigenerare.</p>
+      </section>
+
+      <section class="guide-section" id="iscrizioni">
+        <div class="guide-chapter-label">CAPITOLO 05</div><h2>Iscrizioni delle classi e data di chiusura</h2>
+        <p>Per consentire alle classi di comunicare i componenti della squadra anche a ridosso del torneo, è disponibile un <strong>modulo di iscrizione collegato al torneo</strong>. Ogni torneo ha la propria scadenza, applicata dal database.</p>
+        <h3>Configurare la scadenza</h3>
+        <ol><li>Vai su <a href="admin?view=teams">Squadre → Iscrizioni delle classi</a>.</li><li>Seleziona il torneo corretto dal menu.</li><li>Nel riquadro <strong>Chiusura iscrizioni del torneo</strong> imposta data e ora locali.</li><li>Premi <strong>Salva scadenza</strong> e leggi l'esito della conferma.</li><li>Controlla la data visualizzata prima di creare o distribuire i link.</li></ol>
+        <h3>Invitare una classe</h3>
+        <ol><li>Nella sezione «Invita una classe» inserisci la classe (per esempio 4B).</li><li>Genera il link/codice dedicato e distribuiscilo soltanto alla classe interessata tramite un canale scolastico autorizzato.</li><li>La classe inserisce componenti e capitano e invia la proposta.</li><li>Il docente controlla i nomi, la correttezza della classe e la rosa ricevuta.</li><li>Approva la proposta oppure richiedi una correzione con una motivazione comprensibile.</li></ol>
+        <div class="guide-callout"><strong>Che cosa succede alla scadenza?</strong><p>Dopo la scadenza il sistema blocca lato database le nuove iscrizioni e le modifiche alla rosa. I docenti possono comunque esaminare e approvare proposte già inviate. In caso di proroga deve intervenire il ruolo autorizzato, registrando la nuova data.</p></div>
+        <h3>Controlli che consiglio prima di chiudere le iscrizioni</h3><p>Confronta classi attese, proposte ricevute, proposte da correggere e approvazioni; verifica la presenza del capitano e risolvi eventuali nominativi duplicati. Non usare il nome di un minorenne come identificativo pubblico del codice.</p>
+      </section>
+
+      <section class="guide-section" id="squadre">
+        <div class="guide-chapter-label">CAPITOLO 06</div><h2>Squadre, capitani e composizione della rosa</h2>
+        <p>Apri <a href="admin?view=teams">Gestione Squadre</a>. Le squadre appartengono a un torneo specifico: quando lavori su più categorie controlla sempre il torneo selezionato.</p>
+        <ol><li>Verifica che ogni squadra abbia un nome/classe univoco nel torneo.</li><li>Controlla che tutti i giocatori autorizzati siano associati alla squadra corretta.</li><li>Controlla che il capitano sia presente in rosa e abbia il nome corretto.</li><li>Prima della prima gara conferma la rosa con il responsabile; risolvi eventuali differenze rispetto al modulo.</li><li>Se importi da CSV, visualizza l'anteprima e verifica duplicati, campi obbligatori e dati mancanti prima dell'importazione.</li></ol>
+        <p class="guide-note"><strong>Consiglio organizzativo:</strong> la compilazione dei dati può restare aperta fino alla data concordata; la verifica finale deve comunque avvenire prima dell'inizio delle gare.</p>
+      </section>
+
+      <section class="guide-section" id="calendario">
+        <div class="guide-chapter-label">CAPITOLO 07</div><h2>Generazione automatica del calendario</h2>
+        <p>ITSOSCup distingue due operazioni, entrambe necessarie quando il torneo non contiene ancora partite:</p>
+        <div class="guide-steps">
+          <div><span class="guide-step-number">1</span><div><strong>Crea incontri</strong><p>Da <a href="admin?view=matches">Calendario</a> crea gli accoppiamenti tra squadre; in questa fase non è ancora necessario aver assegnato data, ora e campo.</p></div></div>
+          <div><span class="guide-step-number">2</span><div><strong>Pianifica calendario</strong><p>Apri <a href="tournament-tools.html">Strumenti torneo</a> per collocare gli incontri in una fascia disponibile, indicando campi, data, orario iniziale/finale, durata e riposo minimo.</p></div></div>
+        </div>
+        <h3>Come compilare la pianificazione</h3>
+        <ol><li>Seleziona il torneo corretto e verifica che gli incontri siano stati creati.</li><li>Imposta la data e una fascia oraria realistica, con margine per ritardi o pause.</li><li>Seleziona soltanto i campi realmente disponibili. Una squadra non deve poter essere programmata contemporaneamente su campi differenti.</li><li>Specifica durata e riposo minimo adeguati allo sport e all'età degli studenti.</li><li>Premi per generare l'anteprima e analizza il riepilogo «Collocate / Non collocate / Campi».</li><li>Controlla l'ordine delle partite: le gare d'andata devono precedere quelle di ritorno.</li><li>Se il programma non trova una soluzione completa, aumenta la disponibilità o modifica le condizioni; evita di forzare assegnazioni impossibili.</li><li>Pubblica il calendario soltanto dopo controllo e autorizzazione.</li></ol>
+        <div class="guide-callout"><strong>Vincolo per il benessere delle squadre</strong><p>Il pianificatore tiene conto di tutti i campi, impone il limite massimo di due turni consecutivi per squadra e cerca, quando possibile, un turno libero anche dopo una sola partita. La regola si applica agli incontri su campi diversi, non soltanto su uno stesso campo.</p></div>
+      </section>
+
+      <section class="guide-section" id="verifica">
+        <div class="guide-chapter-label">CAPITOLO 08</div><h2>Come verificare l'anteprima prima di pubblicare</h2>
+        <p>Non giudicare un calendario solo dal numero di partite assegnate. Una soluzione può essere formalmente completa ma faticosa per gli studenti o scomoda per i responsabili delle palestre.</p>
+        <div class="guide-table-wrap"><table class="guide-table"><thead><tr><th>Controllo</th><th>Che cosa verificare</th><th>Azione in caso di problema</th></tr></thead><tbody>
+        <tr><td>Conflitti di squadra</td><td>Nessuna squadra in due partite che si sovrappongono, anche su campi diversi.</td><td>Rigenerare la pianificazione e controllare gli slot.</td></tr>
+        <tr><td>Riposo</td><td>Niente sequenze di tre o più turni consecutivi; due turni sono una possibilità eccezionale.</td><td>Aumentare fascia, intervallo di riposo o numero di slot.</td></tr>
+        <tr><td>Andata e ritorno</td><td>Tutti gli incontri dell'andata precedono i primi ritorni.</td><td>Controllare fase e ordine degli incontri.</td></tr>
+        <tr><td>Campi e orari</td><td>Campi realmente disponibili, orari compatibili con le lezioni.</td><td>Correggere le disponibilità.</td></tr>
+        <tr><td>Intervalli di attesa</td><td>Nessuna squadra attende inutilmente per molte ore.</td><td>Ribilanciare slot e tornei.</td></tr>
+        <tr><td>Gare non assegnate</td><td>Il conteggio deve essere zero prima della pubblicazione integrale.</td><td>Espandere le risorse e riprovare.</td></tr>
+        </tbody></table></div>
+        <p class="guide-note">Dopo aver pubblicato, informa tutti gli operatori dell'orario ufficiale. Se la giornata cambia, indica chiaramente quale calendario è quello valido.</p>
+      </section>
+
+      <section class="guide-section" id="giornata">
+        <div class="guide-chapter-label">CAPITOLO 09</div><h2>Giornata di gara: preparazione delle postazioni</h2>
+        <h3>Prima dell'arrivo delle squadre</h3>
+        <ol><li>Verifica che tutti i campi siano disponibili e che i dispositivi di segnapunti siano accesi.</li><li>Controlla la connessione Internet e la corretta apertura di <a href="admin?view=matches">Calendario</a>.</li><li>Confronta l'elenco partite con l'orario comunicato a classi e arbitri.</li><li>Conferma gli operatori incaricati di ogni campo e fai una prova di accesso a una gara di test.</li><li>Assicurati che tutte le squadre sappiano dove presentarsi e con quanto anticipo.</li></ol>
+        <h3>Durante la giornata</h3><p>Usa il <a href="admin?view=operations">Centro di controllo</a> per seguire stato operativo di gare e campi, e il Calendario per consultare gli incontri. I due strumenti hanno scopi differenti: il primo è operativo, il secondo è la fonte di consultazione e gestione degli abbinamenti.</p>
+        <h3>In caso di ritardo</h3><p>Non spostare una gara già iniziata senza coordinare i segnapunti e il docente. Verifica ripercussioni sugli incontri successivi, riposi e disponibilità dei campi. Comunica sempre una nuova ora ufficiale.</p>
+      </section>
+
+      <section class="guide-section" id="live">
+        <div class="guide-chapter-label">CAPITOLO 10</div><h2>Match Live, punteggi e referti</h2>
+        <p>Match Live è una schermata operativa dedicata ai segnapunti e per questo <strong>non presenta la sidebar amministrativa</strong>. Il pulsante per tornare all'amministrazione rimane disponibile nell'intestazione della pagina.</p>
+        <h3>Prima di avviare la registrazione</h3><ol><li>Apri la partita corretta dal <a href="admin?view=matches">Calendario</a>.</li><li>Confronta nomi delle squadre, campo e ora con gli arbitri.</li><li>Controlla i componenti, le presenze e i capitani effettivi.</li><li>Verifica se la schermata segnala il controllo della partita e lo stato della sincronizzazione.</li><li>Verifica la durata del tempo/set e le altre regole configurate per lo sport.</li></ol>
+        <h3>Durante la partita</h3><ol><li>Registra punti o reti solo dopo la conferma dell'arbitro.</li><li>Seleziona il giocatore corretto quando l'evento richiede una persona specifica.</li><li>Registra falli, ammonizioni, timeout e sostituzioni dove supportati.</li><li>Usa Annulla per una correzione immediata, poi ricontrolla il punteggio e lo stato di salvataggio.</li><li>Non aprire la stessa partita da più postazioni operative senza una procedura di coordinamento.</li></ol>
+        <h3>Chiusura e verifica del referto</h3><ol><li>Confronta il risultato registrato con il referto o le indicazioni dell'arbitro.</li><li>Verifica tutti i dati obbligatori, comprese le presenze e le eventuali firme richieste.</li><li>Conferma la chiusura solo quando i dati sono corretti: l'operazione può rendere ufficiale il risultato.</li><li>Controlla il risultato pubblicato e, se necessario, recupera il referto per archivio o stampa.</li></ol>
+        <div class="guide-callout"><strong>Correzione di un match concluso</strong><p>Usa esclusivamente la procedura autorizzata di riapertura/correzione, lasciando traccia della motivazione. Non alterare manualmente il database per far coincidere punteggi o classifiche.</p></div>
+      </section>
+
+      <section class="guide-section" id="atletica">
+        <div class="guide-chapter-label">CAPITOLO 11</div><h2>Atletica: eventi, partecipanti e tentativi</h2>
+        <p>L'atletica si gestisce principalmente in <a href="admin?view=events">Amministrazione → Atletica</a>. La pagina <a href="athletics-athletes.html">Schede atleti e tentativi</a> riunisce per ciascun atleta il nominativo, la classe, gli eventi in cui compaiono risultati e i valori di tutti i tentativi registrati.</p>
+        <ol><li>Configura il torneo di atletica e l'elenco degli eventi.</li><li>Verifica le unità di misura e le regole di ordinamento dei risultati: tempo minore o distanza maggiore, secondo la disciplina.</li><li>Controlla l'anagrafica e la classe prima di associare un risultato.</li><li>Per ogni evento, registra i singoli tentativi nell'ordine di esecuzione.</li><li>Un tentativo nullo/non valido deve essere distinto da un valore numerico pari a zero: non inventare o sostituire valori mancanti.</li><li>Consulta la scheda dell'atleta tramite l'icona delle schede in alto nella sezione Atletica; usa i filtri per torneo e ricerca per nome, cognome o classe.</li><li>Confronta il miglior risultato con il foglio gara prima di pubblicare classifiche o record.</li></ol>
+        <p class="guide-note">Le schede mostrano i tentativi effettivamente disponibili nei dati della piattaforma. Se un tentativo non è stato registrato, non può essere ricostruito automaticamente.</p>
+      </section>
+
+      <section class="guide-section" id="pallamano">
+        <div class="guide-chapter-label">CAPITOLO 12</div><h2>Impostazioni differenti per sport</h2>
+        <div class="guide-table-wrap"><table class="guide-table"><thead><tr><th>Sport</th><th>Risultati principali</th><th>Attenzioni organizzative</th></tr></thead><tbody>
+        <tr><td>Calcio</td><td>Reti e risultato finale.</td><td>Durata, eventuali ammonizioni/espulsioni e regole del torneo.</td></tr>
+        <tr><td>Basket</td><td>Punti, quarti, falli e timeout dove previsti.</td><td>Tempi, punteggi da 1/2/3 e compilazione completa degli eventi.</td></tr>
+        <tr><td>Pallavolo</td><td>Set e punti dei set.</td><td>Numero set, punti necessari e regole di spareggio.</td></tr>
+        <tr><td>Pallamano</td><td>Reti, due tempi e timeout.</td><td>Verificare le regole disciplinari e le eventuali esclusioni temporanee: il referto non equivale ancora a un modello federale completo.</td></tr>
+        <tr><td>Atletica</td><td>Risultati individuali e tentativi.</td><td>Unità di misura, validità dei tentativi e criterio di classifica.</td></tr>
+        </tbody></table></div>
+        <p>Non riutilizzare automaticamente le regole di uno sport per un altro. Anche all'interno dello stesso sport, le durate e le modalità devono seguire quanto stabilito dall'istituto.</p>
+      </section>
+
+      <section class="guide-section" id="comunicazioni">
+        <div class="guide-chapter-label">CAPITOLO 13</div><h2>Comunicazioni a classi, operatori e studenti</h2>
+        <p>I risultati e il calendario pubblico sono consultabili dal sito, mentre l'area amministrativa dispone di strumenti per gli avvisi e per le comunicazioni, compreso Telegram dove configurato.</p>
+        <ol><li>Prima di inviare un avviso, scegli il destinatario corretto e specifica il torneo.</li><li>Scrivi sempre cosa cambia, da quando è valido e a chi rivolgersi.</li><li>Per uno spostamento, indica partita, campo, vecchia ora e nuova ora.</li><li>Non pubblicare dati personali non necessari, numeri privati, codici d'accesso o documenti interni.</li><li>Dopo l'invio, verifica che il contenuto sia visibile nella sezione prevista e coerente con il calendario ufficiale.</li></ol>
+        <h3>Modello di avviso</h3><div class="guide-example"><strong>Aggiornamento calendario — [nome torneo]</strong><p>La gara [squadra A – squadra B], inizialmente prevista alle [ora], si disputerà alle [nuova ora] sul campo [nome]. La modifica è valida dal [data/ora]. Per chiarimenti rivolgersi al docente coordinatore.</p></div>
+      </section>
+
+      <section class="guide-section" id="offline">
+        <div class="guide-chapter-label">CAPITOLO 14</div><h2>Connessione, sincronizzazione e postazioni offline</h2>
+        <p>La versione web pubblica di ITSOSCup è <strong>online-first</strong>. Non dare per scontato che una modifica sia stata sincronizzata soltanto perché viene mostrata localmente sullo schermo.</p>
+        <h3>Se la connessione Internet si interrompe</h3><ol><li>Non chiudere indiscriminatamente schede o app con dati non ancora confermati.</li><li>Verifica lo stato di sincronizzazione e la presenza di operazioni in attesa.</li><li>Se utilizzi la postazione Windows dedicata, segui la specifica procedura autorizzata di preparazione, trasferimento cifrato e importazione dei risultati.</li><li>Quando torna la connessione, confronta il risultato registrato localmente con quello centrale prima di confermare la sincronizzazione.</li><li>In caso di conflitto tra versioni diverse, non sovrascrivere un risultato ufficiale senza la verifica del docente.</li></ol>
+        <p>Lo strumento <a href="offline-workspace.html">Postazioni offline</a> contiene le funzioni dedicate ai flussi con chiavette e referti. Non è sinonimo di funzionamento offline completo di ogni pagina web.</p>
+        <div class="guide-callout"><strong>Regola di sicurezza</strong><p>Se non puoi dimostrare che un risultato sia stato acquisito dal sistema centrale, consideralo in attesa di verifica, non ufficialmente pubblicato.</p></div>
+      </section>
+
+      <section class="guide-section" id="anomalie">
+        <div class="guide-chapter-label">CAPITOLO 15</div><h2>Risoluzione dei problemi e situazioni anomale</h2>
+        <div class="guide-table-wrap"><table class="guide-table"><thead><tr><th>Situazione</th><th>Controlli iniziali</th><th>Come procedere</th></tr></thead><tbody>
+        <tr><td>Non posso entrare in Admin</td><td>Rete, account, ruolo, sessione.</td><td>Usa il recupero account previsto dalla scuola; non condividere credenziali.</td></tr>
+        <tr><td>Una funzione non appare</td><td>Ruolo attuale e sezione selezionata.</td><td>Chiedi verifica dei permessi al referente autorizzato.</td></tr>
+        <tr><td>La classe non può inviare la rosa</td><td>Scadenza del torneo, validità del codice, stato della proposta.</td><td>Controlla dal pannello Iscrizioni; eventuali proroghe richiedono un amministratore autorizzato.</td></tr>
+        <tr><td>Calendario non collocabile</td><td>Campi, fasce, durata, riposo, andata/ritorno.</td><td>Estendi la fascia o i campi; non pubblicare un calendario incompleto senza una decisione consapevole.</td></tr>
+        <tr><td>Tre gare consecutive per una squadra</td><td>Controlla tutti i campi e gli incontri esistenti.</td><td>Non confermare l'anteprima: rigenera e verifica anche le gare fisse già in programma.</td></tr>
+        <tr><td>Il punteggio sembra sbagliato</td><td>Partita, eventi registrati e ultima sincronizzazione.</td><td>Usa la correzione consentita e verifica il referto.</td></tr>
+        <tr><td>Il chatbot non risponde</td><td>Connessione e disponibilità Jotform.</td><td>Usa questo manuale: il funzionamento dei tornei non dipende dall'assistente.</td></tr>
+        </tbody></table></div>
+        <h3>Quando segnalare un problema tecnico</h3><p>Registra l'ora dell'errore, la pagina, l'operazione eseguita, il ruolo e l'esito visualizzato. Se condividi uno screenshot, oscura nomi di minorenni, password, codici classe e dati del referto non necessari. Non modificare manualmente i dati come tentativo di riparazione.</p>
+      </section>
+
+      <section class="guide-section" id="privacy">
+        <div class="guide-chapter-label">CAPITOLO 16</div><h2>Privacy, dati degli studenti e sicurezza</h2>
+        <p>ITSOSCup può trattare nomi, classi, appartenenza alle squadre e altri dati di studenti, anche minorenni. L'istituto deve valutare i relativi obblighi e definire chi può visualizzarli, modificarli e conservarli.</p>
+        <ol><li>Usa account personali e autorizzazioni adeguate ai compiti.</li><li>Pubblica solo i dati necessari per la consultazione sportiva, secondo le decisioni della scuola.</li><li>Non comunicare codici di classe, password, collegamenti amministrativi riservati o chiavi API.</li><li>Conserva esportazioni, referti e backup soltanto su dispositivi e spazi autorizzati.</li><li>Evita l'inserimento di nominativi, firme e dettagli personali nelle conversazioni con l'assistente Jotform.</li><li>Concorda con il referente privacy le regole di conservazione, l'informativa e l'eventuale rapporto con i fornitori esterni.</li></ol>
+        <p class="guide-note"><strong>Assistente Jotform:</strong> fornisce supporto sulle procedure ma non deve essere utilizzato per consultare schede individuali o sostituire le verifiche dei docenti.</p>
+      </section>
+
+      <section class="guide-section" id="manutenzione">
+        <div class="guide-chapter-label">CAPITOLO 17</div><h2>Manutenzione periodica e controllo qualità</h2>
+        <h3>Prima dell'inizio dell'anno scolastico</h3><ol><li>Controlla scadenza del dominio, accessi al repository, hosting e database.</li><li>Verifica l'elenco dei referenti, disattivando gli account non più autorizzati.</li><li>Prova un torneo completo: squadre, iscrizioni, calendario, Match Live, referto e classifiche.</li><li>Verifica l'esito dei test automatici e dell'ultima pubblicazione sul sito.</li><li>Controlla backup e possibilità di ripristino secondo le procedure della scuola.</li></ol>
+        <h3>Dopo una modifica alla piattaforma</h3><ol><li>Annota la funzione modificata e il motivo.</li><li>Verifica su una copia/prova il comportamento prima di usarla su un torneo reale.</li><li>Controlla desktop, tablet e smartphone, compresa la leggibilità e l'accessibilità.</li><li>Aggiorna manuale, istruzioni operative e Knowledge Base di Jotform.</li><li>Comunica agli operatori eventuali differenze nel procedimento di gara.</li></ol>
+        <p class="guide-note">Gli aggiornamenti GitHub Pages non modificano automaticamente il database: eventuali migrazioni Supabase richiedono un controllo dedicato e un piano di ripristino.</p>
+      </section>
+
+      <section class="guide-section" id="passaggio">
+        <div class="guide-chapter-label">CAPITOLO 18</div><h2>Passaggio di consegne a un nuovo coordinatore</h2>
+        <p>ITSOSCup non deve dipendere da una sola persona. La scuola dovrebbe designare almeno <strong>un coordinatore principale e un sostituto</strong>, formati sulle procedure essenziali e con accessi separati.</p>
+        <h3>Documentazione da consegnare</h3><ul>
+          <li>Questo manuale, con data di revisione e nominativo del referente che lo mantiene.</li>
+          <li>Elenco dei sistemi e dei relativi responsabili: dominio, repository GitHub, pubblicazione del sito, Supabase e agente Jotform.</li>
+          <li>Procedure per il recupero degli accessi, custodite in modo sicuro dall'istituto (mai incluse nel manuale).</li>
+          <li>Elenco delle configurazioni principali dei tornei e delle regole sportive adottate.</li>
+          <li>Procedure di backup, controllo delle sincronizzazioni e gestione incidenti.</li>
+          <li>Contatti istituzionali dei referenti interni e delle persone autorizzate a intervenire.</li>
+        </ul>
+        <h3>Prova pratica prima del subentro</h3><p>Il nuovo coordinatore deve riuscire, senza l'aiuto dello sviluppatore, a creare un torneo di prova, impostare una scadenza, ricevere una proposta di rosa, assegnare un calendario, aprire Match Live, chiudere una partita fittizia e recuperare il relativo referto.</p>
+        <div class="guide-callout"><strong>Il chatbot non sostituisce il manuale</strong><p>Jotform è un aiuto per risposte rapide. Deve essere mantenuto aggiornato e testato, ma l'amministrazione deve poter funzionare anche quando il servizio di assistenza non è disponibile.</p></div>
+      </section>
+
+      <section class="guide-section" id="checklist">
+        <div class="guide-chapter-label">CAPITOLO 19</div><h2>Checklist operativa da stampare</h2>
+        <div class="guide-checklist"><h3>Prima dell'apertura delle iscrizioni</h3>
+          <label><input type="checkbox"> Torneo, sport e formato verificati</label>
+          <label><input type="checkbox"> Campi e disponibilità confermati</label>
+          <label><input type="checkbox"> Scadenza iscrizioni impostata e controllata</label>
+          <label><input type="checkbox"> Link delle classi generati e distribuiti correttamente</label>
+        </div>
+        <div class="guide-checklist"><h3>Prima di pubblicare il calendario</h3>
+          <label><input type="checkbox"> Rose/capitani approvati o verificati</label>
+          <label><input type="checkbox"> Nessuna sovrapposizione, neppure su campi differenti</label>
+          <label><input type="checkbox"> Riposi e massimo due turni consecutivi verificati</label>
+          <label><input type="checkbox"> Tutta l'andata precede il ritorno</label>
+          <label><input type="checkbox"> Orari e campi confermati dalla scuola</label>
+        </div>
+        <div class="guide-checklist"><h3>Prima e dopo ogni giornata</h3>
+          <label><input type="checkbox"> Operatori e dispositivi verificati</label>
+          <label><input type="checkbox"> Collegamento e sincronizzazione controllati</label>
+          <label><input type="checkbox"> Risultati, referti e firme verificati</label>
+          <label><input type="checkbox"> Eventuali ritardi e comunicazioni registrati</label>
+          <label><input type="checkbox"> Dati pubblici e classifiche controllati</label>
+        </div>
+      </section>
+
+      <section class="guide-section" id="faq">
+        <div class="guide-chapter-label">CAPITOLO 20</div><h2>FAQ per i nuovi coordinatori</h2>
+        <details><summary>Perché «Crea incontri» e «Pianifica calendario» sono due operazioni diverse?</summary><p>La prima genera chi gioca contro chi. La seconda decide quando e dove giocare, sulla base di disponibilità e vincoli. Vanno eseguite nell'ordine corretto quando si crea un torneo da zero.</p></details>
+        <details><summary>Una squadra può giocare tre partite consecutive?</summary><p>No: nella pianificazione automatica è imposto un massimo di due turni consecutivi, considerando anche campi differenti. Una doppia presenza consecutiva dovrebbe essere eccezionale; controlla comunque l'anteprima completa.</p></details>
+        <details><summary>Posso ricevere le rose poco prima del torneo?</summary><p>Sì, purché imposti una scadenza adeguata e lasci il tempo ai docenti di approvare le proposte. Dopo la scadenza, nuovi invii e modifiche alle rose vengono bloccati lato database.</p></details>
+        <details><summary>Perché non vedo alcune azioni nella Dashboard?</summary><p>Verifica il ruolo del tuo account. Alcune operazioni sono riservate al Super Admin o ai gestori autorizzati.</p></details>
+        <details><summary>Dove trovo i tentativi di atletica di uno studente?</summary><p>Apri Atletica e utilizza l'icona «Schede atleti e tentativi». Seleziona il torneo e cerca il nominativo o la classe. Saranno mostrati gli eventi e i risultati disponibili.</p></details>
+        <details><summary>Che cosa devo fare se salta la connessione durante un match?</summary><p>Controlla lo stato della sincronizzazione e non presumere che i dati siano stati salvati centralmente. Segui la procedura offline autorizzata per le postazioni Windows, se disponibile.</p></details>
+        <details><summary>Come si attiva o aggiorna l'assistente Jotform?</summary><p>L'agente è configurato in Jotform e il suo script viene caricato nella Dashboard. Il manuale e la Knowledge Base devono essere aggiornati dopo ogni modifica alla piattaforma. L'agente non ha accesso autonomo a Supabase.</p></details>
+        <details><summary>Chi gestirà ITSOSCup dopo lo studente sviluppatore?</summary><p>La scuola deve assegnare responsabili istituzionali, accessi individuali, piano di backup e una procedura periodica di prova. Consulta il capitolo dedicato al passaggio di consegne.</p></details>
+      </section>
+    </div>
+  </div>
+  <footer class="guide-footer"><span>ITSOSCup · Guida per il personale autorizzato · Revisione 2026-10</span><a href="admin?view=dashboard">Torna alla Dashboard <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></footer>
+</div>
+</main>
+ </div>
+ <script type="module" src="js/coordinator-guide.js?v=2"></script>
+</body></html>
