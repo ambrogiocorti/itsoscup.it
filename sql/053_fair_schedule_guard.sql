@@ -51,7 +51,7 @@ BEGIN
         extract(epoch FROM(f.ends-f.starts)) AS duration_sec
       FROM final f JOIN numbered n ON n.starts=f.starts
       WHERE f.away_team_id IS NOT NULL
-    ), trailing AS (
+    ), wave_streak AS (
       SELECT team_id,game_day,wave,starts,duration_sec,
         lag(wave) OVER (PARTITION BY team_id,game_day ORDER BY starts) prev_wave,
         lag(wave,2) OVER (PARTITION BY team_id,game_day ORDER BY starts) prev2_wave,
@@ -61,7 +61,7 @@ BEGIN
         lag(duration_sec,2) OVER (PARTITION BY team_id,game_day ORDER BY starts) prev2_duration
       FROM appearances
     )
-    SELECT 1 FROM trailing
+    SELECT 1 FROM wave_streak
     WHERE prev_wave=wave-1 AND prev2_wave=wave-2
       AND starts-prev_start <= make_interval(secs=>greatest(duration_sec,prev_duration)*2+900)
       AND prev_start-prev2_start <= make_interval(secs=>greatest(prev_duration,prev2_duration)*2+900)
