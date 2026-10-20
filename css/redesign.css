@@ -400,3 +400,17 @@ body.admin-page:not(.itsos-jotform-dashboard) [data-itsos-jotform-widget]{displa
 .itsos-preparation-indicator.done{background:#dcfce7;color:#166534}
 .itsos-preparation-footnote{margin:15px 0 0;color:#475569;font-size:.8rem}
 @media(max-width:900px){.itsos-preparation-header{align-items:flex-start;flex-direction:column}.itsos-preparation-steps{grid-template-columns:1fr}}
+
+/* Authoritative roster sign-off in the existing Squadre -> Iscrizioni area. */
+.roster-seal-panel{border:1px solid #cbd5e1;border-radius:14px;background:linear-gradient(115deg,#f8fafc,#eff6ff);padding:20px 23px;margin:17px 0}
+.roster-seal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:13px}
+.roster-seal-heading h3{font-size:1.02rem;margin:0 0 8px;color:#0f172a}
+.roster-seal-heading p{font-size:.84rem;margin:0;color:#475569;line-height:1.55}
+.roster-seal-badge{white-space:nowrap;background:#fef3c7;color:#92400e;border-radius:999px;padding:7px 12px;font-size:.76rem;font-weight:850}
+.roster-seal-badge.sealed{background:#dcfce7;color:#166534}
+.roster-seal-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:17px 0}
+.roster-seal-controls [hidden],.roster-seal-panel [hidden]{display:none!important}
+.roster-reopen-label{display:grid;gap:8px;min-width:240px;max-width:460px;flex:1;font-size:.82rem;font-weight:750;color:#334155}
+.roster-reopen-label textarea{width:100%;background:#fff;min-height:73px;resize:vertical}
+.roster-seal-note{color:#475569;font-size:.81rem;line-height:1.55;margin:8px 0 0}
+@media(max-width:650px){.roster-seal-panel{padding:17px}.roster-seal-heading{flex-direction:column}}

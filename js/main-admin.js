@@ -1,6 +1,7 @@
 import { requireAdmin, signOutAdmin, canEditMatches, canManageAll, canAccessControlCenter } from './auth.js';
 import {initAdminJotformAssistant,closeAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261020';
 import {initAdminPreparation} from './admin-preparation.js';
+import {initRosterSeal} from './roster-seal.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
 import {
@@ -1518,7 +1519,10 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   if (viewId === 'dashboard') loadDashboardStats();
   if (viewId === 'operations') await loadRegiaOperations();
   if (viewId === 'sports') loadSportsTable();
-  if (viewId === 'teams') loadTeamsTable();
+  if (viewId === 'teams') {
+    loadTeamsTable();
+    void initRosterSeal();
+  }
   if (viewId === 'matches') loadMatchesTable();
   if (viewId === 'venues') loadVenuesTable();
   if (viewId === 'archive') loadArchiveTable();

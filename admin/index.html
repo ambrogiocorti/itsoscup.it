@@ -628,6 +628,19 @@
                 </div>
                 <div id="class-deadline-status" class="itsos-deadline-status" role="status" aria-live="polite"></div>
               </form>
+              <section class="roster-seal-panel" aria-labelledby="roster-seal-title">
+                <div class="roster-seal-heading"><div><h3 id="roster-seal-title"><i class="fa-solid fa-shield-check" aria-hidden="true"></i> Conferma definitiva delle rose</h3>
+                  <p>Dopo aver approvato le iscrizioni, sigilla le rose prima della prima partita. Ogni riapertura richiede una motivazione registrata.</p></div>
+                  <span id="roster-seal-badge" class="roster-seal-badge" role="status">Controllo…</span></div>
+                <div class="roster-seal-controls">
+                  <button id="btn-roster-seal" type="button" class="btn btn-primary" disabled><i class="fa-solid fa-lock"></i> Conferma rose definitive</button>
+                  <label class="roster-reopen-label" for="roster-reopen-reason" hidden>Motivo della riapertura
+                    <textarea id="roster-reopen-reason" rows="2" minlength="10" maxlength="500" placeholder="Descrivi il motivo della correzione (almeno 10 caratteri)"></textarea></label>
+                  <button id="btn-roster-reopen" class="btn btn-ghost" type="button" hidden><i class="fa-solid fa-lock-open"></i> Riapri per correzioni</button>
+                  <button id="btn-roster-refresh" class="btn btn-ghost btn-compact" type="button" title="Aggiorna stato rose"><i class="fa-solid fa-rotate"></i></button>
+                </div>
+                <p class="roster-seal-note" id="roster-seal-status" aria-live="polite">Seleziona un torneo per verificare la conferma.</p>
+              </section>
               <div class="itsos-flow-grid">
                 <section class="itsos-flow-panel">
                   <h3>Invita una classe</h3>
