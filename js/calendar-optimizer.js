@@ -41,12 +41,7 @@ export async function saveCalendarOptimization(sportId,changes,originalMatches){
   const before=original.get(change.id),now=current.get(change.id);
   if(!before||!now||locked(now)||Number(now.venue_id)!==change.venueId||now.scheduled_start!==before.scheduled_start||now.scheduled_end!==before.scheduled_end)throw Error('Il calendario è cambiato oppure una partita è iniziata. Aggiorna l’anteprima.');
  }
- // Non garantisce atomicità tra più partite; interrompe al primo errore.
- let count=0;
- for(const c of changes){
-  const {data}=await run(db.from('matches').update({scheduled_start:c.start,scheduled_end:c.end}).eq('id',c.id).eq('sport_id',Number(sportId)).eq('scheduled_start',c.originalStart).eq('scheduled_end',c.originalEnd).eq('is_finished',false).select('id'),'Salvataggio riprogrammazione');
-  if((data||[]).length!==1)throw Error('Salvataggio interrotto dopo '+count+' modifiche: ricarica e controlla il calendario.');
-  count++;
- }
- return count;
+ const proposals=changes.map(c=>({match_id:c.id,venue_id:c.venueId,scheduled_start:c.start,scheduled_end:c.end,original_start:c.originalStart,original_end:c.originalEnd,original_venue_id:c.venueId}));
+ await run(db.rpc('apply_smart_schedule',{p_sport_id:Number(sportId),p_changes:proposals}),'Pubblicazione atomica riprogrammazione');
+ return proposals.length;
 }
