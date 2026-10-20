@@ -48,3 +48,13 @@ test('roster signoff preflight considers all active class invitations',()=>{
  assert.match(dash,/missingInvites/);
  assert.match(read('sql/059_approval_all_invites.sql'),/Inviti di classe non completati/);
 });
+
+test('tournament closeout is an authenticated read-only administrative checklist',()=>{
+ const p=read('tournament-closeout.html'),js=read('js/tournament-closeout.js');
+ assert.match(p,/data-operational-sidebar/);
+ assert.match(js,/requireAdmin/);
+ assert.match(js,/match_captain_signatures/);
+ assert.match(js,/athletics_entries/);
+ assert.doesNotMatch(js,/\.update\(|\.insert\(|\.delete\(|db\.rpc\(/);
+ assert.match(read('admin/index.html'),/href="tournament-closeout.html"/);
+});

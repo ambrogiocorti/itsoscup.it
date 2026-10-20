@@ -110,3 +110,6 @@ non assegna ruoli e non esegue operazioni senza un account autorizzato.
 - In Atletica si possono iscrivere gli studenti agli eventi anche prima del primo tentativo. Schede atleti include questi eventi e distingue le iscrizioni dai risultati.
 - La Pallamano usa due tempi e supporta nella cronologia gli eventi Esclusione 2 minuti e Tiro da 7 metri; non sostituisce il regolamento adottato dalla scuola.
 - La pianificazione mostra una matrice campi/orari e indicatori di attesa, insieme ai vincoli applicati dal database.
+
+### Controllo finale del torneo
+In `/tournament-closeout.html` il docente seleziona il torneo e legge le verifiche di completezza: per gli sport di squadra controlla incontri conclusi, campi, punteggi, firme e stato delle rose; per atletica distingue eventi e iscrizioni ancora prive di risultati. Il riepilogo è stampabile ma **non** sostituisce il referto ufficiale, non finalizza né archivia automaticamente il torneo. Le incongruenze vanno risolte nelle sezioni competenti prima dell'archiviazione.

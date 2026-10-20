@@ -164,6 +164,7 @@ Se la connessione viene meno durante un evento ufficiale:
 - `/tournament-setup.html`: percorso guidato per il Super Admin (crea torneo, scadenze, rose, incontri, calendario).
 - `/tournament-demo.html`: esercitazione isolata **solo per simulazioni in memoria**, senza scritture su Supabase.
 - `/tournament-insights.html`: confronto dei tornei per sport e anno di creazione, senza nominativi degli studenti.
+- `/tournament-closeout.html`: verifica finale **di sola lettura** prima dell'archiviazione: gare concluse, risultati, pianificazione e firme dei capitani; per l'atletica, discipline e risultati delle iscrizioni. Il report è stampabile ma non ufficializza o blocca il torneo.
 - Dashboard → **Preparazione del torneo**: controlli informativi di iscrizioni, rose e partite.
 - Squadre → **Conferma definitiva delle rose**: sigillo protetto dal database, riapertura motivata e registrata.
 - Atletica → **Iscrizioni agli eventi**: distingue partecipazione e risultati; le schede includono gli atleti iscritti prima del primo tentativo.
