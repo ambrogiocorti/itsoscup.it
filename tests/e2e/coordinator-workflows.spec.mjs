@@ -105,8 +105,9 @@ test('non-privileged role cannot create new tournaments in the wizard',async({pa
 });
 
 test('existing admin calendar exposes read-only quality matrix beside the calendar button',async({page})=>{
- // Isolate the calendar component from unrelated DB-dependent Admin startup work.
+ // Isolate the calendar component and block the CDN from replacing the fake Supabase client.
  await page.route('**/js/main-admin.js*',route=>route.fulfill({status:200,contentType:'text/javascript',body:'export {};'}));
+ await page.route('**/cdn.jsdelivr.net/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
  await mockAdmin(page);
  await page.goto('/admin?view=matches');
  await page.evaluate(async()=>{
