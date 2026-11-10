@@ -63,5 +63,6 @@ export async function mountOperationalSidebar({active='',role='',admin=null}={})
  window.addEventListener('resize',()=>{if(window.innerWidth>1024)setOpen(false)});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false)});
  // All callers reach this point only after successful requireAdmin authorization.
- initAdminJotformAssistant();
+ // Servizio esterno caricato solo nella Guida, dove non si trattano dati degli studenti.
+ if(document.body.classList.contains('coordinator-guide-page'))initAdminJotformAssistant();
 }

@@ -157,8 +157,9 @@
               </div>
               <div class="itsos-help-agent">
                 <div class="itsos-help-agent-head"><i class="fa-solid fa-comments" aria-hidden="true"></i><strong>Assistente virtuale</strong></div>
-                <p>Per una domanda veloce usa il pulsante rotondo Jotform in basso a destra, disponibile in tutte le sezioni amministrative quando sei online. Non inserire password, codici delle classi o dati personali degli studenti.</p>
-                <p id="jotform-admin-status" class="itsos-assistant-status" role="status">Disponibilità dell'assistente in verifica…</p>
+                <p>Per una domanda veloce puoi avviare l'assistente Jotform: è un servizio esterno, quindi si carica solo quando lo chiedi (ed è sempre attivo nel Manuale operativo). Non inserire password, codici delle classi o dati personali degli studenti.</p>
+                <button class="btn btn-ghost" id="btn-start-jotform" type="button"><i class="fa-solid fa-comments" aria-hidden="true"></i> Avvia l'assistente</button>
+                <p id="jotform-admin-status" class="itsos-assistant-status" role="status">Assistente non avviato.</p>
               </div>
             </div>
           </section>
@@ -965,7 +966,7 @@
           <section class="settings-section">
             <h3 class="settings-section-title">Privacy Pubblica</h3>
             <div class="inline-grid cols-2">
-              <div class="field"><label for="set-privacy-player-name">Nome studente</label><select id="set-privacy-player-name"><option value="full">Nome completo</option><option value="abbreviated">Nome abbreviato</option><option value="hidden">Nascosto</option></select></div>
+              <div class="field"><label for="set-privacy-player-name">Nome studente</label><select id="set-privacy-player-name"><option value="abbreviated">Nome abbreviato (consigliato)</option><option value="full">Nome completo</option><option value="hidden">Nascosto</option></select></div>
               <div class="checkbox-row"><input id="set-privacy-show-class" type="checkbox" /><label for="set-privacy-show-class">Mostra classe</label></div>
               <div class="checkbox-row"><input id="set-privacy-show-stats" type="checkbox" /><label for="set-privacy-show-stats">Mostra statistiche personali</label></div>
               <div class="checkbox-row"><input id="set-privacy-show-mvp" type="checkbox" /><label for="set-privacy-show-mvp">Mostra MVP</label></div>

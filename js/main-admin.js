@@ -1507,7 +1507,6 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
-  initAdminJotformAssistant();
   if(viewId==='dashboard')void initAdminPreparation();
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
   const url = new URL(window.location.href);
@@ -4631,7 +4630,7 @@ function normalizePrivacySettings(config = {}) {
         }
       })()
     : raw ?? {};
-  const playerName = ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'full';
+  const playerName = ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'abbreviated';
   const hidden = playerName === 'hidden';
   return {
     player_name: playerName,
@@ -4659,7 +4658,7 @@ function applyPrivacyPublicLock() {
 }
 
 function buildSuperSettingsPayload() {
-  const playerName = getEl('set-privacy-player-name')?.value || 'full';
+  const playerName = getEl('set-privacy-player-name')?.value || 'abbreviated';
   const hidden = playerName === 'hidden';
   return {
     ranking_tiebreakers: getRankingRulesFromDom(),
@@ -5407,6 +5406,11 @@ async function saveEventResultForm(event) {
   showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
+  // Servizio esterno: si carica solo su richiesta esplicita del coordinatore.
+  getEl('btn-start-jotform')?.addEventListener('click', (event) => {
+    event.currentTarget.disabled = true;
+    initAdminJotformAssistant();
+  });
   getEl('form-assign-match-staff')?.addEventListener('submit', async event => {
     event.preventDefault();
     if (!canManageAll(state.admin?.ruolo)) return;

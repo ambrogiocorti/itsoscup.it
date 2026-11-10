@@ -17,15 +17,16 @@ test('admin sidebar is source for operational pages',()=>{
   assert.match(read(page),/data-operational-sidebar/,page);
  }
 });
-test('assistant is shared across authenticated admin views',()=>{
+test('third-party assistant loads only in the guide or on explicit request',()=>{
  const admin=read('admin/index.html');
  assert.match(admin,/id="view-dashboard"/);
  assert.doesNotMatch(admin,/id="btn-open-jotform-admin"|id="jotform-admin-panel"/);
- assert.match(read('js/main-admin.js'),/initAdminJotformAssistant\(\)/);
- assert.doesNotMatch(read('js/main-admin.js'),/else closeAdminJotformAssistant\(\)/);
- assert.match(read('js/operational-sidebar.js'),/initAdminJotformAssistant\(\)/);
- assert.match(read('offline-workspace.html'),/offline-admin-jotform\.js/);
- assert.match(read('js/offline-admin-jotform.js'),/getAdminProfile/);
+ const mainAdmin=read('js/main-admin.js');
+ assert.match(mainAdmin,/btn-start-jotform'\)\?\.addEventListener\('click'/);
+ assert.doesNotMatch(mainAdmin,/classList\.add\('active'\);\n\s*initAdminJotformAssistant\(\)/);
+ assert.match(admin,/id="btn-start-jotform"/);
+ assert.match(read('js/operational-sidebar.js'),/coordinator-guide-page'\)\)initAdminJotformAssistant\(\)/);
+ assert.doesNotMatch(read('offline-workspace.html'),/offline-admin-jotform\.js/);
  assert.equal(JOTFORM_AGENT_SCRIPT_URL,'https://cdn.jotfor.ms/agent/embedjs/01a158834f78700087a259d6a403ec77e377/embed.js');
  assert.doesNotMatch(admin,/cdn\.jotfor\.ms\/agent\/embedjs/);
  assert.doesNotMatch(read('index.html'),/jotform-admin-assistant/);

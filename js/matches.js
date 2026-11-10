@@ -24,7 +24,7 @@ const DEFAULT_CONFIG = {
   ranking_tiebreakers: ['points', 'head_to_head', 'goal_diff', 'goals_for', 'fair_play', 'draw'],
   min_rest_minutes: 0,
   privacy_settings: {
-    player_name: 'full',
+    player_name: 'abbreviated',
     show_class: true,
     show_personal_stats: true,
     show_mvp: true,
