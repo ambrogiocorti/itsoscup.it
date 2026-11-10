@@ -5,7 +5,7 @@ import {isApprovedJotformUrl,isApprovedJotformEmbedScriptUrl} from '../js/jotfor
 import {JOTFORM_AGENT_SCRIPT_URL} from '../js/jotform-admin-config.js';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 test('public pages no longer load a second sidebar',()=>{
- for(const file of ['index.html','team.html','class.html','gym.html','bracket-demo.html']){
+ for(const file of ['index.html','team.html','class.html','gym.html']){
   assert.doesNotMatch(read(file),/public-rail\.js|public-rail\.css/,file);
  }
 });

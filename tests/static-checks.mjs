@@ -27,7 +27,6 @@ assertNotIncludes('js/app-config.js', [
   'SUPABASE_SERVICE_ROLE_KEY',
 ]);
 
-const adminHtml = read('admin.html');
 const adminIndexHtml = read('admin/index.html');
 // Regression: the removed daily recap must not reappear in Report Generale.
 assert(!adminIndexHtml.includes('daily-recap-panel'), 'Report Generale must not show Riepilogo della giornata');
@@ -151,12 +150,11 @@ assert(Array.isArray(manifest.icons) && manifest.icons.length > 0, 'manifest mus
   assert(!content.includes('fonts.googleapis.com'), `${file} must not depend on Google Fonts`);
 });
 
-['admin.html', 'admin/admin.html'].forEach((file) => {
-  const content = read(file);
-  assert(content.includes('/admin/'), `${file} must redirect to canonical /admin/ route`);
-  assert(!content.includes('cdn.jsdelivr.net'), `${file} must not depend on jsDelivr`);
-  assert(!content.includes('fonts.googleapis.com'), `${file} must not depend on Google Fonts`);
+const notFoundHtml = read('404.html');
+['/admin.html', '/admin/admin.html', '/admin/innovation.html'].forEach((legacyPath) => {
+  assert(notFoundHtml.includes(`'${legacyPath}'`), `404.html must redirect legacy ${legacyPath} to /admin/`);
 });
+assert(notFoundHtml.includes("'/admin/'"), '404.html must redirect legacy admin links to canonical /admin/');
 
 const sw = read('sw.js');
 assert(sw.includes("PWA_VERSION = 'itsoscup-pwa-online-"), 'online PWA worker must be versioned');

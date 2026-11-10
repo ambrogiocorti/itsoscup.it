@@ -421,7 +421,7 @@ function renderPlayedMatches(matches, emptyMessage = 'Nessuna partita giocata.',
       (match) => {
         const isFinished = Boolean(match.is_finished);
         const isLive = match.status === 'live';
-        const status = isFinished ? 'Finale' : isLive ? 'Live' : 'Programmata';
+        const status = isFinished ? 'Conclusa' : isLive ? 'Live' : 'Programmata';
         const score = isFinished || isLive ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -';
         return `
       <button class="match-item" data-match-id="${match.id}">

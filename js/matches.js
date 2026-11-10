@@ -93,7 +93,7 @@ function isNetworkFetchError(error) {
 
 function normalizeTeamSaveError(error) {
   if (isCaptainSchemaMissing(error)) {
-    return new Error('Aggiornamento squadra: applica la migrazione 009 e ricarica lo schema Supabase prima di impostare capitani.');
+    return new Error('Non è ancora possibile impostare i capitani: il database va aggiornato. Avvisa il referente tecnico (codice 009).');
   }
   if (isNetworkFetchError(error)) {
     return new Error('Aggiornamento squadra: richiesta Supabase non raggiunta. Controlla connessione, URL/API key in app-config.js e ricarica la pagina senza cache. Se stai impostando capitani, verifica anche che le migrazioni 009 e 011 siano applicate.');
@@ -875,7 +875,7 @@ export async function createManualMatch({
         return { data: await saveManualMatchViaRpc({ sportId, homeTeamId, awayTeamId, roundName, venueId, scheduledStart, scheduledEnd, scheduleNotes }) };
       } catch (rpcError) {
         if (isMissingRpcError(rpcError)) {
-          throw new Error('Creazione partita: richiesta REST bloccata dal browser/proxy. Applica la migrazione 010 per abilitare il fallback RPC.');
+          throw new Error('La partita non è stata creata: la rete della scuola ha bloccato la richiesta. Riprova; se succede ancora, avvisa il referente tecnico (codice 010).');
         }
         throw rpcError;
       }
@@ -947,7 +947,7 @@ export async function updateManualMatch({
         return { data: await saveManualMatchViaRpc({ matchId, sportId, homeTeamId, awayTeamId, roundName, venueId, scheduledStart, scheduledEnd, scheduleNotes }) };
       } catch (rpcError) {
         if (isMissingRpcError(rpcError)) {
-          throw new Error('Aggiornamento partita: richiesta REST bloccata dal browser/proxy. Applica la migrazione 010 per abilitare il fallback RPC.');
+          throw new Error('La partita non è stata aggiornata: la rete della scuola ha bloccato la richiesta. Riprova; se succede ancora, avvisa il referente tecnico (codice 010).');
         }
         throw rpcError;
       }
@@ -1276,7 +1276,7 @@ export async function saveSport(payload) {
   } catch (error) {
     if (!isMissingRpcError(error)) {
       if (isNetworkFetchError(error)) {
-        throw new Error('Aggiornamento torneo: richiesta Supabase non raggiunta. Applica la migrazione 012 e ricarica la pagina senza cache.');
+        throw new Error('Il torneo non è stato aggiornato: il server non ha risposto. Ricarica la pagina e riprova; se succede ancora, avvisa il referente tecnico (codice 012).');
       }
       throw error;
     }
@@ -1290,7 +1290,7 @@ export async function saveSport(payload) {
       'Aggiornamento torneo'
     ).catch((error) => {
       if (isNetworkFetchError(error)) {
-        throw new Error('Aggiornamento torneo: richiesta Supabase non raggiunta. Applica la migrazione 012 e ricarica la pagina senza cache.');
+        throw new Error('Il torneo non è stato aggiornato: il server non ha risposto. Ricarica la pagina e riprova; se succede ancora, avvisa il referente tecnico (codice 012).');
       }
       throw error;
     });
@@ -1302,7 +1302,7 @@ export async function saveSport(payload) {
     'Creazione torneo'
   ).catch((error) => {
     if (isNetworkFetchError(error)) {
-      throw new Error('Creazione torneo: richiesta Supabase non raggiunta. Applica la migrazione 012 e ricarica la pagina senza cache.');
+      throw new Error('Il torneo non è stato creato: il server non ha risposto. Ricarica la pagina e riprova; se succede ancora, avvisa il referente tecnico (codice 012).');
     }
     throw error;
   });

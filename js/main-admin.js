@@ -961,7 +961,7 @@ async function printAthleticsRaceSheets() {
     ]);
     if (advanced.__migrationMissing) {
       printWindow.close();
-      showToast('Applica la migrazione 022/026 per stampare i fogli gara avanzati.', 'error');
+      showToast('La stampa dei fogli gara avanzati non è ancora attiva. Avvisa il referente tecnico (codice 022/026).', 'error');
       return;
     }
     if (!events.length) {
@@ -1117,8 +1117,8 @@ function startAdminTour() {
     },
     {
       selector: '#link-telegram',
-      title: 'Telegram',
-      text: 'Configura e invia comunicazioni al canale della scuola, anche dai pulsanti rapidi di match e squadre.',
+      title: 'Comunicazioni',
+      text: 'Canale Telegram, notifiche pubbliche della home e modelli di messaggio: configura e invia comunicazioni al canale della scuola, anche dai pulsanti rapidi di match e squadre.',
     },
     {
       selector: '#link-settings',
@@ -1226,7 +1226,7 @@ async function renderMatchAuditLog(matchId) {
     }
 
     if (!data.length) {
-      target.innerHTML = '<div class="empty-state">Nessuna modifica registrata. Applica la migrazione 021 per iniziare a tracciare le modifiche.</div>';
+      target.innerHTML = '<div class="empty-state">Nessuna modifica registrata finora.</div>';
       return;
     }
 
@@ -1246,7 +1246,7 @@ async function renderMatchAuditLog(matchId) {
       )
       .join('');
   } catch (error) {
-    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}. Applica la migrazione 021 e ricarica la pagina.</div>`;
+    target.innerHTML = `<div class="empty-state">Il registro delle modifiche non è disponibile. Ricarica la pagina; se il problema resta, avvisa il referente tecnico (codice 021).</div>`;
   }
 }
 
@@ -1827,7 +1827,7 @@ function renderSystemHealthPanel() {
           )
           .join('')}
       </div>`
-    : '<div class="empty-state compact">Nessun controllo disponibile. Applica la migrazione 024.</div>';
+    : '<div class="empty-state compact">Nessun controllo disponibile al momento.</div>';
 }
 
 function renderIssueReportsPanel() {
@@ -3124,7 +3124,7 @@ async function handleSavePublicNotification(event) {
   });
 
   if (!saved) {
-    throw new Error('Notifiche pubbliche non disponibili: applica la migrazione 028 e ricarica lo schema.');
+    throw new Error('Le notifiche pubbliche non sono ancora attive. Avvisa il referente tecnico (codice 028).');
   }
 
   resetPublicNotificationForm();
@@ -3234,7 +3234,7 @@ async function renderTelegramTemplates() {
   }
   const rows = state.communicationTemplates ?? [];
   if (!rows.length) {
-    target.innerHTML = '<div class="empty-state">Applica la migrazione 024 per gestire i template comunicazione.</div>';
+    target.innerHTML = '<div class="empty-state">I modelli di messaggio non sono ancora attivi. Avvisa il referente tecnico (codice 024).</div>';
     return;
   }
 
@@ -4373,7 +4373,7 @@ async function handleSaveMatch(event) {
       .catch((error) => showToast(`Partita salvata, ma Telegram non inviato: ${error.message}`, 'error'));
   }
   if (savedMatch?.__scheduleUnsupported) {
-    showToast('Partita salvata senza campo/orario. Applica la migrazione 009 e ricarica schema/cache Supabase.', 'error');
+    showToast('Partita salvata, ma campo e orario non sono stati registrati. Avvisa il referente tecnico (codice 009).', 'error');
     return;
   }
   if (savedMatch?.__savedViaRpc) {
@@ -5394,7 +5394,7 @@ async function saveEventResultForm(event) {
   getEl('input-event-value').value = '';
   getEl('input-event-notes').value = '';
   if (saveResult?.__attemptColumnsUnsupported) {
-    showToast('Risultato salvato con fallback (tentativi non disponibili finché non applichi migrazione/cached schema).', 'error');
+    showToast('Risultato salvato, ma i singoli tentativi non sono stati registrati. Avvisa il referente tecnico.', 'error');
     return;
   }
   if (Number(saveResult?.__legacyDuplicateRowsCount ?? 0) > 0) {

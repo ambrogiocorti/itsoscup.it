@@ -52,10 +52,9 @@ Dal Calendario dell'amministrazione, apri **Strumenti torneo** (`tournament-tool
 
 - `/` o `index.html`: pagina pubblica studenti/docenti.
 - `/admin/`: dashboard amministrativa canonica.
-- `admin.html` e `admin/admin.html`: redirect verso `/admin/`.
+- `404.html`: pagina non trovata; reindirizza i vecchi link `admin.html`, `admin/admin.html` e `admin/innovation.html` a `/admin/`.
 - `live.html?match=<id>`: gestione live del match.
 - `gym.html`: schermo palestra/proiettore.
-- `bracket-demo.html`: demo quadro eliminazione con dati realistici.
 
 ## Ruoli
 
@@ -209,11 +208,10 @@ CI GitHub: `.github/workflows/ci.yml` esegue static checks, sintassi JavaScript 
 .
 |-- admin/
 |   `-- index.html
-|-- admin.html
+|-- 404.html
 |-- index.html
 |-- live.html
 |-- gym.html
-|-- bracket-demo.html
 |-- manifest.webmanifest
 |-- sw.js
 |-- css/

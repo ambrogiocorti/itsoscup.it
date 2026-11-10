@@ -110,7 +110,7 @@ export async function run(queryPromise, context = 'Operazione DB') {
   } catch (error) {
     const message = String(error?.message ?? error ?? '');
     const networkHint = /failed to fetch|networkerror|load failed/i.test(message)
-      ? ' Verifica connessione, URL Supabase, CORS e che la migrazione sia stata applicata.'
+      ? ' Controlla la connessione a Internet e riprova; se il problema resta, avvisa il referente tecnico.'
       : '';
     const err = new Error(`${context}: ${message || 'richiesta Supabase fallita.'}${networkHint}`);
     err.cause = error;
@@ -133,7 +133,7 @@ export async function runRpc(fnName, args = {}, context = 'Operazione RPC') {
   } catch (error) {
     const message = String(error?.message ?? error ?? '');
     const networkHint = /failed to fetch|networkerror|load failed/i.test(message)
-      ? ' Verifica connessione, URL Supabase, CORS e che la migrazione sia stata applicata.'
+      ? ' Controlla la connessione a Internet e riprova; se il problema resta, avvisa il referente tecnico.'
       : '';
     const err = new Error(`${context}: ${message || 'richiesta Supabase fallita.'}${networkHint}`);
     err.cause = error;

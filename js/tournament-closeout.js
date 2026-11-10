@@ -47,7 +47,7 @@ async function refresh(){
    for(const entry of pending.slice(0,80))issues.push('Evento #'+entry.event_id+' · atleta #'+entry.player_id+': nessun risultato registrato');
    $('closeout-overview').append(metric('Discipline',events.length),metric('Risultati',results.length),metric('Iscrizioni senza risultati',pending.length));
   }else{
-   const matches=await readAll('matches','id,round_name,is_finished,status,home_score,away_score,venue_id,scheduled_start,scheduled_end',q=>q.eq('sport_id',id).order('id'));
+   const matches=await readAll('matches','id,home_team_id,away_team_id,round_name,is_finished,status,home_score,away_score,venue_id,scheduled_start,scheduled_end',q=>q.eq('sport_id',id).order('id'));
    const scheduled=matches.filter(x=>x.status!=='cancelled');
    const pending=scheduled.filter(x=>!x.is_finished);
    const unscheduled=scheduled.filter(x=>!x.scheduled_start||!x.scheduled_end||!x.venue_id);
@@ -57,6 +57,12 @@ async function refresh(){
    const signs=ids.length?await readAll('match_captain_signatures','match_id,team_side,signed_at',q=>q.in('match_id',ids).order('match_id')):[];
    const signatureSides=new Map();
    for(const s of signs){const x=signatureSides.get(Number(s.match_id))||new Set();if(s.signed_at)x.add(s.team_side);signatureSides.set(Number(s.match_id),x)}
+   const teamRows=await readAll('teams','id,name',q=>q.eq('sport_id',id).order('id'));
+   const teamName=new Map(teamRows.map(t=>[Number(t.id),t.name]));
+   const matchLabel=m=>{
+    const home=teamName.get(Number(m.home_team_id))||'Da definire',away=teamName.get(Number(m.away_team_id))||'Da definire';
+    return home+' – '+away+(m.round_name?' ('+m.round_name+')':'')+(m.scheduled_start?', '+new Date(m.scheduled_start).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
+   };
    const unsigned=completed.filter(m=>!signatureSides.get(Number(m.id))?.has('home')||!signatureSides.get(Number(m.id))?.has('away'));
    checks.push([scheduled.length>0,'Incontri presenti',scheduled.length+' incontri non annullati']);
    checks.push([pending.length===0&&scheduled.length>0,'Partite concluse',pending.length+' partite ancora aperte']);
@@ -64,10 +70,10 @@ async function refresh(){
    checks.push([missingScores.length===0,'Risultati disponibili',missingScores.length+' risultati mancanti']);
    checks.push([unsigned.length===0,'Firme dei capitani',unsigned.length+' referti conclusi con firme mancanti']);
    checks.push([Boolean(sport.roster_confirmed_at),'Rose approvate definitivamente',sport.roster_confirmed_at?'Confermate il '+new Date(sport.roster_confirmed_at).toLocaleString('it-IT'):'Non ancora sigillate']);
-   for(const m of pending.slice(0,60))issues.push('Gara #'+m.id+': non ancora conclusa');
-   for(const m of unscheduled.slice(0,60))issues.push('Gara #'+m.id+': orario o campo da completare');
-   for(const m of unsigned.slice(0,60))issues.push('Gara #'+m.id+': verificare firme dei capitani');
-   for(const m of missingScores.slice(0,60))issues.push('Gara #'+m.id+': punteggio non registrato');
+   for(const m of pending.slice(0,60))issues.push(matchLabel(m)+': non ancora conclusa');
+   for(const m of unscheduled.slice(0,60))issues.push(matchLabel(m)+': orario o campo da completare');
+   for(const m of unsigned.slice(0,60))issues.push(matchLabel(m)+': verificare firme dei capitani');
+   for(const m of missingScores.slice(0,60))issues.push(matchLabel(m)+': punteggio non registrato');
    $('closeout-overview').append(metric('Incontri',scheduled.length),metric('Concluse',completed.length),metric('Da verificare',issues.length));
   }
   const completed=checks.filter(x=>x[0]).length;
