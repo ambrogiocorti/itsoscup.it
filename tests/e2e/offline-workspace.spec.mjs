@@ -1,13 +1,17 @@
 import { test, expect } from '@playwright/test';
 
-test('PWA installation banner appears only on first visit, not as a persistent icon', async ({ page }) => {
+test('first visit shows one welcome dialog, never again and no persistent install icon', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('[data-install-pwa]')).toHaveCount(0);
-  await expect(page.locator('#pwa-first-visit')).toBeVisible();
-  await page.locator('#pwa-install-dismiss').click();
-  await expect(page.locator('#pwa-first-visit')).toHaveCount(0);
+  await expect(page.locator('#itsos-welcome')).toBeVisible();
+  await expect(page.locator('[role="dialog"]:visible')).toHaveCount(1);
+  await expect(page.locator('#onboarding-overlay.open')).toHaveCount(0);
+  await expect(page.locator('#itsos-push-banner')).toHaveCount(0);
+  await page.locator('[data-welcome-continue]').click();
+  await expect(page.locator('#itsos-welcome')).toHaveCount(0);
+  await expect(page.locator('#itsos-push-banner')).toHaveCount(0);
   await page.reload();
-  await expect(page.locator('#pwa-first-visit')).toHaveCount(0);
+  await expect(page.locator('#itsos-welcome')).toHaveCount(0);
   await page.goto('/admin/');
   await expect(page.locator('[data-install-pwa]')).toHaveCount(0);
   await expect(page.locator('#btn-prepare-offline')).toHaveCount(0);
@@ -17,14 +21,16 @@ test('PWA installation banner appears only on first visit, not as a persistent i
 
 test('first-visit notification opt-out persists, settings remain editable', async ({ page }) => {
   await page.goto('/');
-  await page.locator('#pwa-install-dismiss').click();
-  await expect(page.locator('#itsos-push-banner')).toBeVisible();
-  await expect(page.locator('[data-push-mode="all"]')).toBeVisible();
-  await expect(page.locator('[data-push-mode="limited"]')).toBeVisible();
-  await page.locator('[data-push-mode="none"]').click();
-  await expect(page.locator('#itsos-push-banner')).toHaveCount(0);
+  await expect(page.locator('#itsos-welcome')).toBeVisible();
+  await expect(page.locator('[data-welcome-push="all"]')).toBeVisible();
+  await expect(page.locator('[data-welcome-push="limited"]')).toBeVisible();
+  await page.locator('[data-welcome-push="none"]').click();
+  await expect(page.locator('[data-welcome-push="none"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('[data-welcome-continue]').click();
   await page.reload();
+  await expect(page.locator('#itsos-welcome')).toHaveCount(0);
   await expect(page.locator('#itsos-push-banner')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('itsoscup_push_choice_v1'))).toBe('none');
   await page.locator('#public-notifications-btn').click();
   await page.locator('[data-open-push-preferences]').click();
   await expect(page.locator('#itsos-push-banner')).toBeVisible();

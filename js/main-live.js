@@ -24,6 +24,7 @@ import {
 import { getDeviceInfo, promptDeviceLabel } from './device.js';
 import { createLiveMatchEvent, loadLiveMatchEvents } from './platform-ops.js?v=51';
 import { startTourIfNeeded } from './onboarding.js';
+import { showWelcome } from './welcome.js?v=1';
 import { debounce, escapeHtml, formatDuration, getEl, showAppConfirm, showToast } from './utils.js';
 
 const state = {
@@ -1629,7 +1630,7 @@ function setupEmergencyConnectivity() {
   });
 }
 
-function startLiveTour() {
+function startLiveTour({ force = false } = {}) {
   startTourIfNeeded('live', [
     {
       selector: '.live-top-actions',
@@ -1671,7 +1672,16 @@ function startLiveTour() {
       title: 'Uso offline',
       text: 'Se manca Internet, continua a lavorare: la bozza resta su questo dispositivo e verra sincronizzata quando la connessione torna disponibile.',
     },
-  ]);
+  ], { force });
+}
+
+function offerLiveWelcome() {
+  const shown = showWelcome({
+    audience: 'staff',
+    askDeviceName: true,
+    tour: { key: 'live', start: () => startLiveTour({ force: true }) },
+  });
+  if (!shown && !getDeviceInfo().isNamed) promptDeviceLabel().catch(() => null);
 }
 
 async function init() {
@@ -1680,7 +1690,6 @@ async function init() {
 
   state.user = guard.user;
   state.admin = guard.admin;
-  await promptDeviceLabel();
 
   state.matchId = getMatchIdFromQuery();
   if (!state.matchId) {
@@ -1702,7 +1711,7 @@ async function init() {
   window.addEventListener('offline',()=>{setSyncStatus('offline','Connessione assente');setEditable(false)});
   window.addEventListener('online',()=>{setSyncStatus('pending','Connessione ripristinata · verifica dati');window.location.reload()});
   syncEmergencyDraft().catch(() => undefined);
-  startLiveTour();
+  offerLiveWelcome();
 }
 
 init().catch((error) => {

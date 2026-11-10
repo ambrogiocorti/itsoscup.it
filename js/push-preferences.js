@@ -3,7 +3,7 @@ import { teamFollowStore } from './team-follow-store.js';
 
 const PREF='itsoscup_push_choice_v1', SECRET='itsoscup_push_device_secret_v1';
 const serviceUrl=APP_CONFIG.supabaseUrl+'/functions/v1/itsos-push-register';
-const getMode=()=>{try{return localStorage.getItem(PREF)}catch{return null}};
+export const getPushMode=()=>{try{return localStorage.getItem(PREF)}catch{return null}};
 const saveMode=value=>{try{localStorage.setItem(PREF,value)}catch{}};
 const storeSecret=()=>{try{
   let secret=localStorage.getItem(SECRET);
@@ -39,7 +39,17 @@ async function updateSubscription(mode){
   if(!result.ok||!data.ok)throw Error(data.error||'Iscrizione push non confermata');
 }
 function close(){banner?.remove();banner=null}
-function openPreferences({automatic=false}={}){
+// Must be called directly from a click handler (browsers require a user gesture
+// for Notification.requestPermission). Returns null on success or the message to show.
+export async function choosePushMode(mode){
+  if(mode==='none'){saveMode(mode);try{await updateSubscription('none')}catch{};return null}
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return 'Questo browser non supporta le notifiche push. Puoi continuare a consultare quelle del sito.';
+  const permission=await Notification.requestPermission();
+  if(permission!=='granted')return 'Permesso non concesso. Puoi scegliere Nessuna oppure abilitare le notifiche dal browser.';
+  try{await updateSubscription(mode);saveMode(mode);return null}
+  catch(error){return 'Notifiche non ancora attive: '+error.message}
+}
+export function openPreferences(){
   if(banner)return;
   banner=document.createElement('section');banner.className='itsos-push-banner';
   banner.id='itsos-push-banner';banner.setAttribute('aria-label','Preferenze notifiche ITSOSCup');
@@ -51,37 +61,28 @@ function openPreferences({automatic=false}={}){
    <button type="button" data-push-mode="none"><strong>Nessuna</strong><small>Restano le notifiche consultabili sul sito</small></button>
  </div><p data-push-message role="status" aria-live="polite"></p>`;
   document.body.appendChild(banner);
-  banner.querySelector('[data-push-close]').addEventListener('click',()=>{if(automatic&&!getMode())saveMode('none');close()});
+  banner.querySelector('[data-push-close]').addEventListener('click',close);
   banner.querySelectorAll('[data-push-mode]').forEach(button=>button.addEventListener('click',async()=>{
-    const mode=button.dataset.pushMode;
-    if(mode==='none'){saveMode(mode);try{await updateSubscription('none')}catch{};close();return}
-    // Call requestPermission in the actual click handler (required by modern browsers).
-    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) { status('Questo browser non supporta le notifiche push. Puoi continuare a consultare quelle del sito.'); return; }
-    const permission=await Notification.requestPermission();
-    if(permission!=='granted'){status('Permesso non concesso. Puoi scegliere Nessuna oppure abilitare le notifiche dal browser.');return}
     banner.querySelectorAll('button[data-push-mode]').forEach(x=>x.disabled=true);
-    try{await updateSubscription(mode);saveMode(mode);close()}
-    catch(error){status('Notifiche non ancora attive: '+error.message)}
-    finally{banner?.querySelectorAll('button[data-push-mode]').forEach(x=>x.disabled=false)}
+    const message=await choosePushMode(button.dataset.pushMode);
+    if(message===null){close();return}
+    status(message);
+    banner?.querySelectorAll('button[data-push-mode]').forEach(x=>x.disabled=false);
   }));
-}
-function offerFirstVisit(){
- if(getMode()||document.getElementById('pwa-first-visit'))return;
- openPreferences({automatic:true});
 }
 document.addEventListener('DOMContentLoaded',()=>{
  vapid().catch(()=>undefined);
  const prefsButton=document.querySelector('[data-open-push-preferences]');
  prefsButton?.addEventListener('click',()=>openPreferences());
- if(!getMode()){if(document.getElementById('pwa-first-visit'))window.addEventListener('itsos:pwa-install-closed',offerFirstVisit,{once:true});else offerFirstVisit()}
- else if(getMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')
+ // The first-visit choice is offered by the single welcome dialog (welcome.js).
+ if(getPushMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')
    updateSubscription('limited').catch(()=>undefined);
 });
 window.addEventListener('team-follows-changed',()=>{
- if(getMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')updateSubscription('limited').catch(()=>undefined);
+ if(getPushMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')updateSubscription('limited').catch(()=>undefined);
 });
 window.addEventListener('storage',event=>{
  if(event.key===PREF&&event.newValue==='none')updateSubscription('none').catch(()=>undefined);
- if(event.key==='tornei_team_follows_v1'&&getMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')
+ if(event.key==='tornei_team_follows_v1'&&getPushMode()==='limited'&&'Notification' in window&&Notification.permission==='granted')
    updateSubscription('limited').catch(()=>undefined);
 });

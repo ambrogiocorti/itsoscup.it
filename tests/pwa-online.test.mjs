@@ -21,10 +21,11 @@ test('install command uses the same site and authenticated views', () => {
   const adminHtml = source('admin/index.html');
   for (const html of [publicHtml, adminHtml]) {
     assert.doesNotMatch(html, /data-install-pwa/);
-    assert.match(html, /js\/pwa-install\.js/);
+    assert.match(html, /js\/welcome\.js/);
     assert.match(html, /manifest\.webmanifest/);
   }
-  assert.ok(source('js/pwa-install.js').includes('pwa-first-visit'));
+  assert.ok(source('js/welcome.js').includes('data-welcome-install'), 'install offer lives in the single welcome dialog');
+  assert.ok(source('js/welcome.js').includes("from './pwa-install.js"));
   assert.ok(source('js/pwa-install.js').includes('itsoscup_pwa_install_seen_v2'));
   assert.ok(source('js/pwa-install.js').includes('beforeinstallprompt'));
   assert.ok(source('js/pwa-install.js').includes('appinstalled'));

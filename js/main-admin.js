@@ -108,6 +108,7 @@ import {
   upsertMatchCheckin,
 } from './platform-ops.js?v=51';
 import { startTourIfNeeded } from './onboarding.js';
+import { showWelcome } from './welcome.js?v=1';
 import { initIntegratedAdmin } from './admin-integrated-workflows.js';
 import { loadLiveMatch } from './live.js';
 import { assertMatchReportPrintCapacity, renderMatchReportDocument } from './match-report.js';
@@ -1065,25 +1066,25 @@ async function renderOfflineAdminDashboard() {
   `;
 }
 
-function startAdminTour() {
+function startAdminTour({ force = false } = {}) {
   const role = state.admin?.ruolo;
   if (role === 'match_manager') {
     startTourIfNeeded('admin_match_manager', [
       { selector: '#link-matches', title: 'Calendario', text: 'Qui trovi le partite, apri la diretta, registri il punteggio e completi i referti con le firme.' },
-    ]);
+    ], { force });
     return;
   }
   if (role === 'report_viewer') {
     startTourIfNeeded('admin_report_viewer', [
       { selector: '#link-reports', title: 'Report', text: 'Consulta i risultati e le statistiche disponibili al tuo ruolo, con filtri ed esportazione.' },
-    ]);
+    ], { force });
     return;
   }
   startTourIfNeeded('admin', [
     {
       selector: '#admin-sidebar',
       title: 'Menu principale',
-      text: 'Da qui passi tra dashboard, report, calendario, campi, albo, Telegram, tornei, squadre, atletica e impostazioni.',
+      text: 'Da qui passi tra dashboard, report, calendario, campi, albo, comunicazioni, tornei, squadre, atletica e impostazioni.',
     },
     {
       selector: '#sidebar-device-card',
@@ -1128,9 +1129,26 @@ function startAdminTour() {
     {
       selector: null,
       title: 'ITSOSCup installabile',
-      text: 'Dal pulsante Installa ITSOSCup puoi utilizzare questa stessa piattaforma online come app Windows. Le partite vengono salvate sul server.',
+      text: 'Dal menu del browser puoi installare ITSOSCup e utilizzare questa stessa piattaforma online come app Windows. Le partite vengono salvate sul server.',
     },
-  ]);
+  ], { force });
+}
+
+// Un solo benvenuto: nome postazione, installazione, notifiche e giro guidato facoltativo.
+function offerAdminWelcome() {
+  const role = state.admin?.ruolo;
+  const key = role === 'match_manager' ? 'admin_match_manager' : role === 'report_viewer' ? 'admin_report_viewer' : 'admin';
+  const onDeviceNamed = () => {
+    updateSidebarDeviceLabel();
+    registerCurrentDevice().catch(() => null);
+  };
+  const shown = showWelcome({
+    audience: 'staff',
+    askDeviceName: true,
+    onDeviceNamed,
+    tour: { key, start: () => startAdminTour({ force: true }) },
+  });
+  if (!shown && !getDeviceInfo().isNamed) promptDeviceLabel().then(onDeviceNamed).catch(() => null);
 }
 
 function formatAuditAction(action) {
@@ -5407,6 +5425,7 @@ async function saveEventResultForm(event) {
 }
 function bindCoreActions() {
   // Servizio esterno: si carica solo su richiesta esplicita del coordinatore.
+  getEl('btn-start-tour')?.addEventListener('click', () => startAdminTour({ force: true }));
   getEl('btn-start-jotform')?.addEventListener('click', (event) => {
     event.currentTarget.disabled = true;
     initAdminJotformAssistant();
@@ -6140,7 +6159,6 @@ async function init() {
   document.body.classList.remove('auth-pending');
   getEl('admin-name').textContent = formatAdminDisplayName(state.admin);
   getEl('admin-role').textContent = formatRoleLabel(state.admin?.ruolo);
-  await promptDeviceLabel();
   updateSidebarDeviceLabel();
   registerCurrentDevice().catch(() => null);
 
@@ -6152,7 +6170,7 @@ async function init() {
   if (session.offline) {
     await renderOfflineAdminDashboard();
     showToast('Modalita offline: disponibili solo i match gia preparati su questo dispositivo.', 'error');
-    startAdminTour();
+    offerAdminWelcome();
     return;
   }
 
@@ -6193,7 +6211,7 @@ async function init() {
   const requestedView = new URLSearchParams(window.location.search).get('view');
   await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView(), { fromNavigation: true });
 
-  startAdminTour();
+  offerAdminWelcome();
 }
 
 init().catch((error) => {
