@@ -1635,7 +1635,7 @@ function startLiveTour({ force = false } = {}) {
     {
       selector: '.live-top-actions',
       title: 'Azioni rapide',
-      text: 'In alto trovi ritorno al pannello, stampa del referto cartaceo, salvataggio manuale e chiusura del match.',
+      text: 'Indietro, stampa del referto cartaceo, annulla, salvataggio e chiusura della partita: in alto su computer, in una barra fissa in basso su telefono.',
     },
     {
       selector: '.live-scoreboard',

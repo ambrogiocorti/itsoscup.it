@@ -56,6 +56,10 @@ Dal Calendario dell'amministrazione, apri **Strumenti torneo** (`tournament-tool
 - `live.html?match=<id>`: gestione live del match.
 - `gym.html`: schermo palestra/proiettore.
 
+## Librerie esterne
+
+La libreria Supabase (`vendor/supabase-js-2.118.0/`) e le icone Font Awesome (`vendor/fontawesome-6.4.0/`) sono servite dal sito con versione fissata. I CDN restano solo come riserva in `js/db.js`, con la stessa versione. Per aggiornare una libreria, scarica la nuova versione in una nuova cartella `vendor/<nome>-<versione>/` e aggiorna i riferimenti nelle pagine.
+
 ## Ruoli
 
 - `super_admin`: accesso completo, Centro di controllo, gestione globale campi/postazioni e risultati ufficiali.
