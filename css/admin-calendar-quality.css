@@ -46,3 +46,35 @@
 @media(max-width:1050px){#view-matches .mcq-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:580px){#view-matches .mcq-panel .card-body{padding:16px}#view-matches .mcq-filters{flex-direction:column;align-items:stretch}#view-matches .mcq-field{min-width:0}#view-matches .mcq-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#view-matches .mcq-metric{padding:11px}}
 @media(prefers-reduced-motion:reduce){#view-matches .mcq-game{transition:none}}
+
+/* Calendario: la tabella sta nel riquadro a 1366 px e diventa a schede su telefono. */
+.admin-page .table-wrap table.matches-admin-table{min-width:0 !important;width:100%}
+.matches-admin-table .match-col-sport{width:13%}
+.matches-admin-table .match-col-teams{width:25%}
+.matches-admin-table .match-col-slot{width:17%}
+.matches-admin-table .match-col-venue{width:13%}
+.matches-admin-table .match-col-score{width:10%}
+.matches-admin-table .match-col-status{width:13%}
+.matches-admin-table .match-col-actions{width:9%}
+.matches-admin-table .match-teams-line,
+.matches-admin-table .match-cell-slot .match-table-text,
+.matches-admin-table .match-cell-sport .match-table-text,
+.matches-admin-table .match-cell-venue .match-table-text{white-space:normal;overflow-wrap:anywhere;text-overflow:clip}
+.matches-admin-table .match-cell-score .score-chip{min-width:0;padding:6px 8px;white-space:nowrap}
+@media(max-width:760px){
+ .admin-page .table-wrap:has(>.matches-admin-table){overflow:visible;padding:12px}
+ .matches-admin-table,.matches-admin-table tbody{display:block;width:100%}
+ .matches-admin-table colgroup,.matches-admin-table thead{display:none}
+ .matches-admin-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:14px;margin:0 0 10px;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
+ .matches-admin-table tbody td{display:block;padding:0;border:0;text-align:left;min-width:0}
+ .matches-admin-table .match-cell-teams{grid-column:1;grid-row:1;font-size:1rem}
+ .matches-admin-table .match-cell-score{grid-column:2;grid-row:1;text-align:right}
+ .matches-admin-table .match-cell-sport{grid-column:1/-1;grid-row:2;color:#64748b;font-size:.82rem}
+ .matches-admin-table .match-cell-slot{grid-column:1/-1;grid-row:3}
+ .matches-admin-table .match-cell-venue{grid-column:1/-1;grid-row:4}
+ .matches-admin-table .match-cell-slot::before{content:"Orario: ";color:#64748b;font-size:.82rem}
+ .matches-admin-table .match-cell-venue::before{content:"Campo: ";color:#64748b;font-size:.82rem}
+ .matches-admin-table .match-cell-slot .match-table-text,.matches-admin-table .match-cell-venue .match-table-text{display:inline}
+ .matches-admin-table .match-cell-status{grid-column:1;grid-row:5;align-self:center}
+ .matches-admin-table .match-cell-actions{grid-column:2;grid-row:5;text-align:right}
+}

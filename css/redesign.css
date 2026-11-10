@@ -429,3 +429,7 @@ body.admin-page:not(.itsos-jotform-enabled) [data-itsos-jotform-widget]{display:
 .ath-entry-item strong{font-size:.87rem;overflow-wrap:anywhere}
 .ath-entry-item small{font-size:.77rem;color:#64748b}
 @media(max-width:900px){.ath-entry-fields{grid-template-columns:1fr}.ath-entry-heading{align-items:flex-start;flex-direction:column}}
+/* Tabellone a eliminazione: tutta la larghezza, prima di «Prossimamente». */
+.public-page:not(.team-page) .container>#standings-card.is-bracket{grid-column:1/-1;order:1}
+.public-page:not(.team-page) .container:has(>#standings-card.is-bracket)>#upcoming-card{grid-column:1/-1;order:2}
+.public-page:not(.team-page) .container:has(>#standings-card.is-bracket)>:where(#matches-card,#athletics-card){order:3}

@@ -103,6 +103,7 @@ function resetPublicTournamentUi() {
   const matchesTitle = document.getElementById('matches-title');
   const contextCard = document.getElementById('sport-context-card');
   const contextContent = document.getElementById('sport-context-content');
+  document.getElementById('standings-card')?.classList.remove('is-bracket');
 
   if (standingTitle) {
     standingTitle.innerHTML = '<i class="fa-solid fa-list-ol"></i> Classifica';
@@ -139,6 +140,8 @@ function updatePublicTournamentUi(sport) {
     `;
   }
   setHidden(contextCard, false);
+  // Il tabellone a eliminazione ha bisogno di tutta la larghezza della pagina.
+  document.getElementById('standings-card')?.classList.toggle('is-bracket', sport.sport_type !== 'atletica' && sport.format === 'eliminazione');
 
   if (sport.sport_type === 'atletica') {
     if (standingTitle) {
