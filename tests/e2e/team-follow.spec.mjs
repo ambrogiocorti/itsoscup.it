@@ -51,6 +51,7 @@ function syntheticSdk({ privacy = 'full', denyStorage = false, showClass = true,
 
 async function installFixture(context, args = {}) {
   await context.route('**/cdn.jsdelivr.net/**', (route) => route.abort());
+  await context.route('**/vendor/supabase-js-*/**', (route) => route.abort());
   await context.route('**/cdnjs.cloudflare.com/**', (route) => route.abort());
   await context.addInitScript(syntheticSdk, args);
 }
