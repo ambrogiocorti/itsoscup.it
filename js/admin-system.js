@@ -277,7 +277,7 @@ export async function validatePreEvent(sportId = null) {
         {
           severity: 'error',
           code: 'migration_missing',
-          message: 'Applica la migrazione 025 per usare il validatore pre-evento.',
+          message: 'Il controllo pre-evento non è ancora attivo. Avvisa il referente tecnico (codice 025).',
           entity_type: 'system',
           entity_id: null,
         },

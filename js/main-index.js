@@ -22,7 +22,6 @@ import { loadHonorRoll } from './archive.js';
 import { formatScheduleRange, loadVenueScheduleBySlug } from './schedule.js';
 import { registerOfflineSupport } from './offline.js';
 import { registerClientErrorLogger } from './error-logger.js';
-import { startTourIfNeeded } from './onboarding.js';
 import { formatPublicTeamName, teamPageUrl } from './public-team.js';
 import { initMyTeams } from './team-follow-ui.js?v=63';
 import {
@@ -104,6 +103,7 @@ function resetPublicTournamentUi() {
   const matchesTitle = document.getElementById('matches-title');
   const contextCard = document.getElementById('sport-context-card');
   const contextContent = document.getElementById('sport-context-content');
+  document.getElementById('standings-card')?.classList.remove('is-bracket');
 
   if (standingTitle) {
     standingTitle.innerHTML = '<i class="fa-solid fa-list-ol"></i> Classifica';
@@ -140,6 +140,8 @@ function updatePublicTournamentUi(sport) {
     `;
   }
   setHidden(contextCard, false);
+  // Il tabellone a eliminazione ha bisogno di tutta la larghezza della pagina.
+  document.getElementById('standings-card')?.classList.toggle('is-bracket', sport.sport_type !== 'atletica' && sport.format === 'eliminazione');
 
   if (sport.sport_type === 'atletica') {
     if (standingTitle) {
@@ -421,7 +423,7 @@ function renderPlayedMatches(matches, emptyMessage = 'Nessuna partita giocata.',
       (match) => {
         const isFinished = Boolean(match.is_finished);
         const isLive = match.status === 'live';
-        const status = isFinished ? 'Finale' : isLive ? 'Live' : 'Programmata';
+        const status = isFinished ? 'Conclusa' : isLive ? 'Live' : 'Programmata';
         const score = isFinished || isLive ? `${match.home_score ?? 0} - ${match.away_score ?? 0}` : '- -';
         return `
       <button class="match-item" data-match-id="${match.id}">
@@ -1432,43 +1434,6 @@ async function init() {
   await renderVenueRoute();
   await loadTournamentData();
 
-  startTourIfNeeded('public', [
-    {
-      selector: '.public-header',
-      title: 'Home tornei',
-      text: 'Questa pagina e pensata per studenti e docenti: mostra calendario, risultati, classifiche e comunicazioni senza entrare nell area admin.',
-    },
-    {
-      selector: '#sport-select',
-      title: 'Seleziona torneo',
-      text: 'Scegli il torneo per vedere calendario, risultati e classifiche.',
-    },
-    {
-      selector: '#upcoming-card',
-      title: 'Prossimamente',
-      text: 'Qui trovi partita in corso, prossime partite, ultimo risultato e comunicazioni.',
-    },
-    {
-      selector: '#standings-card',
-      title: 'Classifica',
-      text: 'La classifica si aggiorna con i risultati confermati.',
-    },
-    {
-      selector: '#matches-card',
-      title: 'Match e dettagli',
-      text: 'Clicca una partita per aprire il dettaglio con squadre, orario, campo, stato e risultato.',
-    },
-    {
-      selector: '#public-archive-btn',
-      title: 'Archivio',
-      text: 'Da qui apri Albo d Oro e storico delle edizioni precedenti.',
-    },
-    {
-      selector: '.public-quick-actions',
-      title: 'Schermo palestra e problemi',
-      text: 'In alto trovi subito la modalita schermo palestra e il pulsante per segnalare un problema organizzativo.',
-    },
-  ]);
 }
 
 init().catch((error) => {

@@ -4,6 +4,7 @@ test.use({ serviceWorkers: 'block' });
 
 test('existing team page shows only public notices of the selected team',async({page})=>{
  await page.route('**/cdn.jsdelivr.net/**',r=>r.abort());
+ await page.route('**/vendor/supabase-js-*/**',r=>r.abort());
  await page.addInitScript(()=>{
   const tables={
    sports:[{id:37,name:'Torneo di prova',sport_type:'calcio',format:'gironi',year:4,is_active:true}],
@@ -51,6 +52,7 @@ test('existing team page shows only public notices of the selected team',async({
 
 test('a different team does not receive other teams public notices',async({page})=>{
  await page.route('**/cdn.jsdelivr.net/**',r=>r.abort());
+ await page.route('**/vendor/supabase-js-*/**',r=>r.abort());
  await page.addInitScript(()=>{
   const tables={
    sports:[{id:37,name:'Torneo di prova',sport_type:'calcio',format:'gironi',year:4,is_active:true}],

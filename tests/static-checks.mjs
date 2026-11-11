@@ -27,7 +27,6 @@ assertNotIncludes('js/app-config.js', [
   'SUPABASE_SERVICE_ROLE_KEY',
 ]);
 
-const adminHtml = read('admin.html');
 const adminIndexHtml = read('admin/index.html');
 // Regression: the removed daily recap must not reappear in Report Generale.
 assert(!adminIndexHtml.includes('daily-recap-panel'), 'Report Generale must not show Riepilogo della giornata');
@@ -144,19 +143,22 @@ assert(Array.isArray(manifest.icons) && manifest.icons.length > 0, 'manifest mus
   const content = read(file);
   assert(content.includes('rel="manifest"'), `${file} must link manifest.webmanifest`);
   assert(content.includes('name="theme-color"'), `${file} must define theme-color`);
-  assert(content.includes('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'), `${file} must load Supabase SDK from CDN`);
-  assert(content.includes('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'), `${file} must load Font Awesome from CDN`);
-  assert(!content.includes('vendor/supabase'), `${file} must not load Supabase from vendor`);
-  assert(!content.includes('vendor/fontawesome'), `${file} must not load Font Awesome from vendor`);
+  assert(content.includes('/vendor/supabase-js-2.118.0/supabase.js'), `${file} must load the pinned, self-hosted Supabase SDK`);
+  assert(content.includes('/vendor/fontawesome-6.4.0/css/all.min.css'), `${file} must load self-hosted Font Awesome`);
+  assert(!content.includes('cdn.jsdelivr.net/npm/@supabase/supabase-js@2"'), `${file} must not load an unpinned Supabase SDK`);
+  assert(!content.includes('cdnjs.cloudflare.com'), `${file} must not depend on cdnjs for icons`);
   assert(!content.includes('fonts.googleapis.com'), `${file} must not depend on Google Fonts`);
 });
 
-['admin.html', 'admin/admin.html'].forEach((file) => {
-  const content = read(file);
-  assert(content.includes('/admin/'), `${file} must redirect to canonical /admin/ route`);
-  assert(!content.includes('cdn.jsdelivr.net'), `${file} must not depend on jsDelivr`);
-  assert(!content.includes('fonts.googleapis.com'), `${file} must not depend on Google Fonts`);
+assert(existsSync(join(root, 'vendor/supabase-js-2.118.0/supabase.js')), 'self-hosted Supabase SDK is required');
+assert(existsSync(join(root, 'vendor/fontawesome-6.4.0/webfonts/fa-solid-900.woff2')), 'self-hosted Font Awesome webfonts are required');
+assert(!read('js/db.js').includes("supabase-js@2/"), 'Supabase fallback URLs must be pinned to an exact version');
+
+const notFoundHtml = read('404.html');
+['/admin.html', '/admin/admin.html', '/admin/innovation.html'].forEach((legacyPath) => {
+  assert(notFoundHtml.includes(`'${legacyPath}'`), `404.html must redirect legacy ${legacyPath} to /admin/`);
 });
+assert(notFoundHtml.includes("'/admin/'"), '404.html must redirect legacy admin links to canonical /admin/');
 
 const sw = read('sw.js');
 assert(sw.includes("PWA_VERSION = 'itsoscup-pwa-online-"), 'online PWA worker must be versioned');

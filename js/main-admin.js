@@ -108,6 +108,7 @@ import {
   upsertMatchCheckin,
 } from './platform-ops.js?v=51';
 import { startTourIfNeeded } from './onboarding.js';
+import { showWelcome } from './welcome.js?v=1';
 import { initIntegratedAdmin } from './admin-integrated-workflows.js';
 import { loadLiveMatch } from './live.js';
 import { assertMatchReportPrintCapacity, renderMatchReportDocument } from './match-report.js';
@@ -961,7 +962,7 @@ async function printAthleticsRaceSheets() {
     ]);
     if (advanced.__migrationMissing) {
       printWindow.close();
-      showToast('Applica la migrazione 022/026 per stampare i fogli gara avanzati.', 'error');
+      showToast('La stampa dei fogli gara avanzati non è ancora attiva. Avvisa il referente tecnico (codice 022/026).', 'error');
       return;
     }
     if (!events.length) {
@@ -1065,25 +1066,25 @@ async function renderOfflineAdminDashboard() {
   `;
 }
 
-function startAdminTour() {
+function startAdminTour({ force = false } = {}) {
   const role = state.admin?.ruolo;
   if (role === 'match_manager') {
     startTourIfNeeded('admin_match_manager', [
       { selector: '#link-matches', title: 'Calendario', text: 'Qui trovi le partite, apri la diretta, registri il punteggio e completi i referti con le firme.' },
-    ]);
+    ], { force });
     return;
   }
   if (role === 'report_viewer') {
     startTourIfNeeded('admin_report_viewer', [
       { selector: '#link-reports', title: 'Report', text: 'Consulta i risultati e le statistiche disponibili al tuo ruolo, con filtri ed esportazione.' },
-    ]);
+    ], { force });
     return;
   }
   startTourIfNeeded('admin', [
     {
       selector: '#admin-sidebar',
       title: 'Menu principale',
-      text: 'Da qui passi tra dashboard, report, calendario, campi, albo, Telegram, tornei, squadre, atletica e impostazioni.',
+      text: 'Da qui passi tra dashboard, report, calendario, campi, albo, comunicazioni, tornei, squadre, atletica e impostazioni.',
     },
     {
       selector: '#sidebar-device-card',
@@ -1117,8 +1118,8 @@ function startAdminTour() {
     },
     {
       selector: '#link-telegram',
-      title: 'Telegram',
-      text: 'Configura e invia comunicazioni al canale della scuola, anche dai pulsanti rapidi di match e squadre.',
+      title: 'Comunicazioni',
+      text: 'Canale Telegram, notifiche pubbliche della home e modelli di messaggio: configura e invia comunicazioni al canale della scuola, anche dai pulsanti rapidi di match e squadre.',
     },
     {
       selector: '#link-settings',
@@ -1128,9 +1129,26 @@ function startAdminTour() {
     {
       selector: null,
       title: 'ITSOSCup installabile',
-      text: 'Dal pulsante Installa ITSOSCup puoi utilizzare questa stessa piattaforma online come app Windows. Le partite vengono salvate sul server.',
+      text: 'Dal menu del browser puoi installare ITSOSCup e utilizzare questa stessa piattaforma online come app Windows. Le partite vengono salvate sul server.',
     },
-  ]);
+  ], { force });
+}
+
+// Un solo benvenuto: nome postazione, installazione, notifiche e giro guidato facoltativo.
+function offerAdminWelcome() {
+  const role = state.admin?.ruolo;
+  const key = role === 'match_manager' ? 'admin_match_manager' : role === 'report_viewer' ? 'admin_report_viewer' : 'admin';
+  const onDeviceNamed = () => {
+    updateSidebarDeviceLabel();
+    registerCurrentDevice().catch(() => null);
+  };
+  const shown = showWelcome({
+    audience: 'staff',
+    askDeviceName: true,
+    onDeviceNamed,
+    tour: { key, start: () => startAdminTour({ force: true }) },
+  });
+  if (!shown && !getDeviceInfo().isNamed) promptDeviceLabel().then(onDeviceNamed).catch(() => null);
 }
 
 function formatAuditAction(action) {
@@ -1226,7 +1244,7 @@ async function renderMatchAuditLog(matchId) {
     }
 
     if (!data.length) {
-      target.innerHTML = '<div class="empty-state">Nessuna modifica registrata. Applica la migrazione 021 per iniziare a tracciare le modifiche.</div>';
+      target.innerHTML = '<div class="empty-state">Nessuna modifica registrata finora.</div>';
       return;
     }
 
@@ -1246,7 +1264,7 @@ async function renderMatchAuditLog(matchId) {
       )
       .join('');
   } catch (error) {
-    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}. Applica la migrazione 021 e ricarica la pagina.</div>`;
+    target.innerHTML = `<div class="empty-state">Il registro delle modifiche non è disponibile. Ricarica la pagina; se il problema resta, avvisa il referente tecnico (codice 021).</div>`;
   }
 }
 
@@ -1507,7 +1525,6 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   document.querySelectorAll('.view-section').forEach((section) => section.classList.remove('active'));
   document.querySelectorAll('.sidebar-link').forEach((link) => link.classList.remove('active'));
   getEl(`view-${viewId}`)?.classList.add('active');
-  initAdminJotformAssistant();
   if(viewId==='dashboard')void initAdminPreparation();
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
   const url = new URL(window.location.href);
@@ -1827,7 +1844,7 @@ function renderSystemHealthPanel() {
           )
           .join('')}
       </div>`
-    : '<div class="empty-state compact">Nessun controllo disponibile. Applica la migrazione 024.</div>';
+    : '<div class="empty-state compact">Nessun controllo disponibile al momento.</div>';
 }
 
 function renderIssueReportsPanel() {
@@ -3124,7 +3141,7 @@ async function handleSavePublicNotification(event) {
   });
 
   if (!saved) {
-    throw new Error('Notifiche pubbliche non disponibili: applica la migrazione 028 e ricarica lo schema.');
+    throw new Error('Le notifiche pubbliche non sono ancora attive. Avvisa il referente tecnico (codice 028).');
   }
 
   resetPublicNotificationForm();
@@ -3234,7 +3251,7 @@ async function renderTelegramTemplates() {
   }
   const rows = state.communicationTemplates ?? [];
   if (!rows.length) {
-    target.innerHTML = '<div class="empty-state">Applica la migrazione 024 per gestire i template comunicazione.</div>';
+    target.innerHTML = '<div class="empty-state">I modelli di messaggio non sono ancora attivi. Avvisa il referente tecnico (codice 024).</div>';
     return;
   }
 
@@ -4373,7 +4390,7 @@ async function handleSaveMatch(event) {
       .catch((error) => showToast(`Partita salvata, ma Telegram non inviato: ${error.message}`, 'error'));
   }
   if (savedMatch?.__scheduleUnsupported) {
-    showToast('Partita salvata senza campo/orario. Applica la migrazione 009 e ricarica schema/cache Supabase.', 'error');
+    showToast('Partita salvata, ma campo e orario non sono stati registrati. Avvisa il referente tecnico (codice 009).', 'error');
     return;
   }
   if (savedMatch?.__savedViaRpc) {
@@ -4631,7 +4648,7 @@ function normalizePrivacySettings(config = {}) {
         }
       })()
     : raw ?? {};
-  const playerName = ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'full';
+  const playerName = ['full', 'abbreviated', 'hidden'].includes(parsed.player_name) ? parsed.player_name : 'abbreviated';
   const hidden = playerName === 'hidden';
   return {
     player_name: playerName,
@@ -4659,7 +4676,7 @@ function applyPrivacyPublicLock() {
 }
 
 function buildSuperSettingsPayload() {
-  const playerName = getEl('set-privacy-player-name')?.value || 'full';
+  const playerName = getEl('set-privacy-player-name')?.value || 'abbreviated';
   const hidden = playerName === 'hidden';
   return {
     ranking_tiebreakers: getRankingRulesFromDom(),
@@ -5394,7 +5411,7 @@ async function saveEventResultForm(event) {
   getEl('input-event-value').value = '';
   getEl('input-event-notes').value = '';
   if (saveResult?.__attemptColumnsUnsupported) {
-    showToast('Risultato salvato con fallback (tentativi non disponibili finché non applichi migrazione/cached schema).', 'error');
+    showToast('Risultato salvato, ma i singoli tentativi non sono stati registrati. Avvisa il referente tecnico.', 'error');
     return;
   }
   if (Number(saveResult?.__legacyDuplicateRowsCount ?? 0) > 0) {
@@ -5407,6 +5424,12 @@ async function saveEventResultForm(event) {
   showToast(`Risultato atletica salvato. Tentativo ${saveResult.attempt_count}/${saveResult.attempts_limit}.`, 'success');
 }
 function bindCoreActions() {
+  // Servizio esterno: si carica solo su richiesta esplicita del coordinatore.
+  getEl('btn-start-tour')?.addEventListener('click', () => startAdminTour({ force: true }));
+  getEl('btn-start-jotform')?.addEventListener('click', (event) => {
+    event.currentTarget.disabled = true;
+    initAdminJotformAssistant();
+  });
   getEl('form-assign-match-staff')?.addEventListener('submit', async event => {
     event.preventDefault();
     if (!canManageAll(state.admin?.ruolo)) return;
@@ -6136,7 +6159,6 @@ async function init() {
   document.body.classList.remove('auth-pending');
   getEl('admin-name').textContent = formatAdminDisplayName(state.admin);
   getEl('admin-role').textContent = formatRoleLabel(state.admin?.ruolo);
-  await promptDeviceLabel();
   updateSidebarDeviceLabel();
   registerCurrentDevice().catch(() => null);
 
@@ -6148,7 +6170,7 @@ async function init() {
   if (session.offline) {
     await renderOfflineAdminDashboard();
     showToast('Modalita offline: disponibili solo i match gia preparati su questo dispositivo.', 'error');
-    startAdminTour();
+    offerAdminWelcome();
     return;
   }
 
@@ -6189,7 +6211,7 @@ async function init() {
   const requestedView = new URLSearchParams(window.location.search).get('view');
   await switchView(requestedView && ADMIN_VIEW_IDS.has(requestedView) ? requestedView : getDefaultAdminView(), { fromNavigation: true });
 
-  startAdminTour();
+  offerAdminWelcome();
 }
 
 init().catch((error) => {

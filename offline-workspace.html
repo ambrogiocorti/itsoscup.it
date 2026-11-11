@@ -4,9 +4,9 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0f172a">
   <title>Postazioni offline | ITSOSCup</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome-6.4.0/css/all.min.css">
   <link rel="stylesheet" href="./css/style.css?v=71"><link rel="stylesheet" href="./css/integrated-workflows.css?v=56"><link rel="stylesheet" href="./css/key-control.css"><link rel="stylesheet" href="./css/offline-workspace.css?v=62">
-    <link rel="stylesheet" href="./css/redesign.css?v=20261020c" />
+    <link rel="stylesheet" href="./css/redesign.css?v=20261110b" />
   </head>
 <body class="admin-page offline-workspace-page">
   <a class="offline-skip-link" href="#offline-main">Vai al contenuto delle postazioni offline</a>
@@ -94,7 +94,6 @@
     </main>
   </div>
   <script type="module" src="./js/offline-workspace-shell.js"></script><script type="module" src="./js/offline-workspace.js"></script>
-  <script type="module">if(navigator.onLine&&!window.ITSOSCUP_DESKTOP)import("./js/offline-admin-jotform.js").catch(()=>{});</script>
   <script>if('serviceWorker' in navigator&&window.isSecureContext&&!window.ITSOSCUP_DESKTOP)navigator.serviceWorker.register('./sw.js').catch(()=>{});</script>
 </body>
 </html>

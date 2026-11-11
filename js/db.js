@@ -5,9 +5,11 @@ async function loadSupabaseSdk() {
     return window.supabase;
   }
 
+  // Di norma la libreria arriva da /vendor (versione fissata). Le copie CDN,
+  // con la stessa versione, servono solo se il file locale non si carica.
   const cdnUrls = [
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',
-    'https://esm.sh/@supabase/supabase-js@2',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm',
+    'https://esm.sh/@supabase/supabase-js@2.118.0',
   ];
 
   let lastError = null;
@@ -110,7 +112,7 @@ export async function run(queryPromise, context = 'Operazione DB') {
   } catch (error) {
     const message = String(error?.message ?? error ?? '');
     const networkHint = /failed to fetch|networkerror|load failed/i.test(message)
-      ? ' Verifica connessione, URL Supabase, CORS e che la migrazione sia stata applicata.'
+      ? ' Controlla la connessione a Internet e riprova; se il problema resta, avvisa il referente tecnico.'
       : '';
     const err = new Error(`${context}: ${message || 'richiesta Supabase fallita.'}${networkHint}`);
     err.cause = error;
@@ -133,7 +135,7 @@ export async function runRpc(fnName, args = {}, context = 'Operazione RPC') {
   } catch (error) {
     const message = String(error?.message ?? error ?? '');
     const networkHint = /failed to fetch|networkerror|load failed/i.test(message)
-      ? ' Verifica connessione, URL Supabase, CORS e che la migrazione sia stata applicata.'
+      ? ' Controlla la connessione a Internet e riprova; se il problema resta, avvisa il referente tecnico.'
       : '';
     const err = new Error(`${context}: ${message || 'richiesta Supabase fallita.'}${networkHint}`);
     err.cause = error;

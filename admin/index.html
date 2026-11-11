@@ -34,20 +34,20 @@
         }
       })();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <script src="/vendor/supabase-js-2.118.0/supabase.js"></script>
+    <link rel="stylesheet" href="/vendor/fontawesome-6.4.0/css/all.min.css"/>
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="ITSOS Cup" />
     <link rel="stylesheet" href="css/style.css?v=71"/>
     <link rel="stylesheet" href="css/admin-modules.css?v=62"/>
-    <link rel="stylesheet" href="css/pwa.css?v=2"/>
+    <link rel="stylesheet" href="css/pwa.css?v=3"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
     <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
     <link rel="stylesheet" href="css/push-experience.css?v=2">
-    <link rel="stylesheet" href="css/redesign.css?v=20261020c" />
-    <link rel="stylesheet" href="css/admin-calendar-quality.css?v=1" />
+    <link rel="stylesheet" href="css/redesign.css?v=20261110b" />
+    <link rel="stylesheet" href="css/admin-calendar-quality.css?v=2" />
   </head>
   <body class="admin-page auth-pending">
     <div class="admin-auth-guard" role="status" aria-live="polite">
@@ -91,7 +91,7 @@
 <li class="sidebar-group-label" aria-hidden="true">Gestione gare</li>
 <li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
 <li class="sidebar-group-label" aria-hidden="true">Comunicazioni</li>
-<li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-brands fa-telegram"></i> Telegram</button></li>
+<li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-solid fa-bullhorn"></i> Comunicazioni</button></li>
 <li><button class="sidebar-link" data-view="archive" id="link-archive"><i class="fa-solid fa-landmark"></i> Albo</button></li>
 <li class="sidebar-group-label" aria-hidden="true">Analisi</li>
 <li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
@@ -150,6 +150,7 @@
                 <p>Consulta il manuale operativo completo per preparare un torneo, organizzare iscrizioni e partite, gestire referti e risolvere gli imprevisti.</p>
                 <div class="itsos-support-actions">
                   <a class="btn btn-ghost" href="guida-coordinatore.html"><i class="fa-solid fa-book" aria-hidden="true"></i> Manuale operativo</a>
+                  <button class="btn btn-ghost" id="btn-start-tour" type="button"><i class="fa-solid fa-route" aria-hidden="true"></i> Giro guidato</button>
                   <a class="btn btn-ghost" href="tournament-demo.html"><i class="fa-solid fa-flask" aria-hidden="true"></i> Laboratorio di prova</a>
                   <a class="btn btn-ghost" href="tournament-insights.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Analisi tornei</a>
                   <a class="btn btn-ghost" href="tournament-closeout.html"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Controllo finale</a>
@@ -157,8 +158,9 @@
               </div>
               <div class="itsos-help-agent">
                 <div class="itsos-help-agent-head"><i class="fa-solid fa-comments" aria-hidden="true"></i><strong>Assistente virtuale</strong></div>
-                <p>Per una domanda veloce usa il pulsante rotondo Jotform in basso a destra, disponibile in tutte le sezioni amministrative quando sei online. Non inserire password, codici delle classi o dati personali degli studenti.</p>
-                <p id="jotform-admin-status" class="itsos-assistant-status" role="status">Disponibilità dell'assistente in verifica…</p>
+                <p>Per una domanda veloce puoi avviare l'assistente Jotform: è un servizio esterno, quindi si carica solo quando lo chiedi (ed è sempre attivo nel Manuale operativo). Non inserire password, codici delle classi o dati personali degli studenti.</p>
+                <button class="btn btn-ghost" id="btn-start-jotform" type="button"><i class="fa-solid fa-comments" aria-hidden="true"></i> Avvia l'assistente</button>
+                <p id="jotform-admin-status" class="itsos-assistant-status" role="status">Assistente non avviato.</p>
               </div>
             </div>
           </section>
@@ -494,7 +496,8 @@
 
         <section id="view-telegram" class="view-section">
           <div class="top-row">
-            <h1 class="page-title">Canale Telegram</h1>
+            <h1 class="page-title">Comunicazioni</h1>
+            <p class="muted">Canale Telegram, notifiche pubbliche della home e modelli di messaggio.</p>
           </div>
 
           <section class="card">
@@ -964,7 +967,7 @@
           <section class="settings-section">
             <h3 class="settings-section-title">Privacy Pubblica</h3>
             <div class="inline-grid cols-2">
-              <div class="field"><label for="set-privacy-player-name">Nome studente</label><select id="set-privacy-player-name"><option value="full">Nome completo</option><option value="abbreviated">Nome abbreviato</option><option value="hidden">Nascosto</option></select></div>
+              <div class="field"><label for="set-privacy-player-name">Nome studente</label><select id="set-privacy-player-name"><option value="abbreviated">Nome abbreviato (consigliato)</option><option value="full">Nome completo</option><option value="hidden">Nascosto</option></select></div>
               <div class="checkbox-row"><input id="set-privacy-show-class" type="checkbox" /><label for="set-privacy-show-class">Mostra classe</label></div>
               <div class="checkbox-row"><input id="set-privacy-show-stats" type="checkbox" /><label for="set-privacy-show-stats">Mostra statistiche personali</label></div>
               <div class="checkbox-row"><input id="set-privacy-show-mvp" type="checkbox" /><label for="set-privacy-show-mvp">Mostra MVP</label></div>
@@ -1218,7 +1221,7 @@
       </div>
     </div>
 
-    <script type="module" src="js/pwa-install.js?v=2"></script>
+    <script type="module" src="js/welcome.js?v=1"></script>
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
@@ -1231,6 +1234,5 @@
         );
       });
     </script>
-    <script type="module" src="js/push-preferences.js?v=2"></script>
 </body>
 </html>

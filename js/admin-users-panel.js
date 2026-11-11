@@ -100,7 +100,7 @@ export function createAdminUsersPanel({ canManageAll = () => false } = {}) {
         showToast('Ruoli caricati dal database. Per gestire password e utenti Auth, deploya manage-admin-user.', 'info');
       }
     } catch (error) {
-      renderUnavailable(`${error.message} Verifica Supabase, migrazione 026 e deploy della funzione manage-admin-user.`);
+      renderUnavailable(`La gestione degli utenti non è disponibile in questo momento. Avvisa il referente tecnico (codice 026, ${error.message}).`);
     }
   }
 

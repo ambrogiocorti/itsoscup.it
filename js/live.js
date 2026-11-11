@@ -328,7 +328,7 @@ export async function finalizeLiveMatch({
       if (!isMissingRpcError(error)) {
         throw error;
       }
-      throw new Error('Applica la migrazione 009 prima di chiudere match con firme capitani.');
+      throw new Error('La chiusura con firma dei capitani non è ancora attiva sul database. Avvisa il referente tecnico (codice 009).');
     }
   }
 

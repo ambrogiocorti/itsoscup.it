@@ -52,10 +52,13 @@ Dal Calendario dell'amministrazione, apri **Strumenti torneo** (`tournament-tool
 
 - `/` o `index.html`: pagina pubblica studenti/docenti.
 - `/admin/`: dashboard amministrativa canonica.
-- `admin.html` e `admin/admin.html`: redirect verso `/admin/`.
+- `404.html`: pagina non trovata; reindirizza i vecchi link `admin.html`, `admin/admin.html` e `admin/innovation.html` a `/admin/`.
 - `live.html?match=<id>`: gestione live del match.
 - `gym.html`: schermo palestra/proiettore.
-- `bracket-demo.html`: demo quadro eliminazione con dati realistici.
+
+## Librerie esterne
+
+La libreria Supabase (`vendor/supabase-js-2.118.0/`) e le icone Font Awesome (`vendor/fontawesome-6.4.0/`) sono servite dal sito con versione fissata. I CDN restano solo come riserva in `js/db.js`, con la stessa versione. Per aggiornare una libreria, scarica la nuova versione in una nuova cartella `vendor/<nome>-<versione>/` e aggiorna i riferimenti nelle pagine.
 
 ## Ruoli
 
@@ -209,11 +212,10 @@ CI GitHub: `.github/workflows/ci.yml` esegue static checks, sintassi JavaScript 
 .
 |-- admin/
 |   `-- index.html
-|-- admin.html
+|-- 404.html
 |-- index.html
 |-- live.html
 |-- gym.html
-|-- bracket-demo.html
 |-- manifest.webmanifest
 |-- sw.js
 |-- css/
