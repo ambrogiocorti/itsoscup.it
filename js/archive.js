@@ -6,7 +6,8 @@ import {
   loadSportConfig,
   loadTeamsBySport,
 } from './matches.js';
-import { loadAthleticsLeaderboard } from './events.js';
+import { computeAthleticsRanking, loadAthleticsEvents, loadAthleticsLeaderboard, loadEventResults } from './events.js';
+import { invalidateArchivedSports } from './archive-status.js';
 import { TEAM_SPORTS } from './app-config.js';
 
 export async function loadHonorRoll({ sportId = null } = {}) {
@@ -89,8 +90,33 @@ function buildTeamSportArchivePayload({ sport, teams, matches, config, notes }) 
   };
 }
 
+// Podio dei tre migliori per ogni evento, salvato nell'Albo insieme alla classifica generale.
+export function buildEventPodiums(events = [], resultsByEvent = []) {
+  return events
+    .map((event, index) => {
+      const ranked = computeAthleticsRanking(resultsByEvent[index] ?? [], event.sort_order);
+      return {
+        event_id: event.id,
+        event_name: event.name,
+        unit: event.unit ?? null,
+        sort_order: event.sort_order ?? 'desc',
+        participants: ranked.length,
+        podium: ranked.slice(0, 3).map((row, position) => ({
+          rank: position + 1,
+          player_id: Number(row.player?.id ?? row.player_id ?? 0) || null,
+          player_name: row.player?.full_name ?? 'Atleta',
+          team_name: row.player?.teams?.name ?? null,
+          value: Number(row.value),
+        })),
+      };
+    })
+    .filter((item) => item.podium.length);
+}
+
 async function buildAthleticsArchivePayload({ sport, notes }) {
-  const leaderboard = await loadAthleticsLeaderboard(sport.id);
+  const [leaderboard, events] = await Promise.all([loadAthleticsLeaderboard(sport.id), loadAthleticsEvents(sport.id)]);
+  const resultsByEvent = await Promise.all(events.map((event) => loadEventResults(event.id)));
+  const eventPodiums = buildEventPodiums(events, resultsByEvent);
   const winner = leaderboard[0];
 
   if (!winner) {
@@ -111,6 +137,7 @@ async function buildAthleticsArchivePayload({ sport, notes }) {
     archived_snapshot: {
       school_year: sport.year,
       leaderboard,
+      event_podiums: eventPodiums,
     },
     notes: String(notes ?? '').trim() || null,
     archived_at: new Date().toISOString(),
@@ -143,6 +170,7 @@ export async function archiveTournament(sportId, { notes = '' } = {}) {
       .single(),
     'Archiviazione torneo'
   );
+  invalidateArchivedSports();
   return data;
 }
 
@@ -156,4 +184,5 @@ export async function unarchiveTournament(entryId) {
     db.from('honor_roll_entries').delete().eq('id', numericId),
     'Disarchiviazione torneo'
   );
+  invalidateArchivedSports();
 }

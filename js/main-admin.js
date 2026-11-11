@@ -3,6 +3,12 @@ import {initAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261020
 import {initAdminPreparation} from './admin-preparation.js';
 import {initCalendarQuality,scheduleCalendarQualityRefresh,getQualityMatch} from './admin-calendar-quality.js?v=1';
 import {initRosterSeal} from './roster-seal.js';
+import { computeRegiaReadiness } from './regia-readiness.js';
+import { renderTemplateEditor } from './communication-templates-editor.js';
+import { getEventPodiums, renderEventPodiumsHtml } from './honor-podiums.js';
+import { qrSvg } from './qr-code.js';
+import { brandedDocument, letterhead, metaGrid, openPrintWindow, printHtml, printQrPoster } from './print-kit.js';
+import { initSidebarGroups, syncSidebarGroups } from './sidebar-groups.js';
 import {initAthleticsEnrollment} from './athletics-enrollment.js';
 import { allowedAdminViews, canAccessAdminView, defaultAdminView } from './admin-role-views.js';
 import { myAssignedMatches, loadEligibleOperators, getMatchOperators, assignMatchOperators } from './match-assignments.js';
@@ -828,123 +834,65 @@ async function downloadAllFinishedMatchReports(printWindow) {
   await downloadMatchReports(rows, printWindow);
 }
 
-function renderAthleticsSheetRows(lanes = []) {
+function renderAthleticsSheetRows(lanes = [], attempts = 3) {
   const rows = lanes.length
     ? lanes
-    : Array.from({ length: 8 }, (_item, index) => ({
-        lane_number: index + 1,
-        player: null,
-        team: null,
-        status: 'scheduled',
-      }));
-
+    : Array.from({ length: 8 }, (_item, index) => ({ lane_number: index + 1, player: null, team: null, status: 'scheduled' }));
   return rows
-    .map(
-      (lane) => `
+    .map((lane) => `
         <tr>
-          <td>${escapeHtml(lane.lane_number ?? '-')}</td>
+          <td class="pk-center"><strong>${escapeHtml(lane.lane_number ?? '')}</strong></td>
           <td>${escapeHtml(lane.player?.full_name ?? '')}</td>
           <td>${escapeHtml(lane.team?.name ?? '')}</td>
-          <td>${escapeHtml(formatAthleticsLaneStatus(lane.status))}</td>
-          <td></td>
-          <td></td>
-        </tr>
-      `
-    )
+          ${Array.from({ length: attempts }, () => '<td class="pk-write"></td>').join('')}
+          <td class="pk-write"></td>
+          <td class="pk-write"></td>
+        </tr>`)
     .join('');
 }
 
-function openPrintableAthleticsSheets({ sport, events, advanced }, printWindow) {
+const ATHLETICS_UNIT_LABELS = { time: 'Tempo (s)', distance: 'Distanza (m)', points: 'Punteggio' };
+
+function openPrintableAthleticsSheets({ sport, events, advanced, attempts = 3 }, printWindow) {
   const lanesByHeat = new Map();
   (advanced.lanes ?? []).forEach((lane) => {
     const heatId = Number(lane.heat_id);
     lanesByHeat.set(heatId, [...(lanesByHeat.get(heatId) ?? []), lane]);
   });
-
   const heatRows = advanced.heats?.length
     ? advanced.heats
-    : events.map((event, index) => ({
-        id: `event-${event.id}`,
-        event,
-        phase: 'qualification',
-        heat_number: index + 1,
-        scheduled_start: null,
-        notes: 'Foglio senza batteria programmata',
-      }));
-
+    : events.map((event, index) => ({ id: `event-${event.id}`, event, phase: 'qualification', heat_number: index + 1, scheduled_start: null, notes: '' }));
+  const attemptsCount = Math.max(1, Math.min(6, Number(attempts) || 1));
   const sheets = heatRows
     .map((heat) => {
       const event = heat.event ?? events.find((item) => Number(item.id) === Number(heat.event_id)) ?? {};
-      const lanes = lanesByHeat.get(Number(heat.id)) ?? [];
+      const lanes = (lanesByHeat.get(Number(heat.id)) ?? []).sort((x, y) => Number(x.lane_number ?? 0) - Number(y.lane_number ?? 0));
       return `
-        <article class="athletics-sheet">
-          <header>
-            <div>
-              <p>Foglio gara atletica</p>
-              <h1>${escapeHtml(event.name ?? 'Evento')}</h1>
-              <div class="meta">
-                <span><strong>Torneo</strong> ${escapeHtml(sport?.name ?? '-')}</span>
-                <span><strong>Fase</strong> ${escapeHtml(formatAthleticsPhase(heat.phase))}</span>
-                <span><strong>Batteria</strong> ${escapeHtml(heat.heat_number ?? '-')}</span>
-                <span><strong>Orario</strong> ${escapeHtml(formatReportDateTime(heat.scheduled_start))}</span>
-                <span><strong>Unita</strong> ${escapeHtml(event.unit ?? '-')}</span>
-              </div>
-            </div>
-            <div class="sheet-box">Risultati</div>
-          </header>
-          ${heat.notes ? `<section class="notes">${escapeHtml(heat.notes)}</section>` : ''}
-          <table>
-            <thead>
-              <tr>
-                <th>Corsia</th>
-                <th>Studente</th>
-                <th>Classe</th>
-                <th>Stato</th>
-                <th>Risultato</th>
-                <th>Note/firma</th>
-              </tr>
-            </thead>
-            <tbody>${renderAthleticsSheetRows(lanes)}</tbody>
+        <section class="pk-page">
+          ${letterhead('Foglio gara atletica')}
+          <h1 class="pk-title">${escapeHtml(event.name ?? 'Evento')}</h1>
+          <p class="pk-subtitle">${escapeHtml(sport?.name ?? '')}</p>
+          ${metaGrid([
+            ['Fase', formatAthleticsPhase(heat.phase)],
+            ['Batteria', heat.heat_number ?? '-'],
+            ['Orario', heat.scheduled_start ? formatReportDateTime(heat.scheduled_start) : '______'],
+            ['Misura', ATHLETICS_UNIT_LABELS[event.unit] ?? event.unit ?? '-'],
+            ['Migliore', event.sort_order === 'asc' ? 'Valore più basso' : 'Valore più alto'],
+          ])}
+          ${heat.notes ? `<p class="pk-subtitle">${escapeHtml(heat.notes)}</p>` : ''}
+          <table class="pk-table">
+            <thead><tr>
+              <th class="pk-center" style="width:9%">Corsia</th><th>Atleta</th><th style="width:10%">Classe</th>
+              ${Array.from({ length: attemptsCount }, (_v, i) => `<th class="pk-center">Tent. ${i + 1}</th>`).join('')}
+              <th class="pk-center">Migliore</th><th class="pk-center">Pos.</th>
+            </tr></thead>
+            <tbody>${renderAthleticsSheetRows(lanes, attemptsCount)}</tbody>
           </table>
-        </article>
-      `;
+          <div class="pk-sign"><div>Giudice di gara</div><div>Cronometrista / misuratore</div></div>
+        </section>`;
     })
     .join('');
-
-  printWindow.document.open();
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html lang="it">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Fogli gara atletica</title>
-        <style>
-          @page { size: A4 portrait; margin: 12mm; }
-          * { box-sizing: border-box; }
-          body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; font-size: 11px; }
-          .athletics-sheet { break-after: page; page-break-after: always; display: flex; flex-direction: column; gap: 12px; }
-          .athletics-sheet:last-child { break-after: auto; page-break-after: auto; }
-          header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }
-          p { margin: 0 0 4px; color: #475569; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-          h1 { margin: 0; font-size: 24px; line-height: 1.08; }
-          .meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 8px; color: #334155; font-size: 10px; line-height: 1.25; }
-          .meta span { white-space: nowrap; }
-          .meta strong { color: #64748b; font-size: 8.5px; text-transform: uppercase; margin-right: 3px; }
-          .sheet-box { min-width: 104px; padding: 8px 12px; border: 2px solid #0f172a; text-align: center; font-size: 18px; font-weight: 800; align-self: flex-start; }
-          .notes { border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px; color: #334155; }
-          table { width: 100%; border-collapse: collapse; font-size: 10px; }
-          th, td { border: 1px solid #cbd5e1; padding: 7px 6px; text-align: left; height: 28px; }
-          th { background: #f1f5f9; color: #334155; font-size: 8.5px; text-transform: uppercase; }
-          th:first-child, td:first-child, th:nth-child(4), td:nth-child(4) { text-align: center; }
-          @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-        </style>
-      </head>
-      <body>${sheets}</body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => printWindow.print(), 250);
+  return printHtml(printWindow, brandedDocument({ title: `Fogli gara · ${sport?.name ?? 'Atletica'}`, bodyHtml: sheets }));
 }
 
 async function printAthleticsRaceSheets() {
@@ -954,11 +902,12 @@ async function printAthleticsRaceSheets() {
     return;
   }
 
-  const printWindow = openMatchReportPrintWindow();
+  const printWindow = openPrintWindow('Preparazione dei fogli gara…');
   try {
-    const [events, advanced] = await Promise.all([
+    const [events, advanced, config] = await Promise.all([
       loadAthleticsEvents(sportId),
       loadAthleticsAdvancedData(sportId),
+      loadAthleticsConfigBySport(sportId),
     ]);
     if (advanced.__migrationMissing) {
       printWindow.close();
@@ -970,10 +919,11 @@ async function printAthleticsRaceSheets() {
       showToast('Nessun evento atletica da stampare.', 'error');
       return;
     }
-    openPrintableAthleticsSheets({
+    await openPrintableAthleticsSheets({
       sport: getSportById(sportId),
       events,
       advanced,
+      attempts: config?.athletics_attempts_per_event ?? 3,
     }, printWindow);
   } catch (error) {
     printWindow.close();
@@ -1527,8 +1477,10 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   getEl(`view-${viewId}`)?.classList.add('active');
   if(viewId==='dashboard')void initAdminPreparation();
   document.querySelector(`.sidebar-link[data-view="${viewId}"]`)?.classList.add('active');
+  syncSidebarGroups(document.getElementById('admin-sidebar') ?? document);
   const url = new URL(window.location.href);
   url.searchParams.set('view', viewId);
+  if (viewId !== 'teams') url.searchParams.delete('tab');
   if (fromNavigation || new URL(window.location.href).searchParams.get('view') === viewId) window.history.replaceState(null, '', url);
   else window.history.pushState({ view: viewId }, '', url);
 
@@ -1536,6 +1488,7 @@ async function switchView(viewId, { fromNavigation = false } = {}) {
   if (viewId === 'operations') await loadRegiaOperations();
   if (viewId === 'sports') loadSportsTable();
   if (viewId === 'teams') {
+    setTeamsTab(new URL(window.location.href).searchParams.get('tab') === 'registrations' ? 'registrations' : 'list');
     loadTeamsTable();
     void initRosterSeal();
   }
@@ -1640,6 +1593,7 @@ function applyRolePermissions() {
     if (!permitted) button.setAttribute('aria-hidden', 'true');
     else button.removeAttribute('aria-hidden');
   });
+  initSidebarGroups(document.getElementById('admin-sidebar') ?? document);
 }
 
 function bindSidebar() {
@@ -1698,7 +1652,6 @@ function renderSportsOptions() {
     ['select-sport-team', false, false, false],
     ['select-sport-match', false, false, true],
     ['playoff-sport-select', false, false, true],
-    ['archive-sport-select', false, false, false],
     ['settings-sport-select', false, false, false],
     ['athletics-sport-select', false, true, false],
     ['filter-match-sport', true, false, true],
@@ -1942,11 +1895,16 @@ function renderRegiaChecklist(rows) {
   const target = getEl('regia-checklist-panel');
   if (!target) return;
   const items = Array.isArray(rows) ? rows : [];
-  const okCount = Math.max(0, 8 - items.filter((row) => row.severity === 'error' || row.severity === 'warning').length);
-  const percent = Math.round((okCount / 8) * 100);
-  const snapshotPercent = Number(state.regiaSnapshot?.readiness_percent ?? percent);
+  const readinessInfo = computeRegiaReadiness(state.regiaSnapshot ?? {}, items);
   const readiness = getEl('regia-readiness-value');
-  if (readiness) readiness.textContent = `${snapshotPercent}%`;
+  if (readiness) readiness.textContent = readinessInfo.label;
+  const readinessDetail = getEl('regia-readiness-detail');
+  if (readinessDetail) readinessDetail.textContent = readinessInfo.detail;
+  const ring = getEl('regia-readiness-ring');
+  if (ring) {
+    ring.style.setProperty('--readiness', String(readinessInfo.percent ?? 0));
+    ring.dataset.tone = readinessInfo.percent === null ? 'idle' : readinessInfo.percent >= 90 ? 'good' : readinessInfo.percent >= 60 ? 'warn' : 'bad';
+  }
   const count = getEl('regia-preparation-count');
   if (count) count.textContent = items.length ? `${items.length} controlli` : 'Pronta';
   target.innerHTML = items.length
@@ -2528,30 +2486,88 @@ async function loadTeamsTable() {
     db.from('teams').select('*, sports(name), players(full_name, is_captain)').order('name', { ascending: true }),
     'Caricamento tabella squadre'
   );
+  state.teamsBoard = teams ?? [];
+  renderTeamsSportFilter();
+  renderTeamsBoard();
+}
 
+function renderTeamsSportFilter() {
+  const select = getEl('teams-filter-sport');
+  if (!select) return;
+  const current = select.value;
+  const counts = new Map();
+  (state.teamsBoard ?? []).forEach((team) => counts.set(Number(team.sport_id), (counts.get(Number(team.sport_id)) ?? 0) + 1));
+  const sports = (state.sports ?? []).filter((sport) => counts.has(Number(sport.id)));
+  select.innerHTML = `<option value="">Tutti i tornei (${(state.teamsBoard ?? []).length})</option>${sports.map((sport) => `<option value="${sport.id}">${escapeHtml(sport.name)} (${counts.get(Number(sport.id))})</option>`).join('')}`;
+  if ([...select.options].some((option) => option.value === current)) select.value = current;
+  const total = getEl('teams-total-count');
+  if (total) total.textContent = String((state.teamsBoard ?? []).length);
+}
+
+function renderTeamsBoard() {
   const body = getEl('table-teams-body');
   if (!body) return;
-
-  body.innerHTML = (teams ?? [])
-    .map((team) => {
-      const captain = (team.players ?? []).find((player) => Boolean(player.is_captain));
-      return `
-      <tr>
-        <td><strong>${escapeHtml(team.name)}</strong></td>
-        <td>${escapeHtml(team.sports?.name ?? '-')}</td>
-        <td>${captain ? escapeHtml(captain.full_name) : '<span class="badge badge-warning">Da impostare</span>'}</td>
-        <td>
-          <div class="table-actions" ${canManageAll(state.admin?.ruolo) ? '' : 'style="display:none"'}>
-            <button class="icon-btn telegram" data-action="telegram-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" title="Notifica Telegram"><i class="fa-brands fa-telegram"></i></button>
-            <button class="icon-btn edit" data-action="qr-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${team.sport_id}" title="QR squadra" aria-label="QR squadra"><i class="fa-solid fa-qrcode"></i></button>
-            <button class="icon-btn edit" data-action="edit-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${team.sport_id}"><i class="fa-solid fa-pen"></i></button>
-            <button class="icon-btn delete" data-action="delete-team" data-id="${team.id}"><i class="fa-solid fa-trash"></i></button>
-          </div>
-        </td>
-      </tr>
-    `;
-    })
+  const sportFilter = Number(getEl('teams-filter-sport')?.value || 0);
+  const query = String(getEl('teams-filter-search')?.value ?? '').trim().toLocaleLowerCase('it');
+  const canEdit = canManageAll(state.admin?.ruolo);
+  const visible = (state.teamsBoard ?? []).filter((team) => {
+    if (sportFilter && Number(team.sport_id) !== sportFilter) return false;
+    if (!query) return true;
+    const captain = (team.players ?? []).find((player) => player.is_captain)?.full_name ?? '';
+    return `${team.name} ${captain} ${team.sports?.name ?? ''}`.toLocaleLowerCase('it').includes(query);
+  });
+  const counter = getEl('teams-visible-count');
+  if (counter) counter.textContent = `${visible.length} ${visible.length === 1 ? 'squadra' : 'squadre'}`;
+  if (!visible.length) {
+    body.innerHTML = `<div class="empty-state">${(state.teamsBoard ?? []).length ? 'Nessuna squadra corrisponde ai filtri.' : 'Nessuna squadra: creala con «Nuova squadra» o approva le iscrizioni delle classi.'}</div>`;
+    return;
+  }
+  const groups = new Map();
+  visible.forEach((team) => {
+    const key = Number(team.sport_id) || 0;
+    if (!groups.has(key)) groups.set(key, { name: team.sports?.name ?? getSportById(key)?.name ?? 'Senza torneo', teams: [] });
+    groups.get(key).teams.push(team);
+  });
+  body.innerHTML = [...groups.entries()]
+    .sort((x, y) => x[1].name.localeCompare(y[1].name, 'it'))
+    .map(([sportId, group]) => `
+      <section class="teams-group" aria-label="${escapeHtml(group.name)}">
+        <header class="teams-group-head"><h3>${escapeHtml(group.name)}</h3><span>${group.teams.length} ${group.teams.length === 1 ? 'squadra' : 'squadre'}</span></header>
+        <div class="teams-grid">
+          ${group.teams.sort((x, y) => String(x.name).localeCompare(String(y.name), 'it', { numeric: true })).map((team) => {
+            const players = team.players ?? [];
+            const captain = players.find((player) => Boolean(player.is_captain));
+            return `
+            <article class="team-tile">
+              <div class="team-tile-head">
+                <span class="team-tile-badge" aria-hidden="true">${escapeHtml(String(team.name ?? '?').slice(0, 3))}</span>
+                <div><strong>${escapeHtml(team.name)}</strong><small>${players.length} ${players.length === 1 ? 'giocatore' : 'giocatori'}</small></div>
+              </div>
+              <p class="team-tile-captain">${captain ? `<i class="fa-solid fa-star" aria-hidden="true"></i> ${escapeHtml(captain.full_name)}` : '<span class="badge badge-warning">Capitano da impostare</span>'}</p>
+              <div class="team-tile-actions">
+                <button class="icon-btn edit" type="button" data-action="qr-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${sportId}" title="QR della pagina squadra" aria-label="QR della squadra ${escapeHtml(team.name)}"><i class="fa-solid fa-qrcode"></i></button>
+                ${canEdit ? `
+                <button class="icon-btn telegram" type="button" data-action="telegram-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" title="Messaggio Telegram alla squadra" aria-label="Messaggio Telegram a ${escapeHtml(team.name)}"><i class="fa-brands fa-telegram"></i></button>
+                <button class="btn btn-ghost btn-compact" type="button" data-action="edit-team" data-id="${team.id}" data-name="${escapeHtml(team.name)}" data-sport-id="${sportId}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Modifica</button>
+                <button class="icon-btn delete" type="button" data-action="delete-team" data-id="${team.id}" title="Elimina squadra" aria-label="Elimina ${escapeHtml(team.name)}"><i class="fa-solid fa-trash"></i></button>` : ''}
+              </div>
+            </article>`;
+          }).join('')}
+        </div>
+      </section>`)
     .join('');
+}
+
+function setTeamsTab(tab) {
+  const registrations = tab === 'registrations' && canManageAll(state.admin?.ruolo);
+  document.querySelectorAll('[data-teams-tab]').forEach((button) => button.setAttribute('aria-selected', String((button.dataset.teamsTab === 'registrations') === registrations)));
+  const list = getEl('teams-list-panel');
+  const panel = getEl('class-registration-panel');
+  if (list) list.hidden = registrations;
+  if (panel) panel.hidden = !registrations;
+  const url = new URL(window.location.href);
+  if (registrations) url.searchParams.set('tab', 'registrations'); else url.searchParams.delete('tab');
+  window.history.replaceState(window.history.state, '', url);
 }
 
 function renderMatchesTableRows(rows) {
@@ -2910,19 +2926,33 @@ function getEntityQrUrl(type, entity) {
   return url.toString();
 }
 
-function showQrPreview({ title, subtitle = '', url }) {
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(url)}`;
+const QR_KIND_DETAILS = {
+  venue: { kind: 'QR campo', steps: ['Inquadra il codice con la fotocamera', 'Apri il link proposto', 'Segui partite e orari di questo campo'] },
+  team: { kind: 'QR squadra', steps: ['Inquadra il codice con la fotocamera', 'Apri la pagina della squadra', 'Premi «Segui squadra» per le notifiche'] },
+  match: { kind: 'QR partita', steps: ['Inquadra il codice con la fotocamera', 'Segui il punteggio in diretta'] },
+  sport: { kind: 'QR torneo', steps: ['Inquadra il codice con la fotocamera', 'Consulta calendario e classifica del torneo'] },
+};
+
+function showQrPreview({ title, subtitle = '', url, type = 'venue' }) {
+  state.currentQr = { title, subtitle, url, type };
   getEl('qr-modal-title').textContent = title;
   getEl('qr-modal-content').innerHTML = `
     <div class="qr-preview">
-      <img src="${escapeHtml(qrUrl)}" alt="${escapeHtml(title)}" />
+      <div class="qr-preview-code" aria-busy="true"><span class="muted">Generazione del QR…</span></div>
       <div>
         <h3>${escapeHtml(subtitle || title)}</h3>
-        <p class="muted">${escapeHtml(url)}</p>
+        <p class="muted qr-preview-url">${escapeHtml(url)}</p>
+        <p class="muted">La stampa crea una locandina A4 con istruzioni, pronta da appendere.</p>
       </div>
     </div>
   `;
   openModal('modal-venue-qr');
+  qrSvg(url, { label: title })
+    .then((svg) => {
+      const box = getEl('qr-modal-content')?.querySelector('.qr-preview-code');
+      if (box && state.currentQr?.url === url) { box.innerHTML = svg; box.removeAttribute('aria-busy'); }
+    })
+    .catch((error) => showToast(error.message, 'error'));
 }
 
 function showVenueQr(venue) {
@@ -2931,6 +2961,7 @@ function showVenueQr(venue) {
     title: `QR Campo · ${venue.name}`,
     subtitle: venue.name,
     url: getVenueQrUrl(venue, window.location.href),
+    type: 'venue',
   });
 }
 
@@ -2943,8 +2974,9 @@ function showEntityQr(type, entity) {
   };
   showQrPreview({
     title: labels[type] ?? 'QR',
-    subtitle: labels[type] ?? 'QR',
+    subtitle: type === 'match' ? getMatchTeamsLabel(entity) : entity.name ?? labels[type] ?? 'QR',
     url: getEntityQrUrl(type, entity),
+    type,
   });
 }
 
@@ -2952,39 +2984,64 @@ function getHonorEditionYear(entry) {
   return entry?.edition_year ?? new Date(entry?.archived_at ?? Date.now()).getFullYear();
 }
 
-function renderHonorRollRows(rows) {
-  const body = getEl('table-honor-roll-body');
-  if (!body) return;
 
-  body.innerHTML = (rows ?? [])
-    .map(
-      (entry) => `
-      <tr>
-        <td>
-          <strong>${escapeHtml(getHonorEditionYear(entry))}</strong>
-          <div class="muted" style="font-size:0.8rem;">${escapeHtml(entry.year)}° anno</div>
-        </td>
-        <td>
-          <strong>${escapeHtml(entry.sport_name)}</strong>
-          <div class="muted" style="font-size:0.8rem;">${escapeHtml(entry.sport_type)} · ${escapeHtml(entry.format)}</div>
-        </td>
-        <td><strong>${escapeHtml(entry.winner_team_name)}</strong></td>
-        <td>${escapeHtml([entry.runner_up_team_name, entry.third_place_team_name].filter(Boolean).join(' · ') || '-')}</td>
-        <td>${escapeHtml(new Intl.DateTimeFormat('it-IT', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(entry.archived_at)))}</td>
-        <td>
-          <div class="table-actions" ${canManageAll(state.admin?.ruolo) ? '' : 'style="display:none"'}>
-            <button class="icon-btn delete" data-action="unarchive-entry" data-id="${entry.id}" title="Disarchivia"><i class="fa-solid fa-box-open"></i></button>
+function renderHonorRollRows(rows) {
+  const box = getEl('honor-roll-admin-list');
+  if (!box) return;
+  const canEdit = canManageAll(state.admin?.ruolo);
+  const list = rows ?? [];
+  if (!list.length) {
+    box.innerHTML = '<div class="empty-state honor-empty"><i class="fa-solid fa-landmark" aria-hidden="true"></i><strong>L\'Albo è ancora vuoto</strong><span>Archivia un torneo concluso per aggiungere qui vincitori e podi.</span></div>';
+    return;
+  }
+  box.innerHTML = list.map((entry) => {
+    const podiums = getEventPodiums(entry);
+    const isAthletics = entry.sport_type === 'atletica';
+    const archivedAt = entry.archived_at ? new Intl.DateTimeFormat('it-IT', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.archived_at)) : '—';
+    return `
+      <article class="honor-admin-card">
+        <header>
+          <span class="honor-edition">${escapeHtml(getHonorEditionYear(entry))}</span>
+          <div>
+            <h3>${escapeHtml(entry.sport_name)}</h3>
+            <small>${escapeHtml(SPORT_TYPE_LABELS[entry.sport_type] ?? entry.sport_type ?? '')} · ${escapeHtml(entry.year ?? '-')}° anno</small>
           </div>
-        </td>
-      </tr>
-    `
-    )
-    .join('') || '<tr><td colspan="6" class="empty-state">Nessun torneo archiviato.</td></tr>';
+          <span class="honor-lock" title="Il torneo è in sola lettura"><i class="fa-solid fa-lock" aria-hidden="true"></i> Archiviato</span>
+        </header>
+        <ol class="honor-final-podium">
+          <li class="gold"><span>1°</span><strong>${escapeHtml(entry.winner_team_name ?? '—')}</strong></li>
+          <li class="silver"><span>2°</span><strong>${escapeHtml(entry.runner_up_team_name ?? '—')}</strong></li>
+          <li class="bronze"><span>3°</span><strong>${escapeHtml(entry.third_place_team_name ?? '—')}</strong></li>
+        </ol>
+        ${isAthletics ? (podiums.length
+          ? `<details class="honor-events"><summary><i class="fa-solid fa-medal" aria-hidden="true"></i> Podi per evento <span>${podiums.length}</span></summary>${renderEventPodiumsHtml(entry)}</details>`
+          : '<p class="honor-note">Podi per evento non disponibili: archiviato con una versione precedente. Disarchivia e archivia di nuovo per calcolarli.</p>') : ''}
+        ${entry.notes ? `<p class="honor-note"><i class="fa-regular fa-note-sticky" aria-hidden="true"></i> ${escapeHtml(entry.notes)}</p>` : ''}
+        <footer>
+          <span>Archiviato il ${escapeHtml(archivedAt)}</span>
+          ${canEdit ? `<button class="btn btn-ghost btn-compact" type="button" data-action="unarchive-entry" data-id="${entry.id}"><i class="fa-solid fa-lock-open" aria-hidden="true"></i> Disarchivia</button>` : ''}
+        </footer>
+      </article>`;
+  }).join('');
+}
+
+function renderArchiveSportOptions() {
+  const select = getEl('archive-sport-select');
+  if (!select) return;
+  const archived = new Set((state.honorRoll ?? []).map((entry) => Number(entry.sport_id)));
+  const available = (state.sports ?? []).filter((sport) => !archived.has(Number(sport.id)));
+  select.innerHTML = available.length
+    ? `<option value="">Scegli il torneo da archiviare</option>${available.map((sport) => `<option value="${sport.id}">${escapeHtml(sport.name)}</option>`).join('')}`
+    : '<option value="">Tutti i tornei sono già archiviati</option>';
+  select.disabled = !available.length;
+  const button = getEl('btn-archive-tournament');
+  if (button) button.disabled = !available.length;
 }
 
 async function loadArchiveTable() {
   state.honorRoll = await loadHonorRoll();
   renderHonorRollRows(state.honorRoll);
+  renderArchiveSportOptions();
 }
 
 async function handleArchiveTournament() {
@@ -2993,7 +3050,8 @@ async function handleArchiveTournament() {
     showToast('Seleziona un torneo da archiviare.', 'error');
     return;
   }
-  const notes = await showAppPrompt('Note archivio (opzionale):', {
+  const sportName = getSportById(sportId)?.name ?? 'il torneo';
+  const notes = await showAppPrompt(`Archiviando ${sportName} salvi vincitori e podi nell'Albo e il torneo diventa di sola lettura: risultati, squadre e partite non si potranno più modificare (puoi sempre disarchiviarlo). Note per l'archivio (facoltative):`, {
     title: 'Archivia torneo',
     inputLabel: 'Note',
     multiline: true,
@@ -3021,16 +3079,17 @@ function getTelegramChannelUrl() {
   return String(APP_CONFIG.telegramChannelUrl ?? '').trim();
 }
 
-function printWithBodyClass(className) {
-  document.body.classList.add(className);
-  const cleanup = () => document.body.classList.remove(className);
-  window.addEventListener('afterprint', cleanup, { once: true });
-  window.print();
-  setTimeout(cleanup, 1500);
-}
 
 function printTelegramQr() {
-  printWithBodyClass('print-telegram-qr');
+  const url = getTelegramChannelUrl();
+  if (!url) return;
+  printQrPoster({
+    kind: 'Canale Telegram',
+    title: String(APP_CONFIG.telegramChannelLabel ?? 'Canale Telegram dei tornei'),
+    subtitle: 'Risultati, orari e avvisi dei tornei sul tuo telefono',
+    url,
+    steps: ['Inquadra il codice con la fotocamera', 'Apri Telegram', 'Premi «Unisciti» al canale'],
+  }).catch((error) => showToast(error.message, 'error'));
 }
 
 function getPublicNotificationIcon(severity) {
@@ -3165,7 +3224,11 @@ async function handleDeletePublicNotification(notificationId) {
 }
 
 function printVenueQr() {
-  printWithBodyClass('print-venue-qr');
+  const qr = state.currentQr;
+  if (!qr?.url) return;
+  const details = QR_KIND_DETAILS[qr.type] ?? QR_KIND_DETAILS.venue;
+  printQrPoster({ kind: details.kind, title: qr.subtitle || qr.title, subtitle: 'ITSOSCup · Tornei scolastici', url: qr.url, steps: details.steps })
+    .catch((error) => showToast(error.message, 'error'));
 }
 
 async function renderTelegramView() {
@@ -3188,7 +3251,6 @@ async function renderTelegramView() {
     return;
   }
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(channelUrl)}`;
   panel.innerHTML = `
     <div class="telegram-panel">
       <div class="telegram-info">
@@ -3205,38 +3267,15 @@ async function renderTelegramView() {
         </div>
         <div class="telegram-url">${escapeHtml(channelUrl)}</div>
       </div>
-      <div class="qr-preview telegram-qr">
-        <img src="${escapeHtml(qrUrl)}" alt="QR ${escapeHtml(label)}" />
-      </div>
+      <div class="qr-preview telegram-qr" id="telegram-qr-code" aria-busy="true"></div>
     </div>
   `;
 
   getEl('btn-print-telegram-qr')?.addEventListener('click', printTelegramQr);
+  qrSvg(channelUrl, { label: `QR ${label}` })
+    .then((svg) => { const box = getEl('telegram-qr-code'); if (box) { box.innerHTML = svg; box.removeAttribute('aria-busy'); } })
+    .catch(() => null);
   await Promise.all([renderPublicNotificationsAdmin(), renderTelegramTemplates()]);
-}
-
-function formatTemplatePreview(value) {
-  return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key) => {
-    if (Object.prototype.hasOwnProperty.call(TEMPLATE_SAMPLE_VALUES, key)) {
-      return TEMPLATE_SAMPLE_VALUES[key];
-    }
-    return `[${key}]`;
-  });
-}
-
-function showTemplatePreviewFromCard(card) {
-  const title = card?.querySelector('[data-template-field="title"]')?.value ?? 'Template comunicazione';
-  const body = card?.querySelector('[data-template-field="body"]')?.value ?? '';
-  const preview = [
-    `Titolo: ${formatTemplatePreview(title)}`,
-    '',
-    formatTemplatePreview(body || 'Nessun testo impostato.'),
-  ].join('\n');
-
-  return showAppAlert(preview, {
-    title: 'Anteprima messaggio',
-    confirmLabel: 'Chiudi',
-  });
 }
 
 async function renderTelegramTemplates() {
@@ -3255,80 +3294,22 @@ async function renderTelegramTemplates() {
     return;
   }
 
-  target.innerHTML = `
-    <div class="communication-template-list">
-      ${rows
-        .map((template) => {
-          const meta = COMMUNICATION_TEMPLATE_META[template.template_key] ?? {
-            label: template.title || 'Template comunicazione',
-            purpose: 'Modello riutilizzabile per messaggi automatici o manuali.',
-            usedBy: 'Invio Telegram manuale o automatico',
-            variables: ['home', 'away', 'time', 'venue', 'reason', 'team', 'sport', 'message'],
-          };
-          const variables = meta.variables ?? [];
-          return `
-            <article class="communication-template-card">
-              <div class="communication-template-head">
-                <div>
-                  <strong>${escapeHtml(meta.label)}</strong>
-                  <p>${escapeHtml(meta.purpose)}</p>
-                </div>
-                <span>${template.is_active !== false ? 'Attivo' : 'Disattivato'}</span>
-              </div>
-              <div class="template-info-grid">
-                <div>
-                  <span>Quando viene usato</span>
-                  <strong>${escapeHtml(meta.usedBy)}</strong>
-                </div>
-                <div>
-                  <span>Canale</span>
-                  <strong>Telegram</strong>
-                </div>
-              </div>
-              <div class="communication-template-fields">
-                <div class="field">
-                  <label for="template-title-${template.id}">Titolo visibile</label>
-                  <input id="template-title-${template.id}" data-template-field="title" data-key="${escapeHtml(template.template_key)}" value="${escapeHtml(template.title)}" />
-                </div>
-                <div class="field">
-                  <label for="template-body-${template.id}">Testo del messaggio</label>
-                  <textarea id="template-body-${template.id}" data-template-field="body" data-key="${escapeHtml(template.template_key)}" rows="4">${escapeHtml(template.body)}</textarea>
-                </div>
-              </div>
-              <details class="template-variable-details">
-                <summary>Variabili automatiche disponibili</summary>
-                <div class="template-variable-list" aria-label="Variabili disponibili">
-                  ${variables
-                    .map(
-                      (variable) => `
-                        <span title="${escapeHtml(TEMPLATE_VARIABLE_LABELS[variable] ?? variable)}">
-                          <code>{{${escapeHtml(variable)}}}</code>
-                          ${escapeHtml(TEMPLATE_VARIABLE_LABELS[variable] ?? variable)}
-                        </span>
-                      `
-                    )
-                    .join('')}
-                </div>
-              </details>
-              <div class="template-card-actions">
-                <label class="checkbox-row compact">
-                  <input type="checkbox" data-template-field="is_active" data-key="${escapeHtml(template.template_key)}" ${template.is_active !== false ? 'checked' : ''} />
-                  <span>Attivo</span>
-                </label>
-                <button class="btn btn-ghost btn-compact" data-action="preview-communication-template" data-key="${escapeHtml(template.template_key)}" type="button">
-                  <i class="fa-solid fa-eye"></i> Anteprima
-                </button>
-                <button class="btn btn-ghost btn-compact" data-action="save-communication-template" data-key="${escapeHtml(template.template_key)}" type="button">
-                  <i class="fa-solid fa-floppy-disk"></i> Salva
-                </button>
-              </div>
-            </article>
-          `;
-        })
-        .join('')}
-    </div>
-    <p class="muted template-help">Le parole tra doppie graffe vengono sostituite automaticamente prima dell'invio. Esempio: <code>{{home}}</code> diventa il nome della squadra di casa.</p>
-  `;
+  renderTemplateEditor(target, {
+    templates: rows,
+    meta: COMMUNICATION_TEMPLATE_META,
+    labels: TEMPLATE_VARIABLE_LABELS,
+    samples: TEMPLATE_SAMPLE_VALUES,
+    canEdit: canEditMatches(state.admin?.ruolo),
+    onSave: async (row) => {
+      try {
+        await saveCommunicationTemplate({ ...row, channel: 'telegram' });
+        showToast('Modello salvato.', 'success');
+      } catch (error) {
+        showToast(error.message, 'error');
+        throw error;
+      }
+    },
+  });
 }
 
 function renderPlayerRankingTable(rows) {
@@ -5408,6 +5389,7 @@ async function saveEventResultForm(event) {
   state.selectedEventId = eventId;
   await renderEventResults(eventId);
   await loadEventsSection();
+  document.dispatchEvent(new CustomEvent('itsos:athletics-data-reloaded'));
   getEl('input-event-value').value = '';
   getEl('input-event-notes').value = '';
   if (saveResult?.__attemptColumnsUnsupported) {
@@ -5458,6 +5440,14 @@ function bindCoreActions() {
   }));
   getEl('btn-new-venue')?.addEventListener('click', () => openVenueModal(null));
   getEl('btn-toggle-athletics-result')?.addEventListener('click', () => openEventModal(null));
+  // Classifiche aggiornate senza ricaricare a ogni tentativo dell'inserimento rapido.
+  let athleticsRefreshTimer = 0;
+  document.addEventListener('itsos:athletics-results-changed', () => {
+    clearTimeout(athleticsRefreshTimer);
+    athleticsRefreshTimer = setTimeout(() => {
+      if (getEl('view-events')?.classList.contains('active')) loadEventsSection().catch(() => null);
+    }, 4000);
+  });
   getEl('btn-csv-teams-players')?.addEventListener('click', () => openCsvImportModal('teams_players'));
   getEl('btn-csv-athletics-events')?.addEventListener('click', () => openCsvImportModal('athletics_events'));
   getEl('btn-csv-athletics-results')?.addEventListener('click', () => openCsvImportModal('athletics_results'));
@@ -5575,25 +5565,6 @@ function bindCoreActions() {
   });
 
   getEl('btn-print-venue-qr')?.addEventListener('click', printVenueQr);
-  getEl('telegram-template-panel')?.addEventListener('click', (event) => {
-    const previewButton = event.target.closest('[data-action="preview-communication-template"]');
-    if (previewButton) {
-      showTemplatePreviewFromCard(previewButton.closest('.communication-template-card')).catch((error) => showToast(error.message, 'error'));
-      return;
-    }
-
-    const button = event.target.closest('[data-action="save-communication-template"]');
-    if (!button) return;
-    const key = String(button.dataset.key ?? '').trim();
-    const card = button.closest('.communication-template-card');
-    const title = card?.querySelector('[data-template-field="title"]')?.value ?? '';
-    const body = card?.querySelector('[data-template-field="body"]')?.value ?? '';
-    const isActive = Boolean(card?.querySelector('[data-template-field="is_active"]')?.checked);
-    saveCommunicationTemplate({ template_key: key, title, body, is_active: isActive, channel: 'telegram' })
-      .then(() => renderTelegramTemplates())
-      .then(() => showToast('Template comunicazione salvato.', 'success'))
-      .catch((error) => showToast(error.message, 'error'));
-  });
   getEl('form-public-notification')?.addEventListener('submit', (event) => {
     handleSavePublicNotification(event).catch((error) => showToast(error.message, 'error'));
   });
@@ -5832,7 +5803,7 @@ function bindCoreActions() {
     }
   });
 
-  getEl('table-honor-roll-body')?.addEventListener('click', (event) => {
+  getEl('honor-roll-admin-list')?.addEventListener('click', (event) => {
     const actionEl = event.target.closest('[data-action]');
     if (!actionEl) return;
     const id = Number(actionEl.dataset.id);
@@ -5841,6 +5812,10 @@ function bindCoreActions() {
     }
   });
 
+  document.querySelectorAll('[data-teams-tab]').forEach((button) => button.addEventListener('click', () => setTeamsTab(button.dataset.teamsTab)));
+  getEl('teams-filter-sport')?.addEventListener('change', renderTeamsBoard);
+  let teamsSearchTimer = 0;
+  getEl('teams-filter-search')?.addEventListener('input', () => { clearTimeout(teamsSearchTimer); teamsSearchTimer = setTimeout(renderTeamsBoard, 120); });
   getEl('table-teams-body')?.addEventListener('click', (event) => {
     const actionEl = event.target.closest('[data-action]');
     if (!actionEl) return;
@@ -6191,9 +6166,6 @@ async function init() {
       const el = getEl(id);
       if (el && !el.value && firstSport?.id) el.value = String(firstSport.id);
     });
-    if (getEl('archive-sport-select') && firstSport?.id) {
-      getEl('archive-sport-select').value = String(firstSport.id);
-    }
     ['select-sport-match', 'playoff-sport-select'].forEach((id) => {
       const el = getEl(id);
       if (el && !el.value && firstTeamSport?.id) el.value = String(firstTeamSport.id);

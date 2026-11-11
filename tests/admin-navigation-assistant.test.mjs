@@ -68,7 +68,7 @@ test('live scorekeeper page has no sidebar but retains return to admin',()=>{
 });
 test('sidebar omits planning and athlete cards, but their contexts still link to tools',()=>{
  const html=read('admin/index.html');
- const nav=html.slice(html.indexOf('<ul class="sidebar-menu">'),html.indexOf('</ul>',html.indexOf('<ul class="sidebar-menu">')));
+ const nav=html.slice(html.indexOf('<ul class="sidebar-menu'),html.indexOf('<div class="sidebar-logout">'));
  assert.doesNotMatch(nav,/athletics-athletes.html|tournament-tools.html/);
  assert.match(html,/href="athletics-athletes.html" title="Schede atleti e tentativi" aria-label="Apri schede atleti e tentativi"/);
 });

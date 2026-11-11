@@ -51,7 +51,7 @@ self.addEventListener('push',event=>{
   const url=href.startsWith('/')&&!href.startsWith('//')?href:'/';
   event.waitUntil(self.registration.showNotification(title,{
     body:String(payload.body||'').slice(0,200),
-    icon:'/favicon.svg',badge:'/favicon.svg',
+    icon:'/icons/icon-192.png',badge:'/icons/favicon-32.png',
     tag:String(payload.tag||'itsos-notice'),renotify:false,
     data:{url},
   }));

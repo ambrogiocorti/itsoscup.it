@@ -457,3 +457,17 @@ body.admin-page:not(.itsos-jotform-enabled) [data-itsos-jotform-widget]{display:
  body.live-page .timer-card{padding:10px;gap:8px}
  body.live-page .timer-card .timer-value{font-size:2rem;padding:6px;margin:0}
 }
+
+/* Albo pubblico: podio per evento dell'atletica. */
+.honor-card-athletics .honor-podiums{margin-top:12px;text-align:left}
+.honor-podiums{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.honor-podium{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff}
+.honor-podium h4{margin:0 0 8px;font-size:.88rem}
+.honor-podium ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.honor-podium li{display:flex;align-items:center;gap:8px;font-size:.82rem}
+.honor-medal{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:.68rem;font-weight:850;flex:0 0 24px}
+.honor-podium-name{display:flex;flex-direction:column;flex:1 1 auto;min-width:0}
+.honor-podium-name strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.honor-podium-name small{color:#64748b;font-size:.72rem}
+.honor-podium-value{font-weight:800;font-variant-numeric:tabular-nums;color:#0f172a}
+.honor-podium li.gold .honor-medal{background:#fde68a;color:#78350f}.honor-podium li.silver .honor-medal{background:#e2e8f0;color:#334155}.honor-podium li.bronze .honor-medal{background:#fed7aa;color:#7c2d12}

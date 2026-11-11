@@ -1,18 +1,38 @@
 import {requireAdmin} from './auth.js';
 import {db,run} from './db.js';
 import {mountOperationalSidebar} from './operational-sidebar.js';
+import {formatAthleticsValue,initials,UNIT_LABELS} from './athletics-quick-core.js';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let profiles=[];
+let profiles=[],shown=24;
+const PAGE=24;
 const status=(s)=>{$('athlete-status').textContent=s};
-function render(){
+const fmt=(value,unit)=>value==null||value==='Non registrato'||!Number.isFinite(Number(value))?String(value??'—'):formatAthleticsValue(value,unit);
+function eventHtml(e){
+ const unit=e.event.unit;
+ const head='<header><h3>'+esc(e.event.name)+'</h3><span class="athlete-event-unit">'+esc(UNIT_LABELS[unit]||unit||'')+'</span></header>';
+ if(!e.attempts.length)return '<section class="athlete-event is-empty">'+head+'<p class="athlete-event-empty"><i class="fa-regular fa-clock" aria-hidden="true"></i> Iscritto · nessun tentativo ancora registrato</p></section>';
+ return '<section class="athlete-event">'+head+
+  '<ol class="athlete-attempts">'+e.attempts.map((val,i)=>'<li class="'+(String(val)!=='Non registrato'&&String(val)===String(e.best)?'best':'')+'"><span class="attempt-number">'+(i+1)+'°</span><span class="attempt-value">'+esc(fmt(val,unit))+'</span></li>').join('')+'</ol>'+
+  '<p class="athlete-best"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Migliore: <strong>'+esc(fmt(e.best,unit))+'</strong></p></section>';
+}
+function cardHtml(p){
+ const attempts=p.events.reduce((n,e)=>n+e.attempts.length,0);
+ return '<details class="athlete-card" data-athlete-id="'+p.id+'"><summary><span class="athlete-avatar" aria-hidden="true">'+esc(initials(p.name))+'</span>'+
+  '<span class="athlete-identity"><strong>'+esc(p.name)+'</strong><small><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Classe '+esc(p.className)+'</small></span>'+
+  '<span class="athlete-profile-metrics"><span><strong>'+p.events.length+'</strong> eventi</span><span><strong>'+attempts+'</strong> tentativi</span></span>'+
+  '<i class="fa-solid fa-chevron-down athlete-chevron" aria-hidden="true"></i></summary>'+
+  '<div class="athlete-events">'+(p.events.map(eventHtml).join('')||'<p class="athlete-event-empty">Nessun evento.</p>')+'</div></details>';
+}
+function render({resetPage=false}={}){
+ if(resetPage)shown=PAGE;
  const query=$('athlete-search').value.trim().toLocaleLowerCase('it');
  const visible=profiles.filter(p=>(p.name+' '+p.className).toLocaleLowerCase('it').includes(query));
- $('athlete-cards').innerHTML=visible.map(p=>'<article class="athlete-card"><header><div class="athlete-person-row"><span class="athlete-avatar" aria-hidden="true">'+esc(p.name.split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]||'').join('').toUpperCase())+'</span><div class="athlete-identity"><p class="athlete-kicker">Profilo atleta</p><h2>'+esc(p.name)+'</h2><span class="athlete-class-badge"><i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Classe '+esc(p.className)+'</span></div></div><div class="athlete-profile-metrics"><span><strong>'+p.events.length+'</strong> eventi</span><span><strong>'+p.events.reduce((n,e)=>n+e.attempts.length,0)+'</strong> tentativi</span></div></header>'+
- p.events.map(e=>'<section class="athlete-event"><h3>'+esc(e.event.name)+'</h3><small>'+e.attempts.length+' tentativi registrati'+(e.event.unit?' · '+esc(e.event.unit):'')+'</small>'+
- '<ol class="athlete-attempts">'+e.attempts.map((val,i)=>'<li class="'+(String(val)!=='Non registrato'&&String(val)===String(e.best)?'best':'')+'"><span class="attempt-number">Tentativo '+(i+1)+'</span><span class="attempt-value">'+esc(val)+'</span></li>').join('')+'</ol>'+
- '<p class="athlete-best">'+(e.attempts.length?'Migliore: '+esc(e.best??'—'):'Iscritto · Nessun tentativo ancora registrato')+'</p></section>').join('')+'</article>').join('')||'<p>Nessun atleta corrispondente.</p>';
- status(visible.length+' atleti visualizzati');
+ const page=visible.slice(0,shown);
+ $('athlete-cards').innerHTML=page.map(cardHtml).join('')||'<p class="athlete-empty">Nessun atleta corrispondente.</p>';
+ const more=$('athlete-more');
+ if(more){more.hidden=visible.length<=shown;more.textContent='Mostra altri '+Math.min(PAGE,visible.length-shown)+' atleti';}
+ status(visible.length?('Mostrati '+page.length+' di '+visible.length+' atleti'):'Nessun atleta');
 }
 async function load(){
  const sportId=Number($('athlete-sport').value);
@@ -49,7 +69,7 @@ async function load(){
  }
  for(const athlete of rows.values())athlete.events.sort((a,b)=>(a.event.name||'').localeCompare(b.event.name||'','it'));
  profiles=[...rows.values()].sort((a,b)=>a.name.localeCompare(b.name,'it'));
- render();
+ render({resetPage:true});
  }catch(e){status('Caricamento non riuscito: '+e.message)}
 }
 async function init(){
@@ -57,7 +77,9 @@ async function init(){
  await mountOperationalSidebar({active:'athletes',role:session.admin?.ruolo,admin:session.admin});
  const {data:sports}=await run(db.from('sports').select('id,name').eq('sport_type','atletica').order('name'),'Tornei atletica');
  $('athlete-sport').replaceChildren(...(sports||[]).map(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;return o}));
- $('athlete-sport').addEventListener('change',load);$('athlete-search').addEventListener('input',render);
+ $('athlete-sport').addEventListener('change',load);$('athlete-search').addEventListener('input',()=>render({resetPage:true}));
+ $('athlete-more')?.addEventListener('click',()=>{shown+=PAGE;render()});
+ $('athlete-toggle-all')?.addEventListener('click',e=>{const open=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(open));e.currentTarget.textContent=open?'Comprimi tutte':'Espandi tutte';document.querySelectorAll('#athlete-cards details').forEach(d=>{d.open=open})});
  await load();
 }
 init().catch(e=>status(e.message));

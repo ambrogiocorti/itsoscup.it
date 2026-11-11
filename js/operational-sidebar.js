@@ -1,6 +1,7 @@
 import {signOutAdmin} from './auth.js';
 import {initAdminJotformAssistant} from './jotform-admin-assistant.js?v=20261021';
 import {canAccessAdminView} from './admin-role-views.js';
+import {initSidebarGroups} from './sidebar-groups.js';
 
 const viewUrl=(id)=>'admin?view='+encodeURIComponent(id);
 const displayRole={super_admin:'Super Admin',match_manager:'Gestione gare',report_viewer:'Consultazione'};
@@ -28,7 +29,7 @@ export async function mountOperationalSidebar({active='',role='',admin=null}={})
   a.className='sidebar-link';
   a.href=viewUrl(view);
   a.innerHTML=button.innerHTML;
-  if((active===view)||(active==='live'&&view==='matches')){a.classList.add('active');a.setAttribute('aria-current','page')}
+  if((active===view)||((active==='live'||active==='tools')&&view==='matches')||(active==='athletes'&&view==='events')){a.classList.add('active');a.setAttribute('aria-current','page')}
   button.replaceWith(a);
  });
  aside.querySelectorAll('a.sidebar-link').forEach(a=>{
@@ -36,6 +37,7 @@ export async function mountOperationalSidebar({active='',role='',admin=null}={})
     a.classList.add('active');a.setAttribute('aria-current','page');
   }
  });
+ initSidebarGroups(aside);
  const preferences=aside.querySelector('[data-open-push-preferences]');
  if(preferences){
   const link=document.createElement('a');link.className='sidebar-link';
