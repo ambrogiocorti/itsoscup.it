@@ -2,9 +2,11 @@ import { db, run, runRpc } from './db.js';
 import { escapeHtml } from './utils.js';
 import { summarizeEvent, analyticsCsv } from './event-analytics.js';
 export { analyticsCsv };
+// Avvisa gli altri pannelli (conferma rose, preparazione) che le iscrizioni sono cambiate.
+const changed=async(promise)=>{const result=await promise;document.dispatchEvent(new CustomEvent('itsos:class-registrations-changed'));return result};
 
 export async function setTournamentRegistrationDeadline(sportId, deadline) {
- return runRpc('set_tournament_registration_deadline', {p_sport_id:Number(sportId),p_deadline:deadline},'Scadenza iscrizioni');
+ return changed(runRpc('set_tournament_registration_deadline', {p_sport_id:Number(sportId),p_deadline:deadline},'Scadenza iscrizioni'));
 }
 export async function listClassInvites(sportId) {
  const {data}=await run(db.from('class_invites').select('id,sport_id,class_name,access_code,is_active,created_at').eq('sport_id',Number(sportId)).order('class_name'), 'Inviti classe');
@@ -13,11 +15,11 @@ export async function listClassInvites(sportId) {
 export async function createClassInvite(sportId,className){
  const name=String(className||'').trim();
  if(!name || name.length>48) throw new Error('Classe non valida');
- const {data}=await run(db.from('class_invites').insert({sport_id:Number(sportId),class_name:name}).select().single(),'Creazione invito');
+ const {data}=await changed(run(db.from('class_invites').insert({sport_id:Number(sportId),class_name:name}).select().single(),'Creazione invito'));
  return data;
 }
 export async function importExistingTeamsAsClasses(sportId){
- return runRpc('import_existing_teams_as_classes',{p_sport_id:Number(sportId)},'Importa squadre esistenti');
+ return changed(runRpc('import_existing_teams_as_classes',{p_sport_id:Number(sportId)},'Importa squadre esistenti'));
 }
 export async function rotateClassInvite(inviteId){
  return runRpc('rotate_class_invite',{p_invite_id:inviteId},'Rigenerazione codice classe');
@@ -27,7 +29,7 @@ export async function listClassRegistrations(sportId){
  return data||[];
 }
 export async function decideClassRegistration(id,approve,reason=''){
- return runRpc('decide_class_registration',{p_registration_id:Number(id),p_approve:!!approve,p_reason:reason},'Conferma iscrizione');
+ return changed(runRpc('decide_class_registration',{p_registration_id:Number(id),p_approve:!!approve,p_reason:reason},'Conferma iscrizione'));
 }
 export async function sendClassNotice(sportId,title,body,inviteIds,{publishToTeam=false}={}){
  return runRpc('send_team_class_notice',{

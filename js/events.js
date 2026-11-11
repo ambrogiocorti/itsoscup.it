@@ -1,5 +1,6 @@
 ﻿import { db, run } from './db.js';
 import { medalByRank } from './utils.js';
+import { assertSportNotArchived } from './archive-status.js';
 
 function uniqueNumericIds(values = []) {
   return [...new Set(values.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0))];
@@ -139,6 +140,7 @@ export async function saveAthleticsEvent(payload) {
     sort_order: payload.sort_order,
     is_active: payload.is_active !== false,
   };
+  await assertSportNotArchived(eventPayload.sport_id);
 
   if (payload.id) {
     const { data } = await run(
@@ -156,6 +158,11 @@ export async function saveAthleticsEvent(payload) {
 }
 
 export async function deleteAthleticsEvent(eventId) {
+  const { data: eventRow } = await run(
+    db.from('events').select('sport_id').eq('id', Number(eventId)).single(),
+    'Verifica evento atletica'
+  );
+  await assertSportNotArchived(eventRow?.sport_id);
   await run(
     db.from('events').update({ is_active: false }).eq('id', Number(eventId)),
     'Disattivazione evento atletica'
@@ -222,6 +229,7 @@ export async function upsertEventResult({ event_id, player_id, value, notes }) {
   if (!sportId) {
     throw new Error('Evento atletica non valido.');
   }
+  await assertSportNotArchived(sportId);
 
   const config = await loadAthleticsConfigBySport(sportId);
   const attemptsLimit = Math.max(1, Number(config.athletics_attempts_per_event ?? 1));
@@ -434,9 +442,9 @@ export async function loadAthleticsLeaderboard(sportId) {
 
   const byPlayer = new Map();
 
-  for (const event of events) {
-    const results = await loadEventResults(event.id);
-    const ranked = computeAthleticsRanking(results, event.sort_order);
+  const resultsByEvent = await Promise.all(events.map((event) => loadEventResults(event.id)));
+  for (const [eventIndex, event] of events.entries()) {
+    const ranked = computeAthleticsRanking(resultsByEvent[eventIndex], event.sort_order);
 
     ranked.forEach((result, idx) => {
       const playerId = Number(result.player?.id ?? 0);

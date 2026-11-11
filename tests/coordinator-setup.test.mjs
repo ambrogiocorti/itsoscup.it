@@ -42,10 +42,11 @@ test('the operational manual and PWA cannot claim supported offline scoring',()=
 });
 
 test('roster signoff preflight considers all active class invitations',()=>{
- const r=read('js/roster-seal.js'),dash=read('js/admin-preparation.js');
+ const r=read('js/roster-seal.js'),dash=read('js/admin-preparation.js'),rules=read('js/roster-readiness.js');
  assert.match(r,/class_invites/);
- assert.match(r,/incompleteInvites/);
- assert.match(dash,/missingInvites/);
+ assert.match(r,/evaluateRosterReadiness/);
+ assert.match(dash,/evaluateRosterReadiness/);
+ assert.match(rules,/withoutProposal/);
  assert.match(read('sql/059_approval_all_invites.sql'),/Inviti di classe non completati/);
 });
 

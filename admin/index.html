@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="../" />
     <title>Admin | Tornei Scolastici</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <style>
       body.admin-page.auth-pending .admin-shell { display: none !important; }
       body.admin-page:not(.auth-pending) .admin-auth-guard { display: none !important; }
@@ -44,11 +45,12 @@
     <link rel="stylesheet" href="css/admin-modules.css?v=62"/>
     <link rel="stylesheet" href="css/pwa.css?v=3"/>
     <link rel="stylesheet" href="css/integrated-workflows.css?v=54"/>
-    <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
     <link rel="stylesheet" href="css/push-experience.css?v=2">
-    <link rel="stylesheet" href="css/redesign.css?v=20261110b" />
+    <link rel="stylesheet" href="css/redesign.css?v=20261111" />
     <link rel="stylesheet" href="css/admin-calendar-quality.css?v=2" />
-  </head>
+  <link rel="stylesheet" href="css/print-letterhead.css?v=1"><script src="js/print-letterhead.js?v=1" defer></script>
+<link rel="stylesheet" href="css/admin-refresh.css?v=1">
+</head>
   <body class="admin-page auth-pending">
     <div class="admin-auth-guard" role="status" aria-live="polite">
       <div class="admin-auth-guard-card">
@@ -69,7 +71,7 @@
       <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
 
       <aside class="sidebar" id="admin-sidebar">
-        <div class="sidebar-brand"><i class="fa-solid fa-shield-halved"></i> ITSOSCup.it</div>
+        <div class="sidebar-brand"><img class="sidebar-brand-logo" src="/favicon.svg" alt="" width="30" height="30"> ITSOSCup.it</div>
         <div class="sidebar-user">
           <div class="sidebar-user-name" id="admin-name">Amministratore</div>
           <div class="sidebar-user-role" id="admin-role">Ruolo non assegnato</div>
@@ -79,25 +81,49 @@
           </div>
         </div>
 
-        <ul class="sidebar-menu">
-<li class="sidebar-group-label" aria-hidden="true">Panoramica</li>
-<li><button class="sidebar-link active" data-view="dashboard" id="link-dashboard"><i class="fa-solid fa-house"></i> Dashboard</button></li>
-<li><button class="sidebar-link" data-view="operations" id="link-operations" data-requires-control-center><i class="fa-solid fa-tower-broadcast"></i> Centro di controllo</button></li>
-<li class="sidebar-group-label" aria-hidden="true">Preparazione</li>
-<li><button class="sidebar-link" data-view="sports" id="link-sports"><i class="fa-solid fa-trophy"></i> Tornei</button></li>
-<li><button class="sidebar-link" data-view="teams" id="link-teams"><i class="fa-solid fa-users"></i> Squadre</button></li>
-<li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
-<li><button class="sidebar-link" data-view="events" id="link-events"><i class="fa-solid fa-person-running"></i> Atletica</button></li>
-<li class="sidebar-group-label" aria-hidden="true">Gestione gare</li>
-<li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
-<li class="sidebar-group-label" aria-hidden="true">Comunicazioni</li>
-<li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-solid fa-bullhorn"></i> Comunicazioni</button></li>
-<li><button class="sidebar-link" data-view="archive" id="link-archive"><i class="fa-solid fa-landmark"></i> Albo</button></li>
-<li class="sidebar-group-label" aria-hidden="true">Analisi</li>
-<li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
-<li class="sidebar-group-label" aria-hidden="true">Impostazioni</li>
-<li><button class="sidebar-link" data-view="settings" id="link-settings"><i class="fa-solid fa-gears"></i> Impostazioni</button></li>
-</ul>
+        <ul class="sidebar-menu sidebar-menu-grouped">
+          <li class="sidebar-group" data-sidebar-group="overview">
+            <button class="sidebar-group-toggle" type="button" aria-expanded="false" aria-controls="sidebar-group-overview"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i><span>Panoramica</span><i class="fa-solid fa-chevron-down sidebar-group-chevron" aria-hidden="true"></i></button>
+            <ul class="sidebar-submenu" id="sidebar-group-overview">
+              <li><button class="sidebar-link" data-view="dashboard" id="link-dashboard"><i class="fa-solid fa-house"></i> Dashboard</button></li>
+              <li><button class="sidebar-link" data-view="operations" id="link-operations" data-requires-control-center><i class="fa-solid fa-tower-broadcast"></i> Centro di controllo</button></li>
+            </ul>
+          </li>
+          <li class="sidebar-group" data-sidebar-group="preparation">
+            <button class="sidebar-group-toggle" type="button" aria-expanded="false" aria-controls="sidebar-group-preparation"><i class="fa-solid fa-clipboard-list" aria-hidden="true"></i><span>Preparazione</span><i class="fa-solid fa-chevron-down sidebar-group-chevron" aria-hidden="true"></i></button>
+            <ul class="sidebar-submenu" id="sidebar-group-preparation">
+              <li><button class="sidebar-link" data-view="sports" id="link-sports"><i class="fa-solid fa-trophy"></i> Tornei</button></li>
+              <li><button class="sidebar-link" data-view="teams" id="link-teams"><i class="fa-solid fa-users"></i> Squadre</button></li>
+              <li><button class="sidebar-link" data-view="venues" id="link-venues"><i class="fa-solid fa-location-dot"></i> Campi</button></li>
+              <li><button class="sidebar-link" data-view="events" id="link-events"><i class="fa-solid fa-person-running"></i> Atletica</button></li>
+            </ul>
+          </li>
+          <li class="sidebar-group" data-sidebar-group="competition">
+            <button class="sidebar-group-toggle" type="button" aria-expanded="false" aria-controls="sidebar-group-competition"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i><span>Gestione gare</span><i class="fa-solid fa-chevron-down sidebar-group-chevron" aria-hidden="true"></i></button>
+            <ul class="sidebar-submenu" id="sidebar-group-competition">
+              <li><button class="sidebar-link" data-view="matches" id="link-matches"><i class="fa-solid fa-calendar"></i> Calendario</button></li>
+            </ul>
+          </li>
+          <li class="sidebar-group" data-sidebar-group="communication">
+            <button class="sidebar-group-toggle" type="button" aria-expanded="false" aria-controls="sidebar-group-communication"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i><span>Comunicazioni</span><i class="fa-solid fa-chevron-down sidebar-group-chevron" aria-hidden="true"></i></button>
+            <ul class="sidebar-submenu" id="sidebar-group-communication">
+              <li><button class="sidebar-link" data-view="telegram" id="link-telegram"><i class="fa-solid fa-paper-plane"></i> Comunicazioni</button></li>
+              <li><button class="sidebar-link" data-view="archive" id="link-archive"><i class="fa-solid fa-landmark"></i> Albo</button></li>
+            </ul>
+          </li>
+          <li class="sidebar-group" data-sidebar-group="analysis">
+            <button class="sidebar-group-toggle" type="button" aria-expanded="false" aria-controls="sidebar-group-analysis"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>Analisi</span><i class="fa-solid fa-chevron-down sidebar-group-chevron" aria-hidden="true"></i></button>
+            <ul class="sidebar-submenu" id="sidebar-group-analysis">
+              <li><button class="sidebar-link" data-view="reports" id="link-reports"><i class="fa-solid fa-chart-line"></i> Report</button></li>
+            </ul>
+          </li>
+          <li class="sidebar-group" data-sidebar-group="settings">
+            <button class="sidebar-group-toggle" type="button" aria-expanded="false" aria-controls="sidebar-group-settings"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Impostazioni</span><i class="fa-solid fa-chevron-down sidebar-group-chevron" aria-hidden="true"></i></button>
+            <ul class="sidebar-submenu" id="sidebar-group-settings">
+              <li><button class="sidebar-link" data-view="settings" id="link-settings"><i class="fa-solid fa-gears"></i> Impostazioni</button></li>
+            </ul>
+          </li>
+        </ul>
 
         <div class="sidebar-logout"><button type="button" data-open-push-preferences><i class="fa-solid fa-bell" aria-hidden="true"></i> Preferenze notifiche</button>
           <button class="btn btn-danger" id="btn-logout">
@@ -107,82 +133,83 @@
       </aside>
 
       <main class="main-pane"> 
-        <section id="view-dashboard" class="view-section active">
-          <div class="top-row">
-            <h1 class="page-title">Pannello di Controllo</h1>
+        <section id="view-dashboard" class="view-section active dash-view">
+          <div class="top-row dash-top">
+            <div>
+              <h1 class="page-title">Dashboard</h1>
+              <p class="page-subtitle">Lo stato dei tornei e le prossime cose da fare.</p>
+            </div>
+            <div class="top-row-actions">
+              <button class="btn btn-ghost" id="btn-new-team" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-users"></i> Nuova squadra</button>
+              <button class="btn btn-primary" id="btn-new-match" data-open-match-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuova partita</button>
+            </div>
           </div>
 
-          <section class="itsos-dashboard-hero" aria-label="Panoramica e azioni rapide">
+          <section class="itsos-dashboard-hero dash-hero" aria-label="Panoramica e azioni rapide">
             <div class="itsos-dashboard-hero-copy">
               <span class="itsos-eyebrow"><i class="fa-solid fa-circle" aria-hidden="true"></i> ITSOSCup · Gestione tornei</span>
               <h2>Il tuo centro di regia, per ogni partita.</h2>
               <p>Prepara il calendario, organizza le squadre e segui l'andamento dei tornei da un unico posto.</p>
               <div class="itsos-dashboard-hero-actions">
                 <a class="btn itsos-hero-button" href="/admin?view=matches"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i> Vai al calendario <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
-                <a class="itsos-hero-text-link" href="/admin?view=operations">Centro di controllo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+                <a class="itsos-hero-text-link" href="/admin?view=operations">Centro di controllo <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
               </div>
             </div>
-            <div class="itsos-dashboard-hero-decoration" aria-hidden="true"><i class="fa-solid fa-trophy"></i></div>
+            <div class="dash-hero-stats stats-grid">
+              <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-trophy"></i></div><div class="stat-label">Tornei</div><div class="stat-value" id="count-sports">0</div></article>
+              <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-users"></i></div><div class="stat-label">Squadre</div><div class="stat-value" id="count-teams">0</div></article>
+              <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-flag-checkered"></i></div><div class="stat-label">Partite concluse</div><div class="stat-value" id="count-matches">0</div></article>
+              <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-person-running"></i></div><div class="stat-label">Eventi atletica</div><div class="stat-value" id="count-events">0</div></article>
+            </div>
           </section>
-          <div class="stats-grid">
-            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-trophy"></i></div><div class="stat-label">Tornei</div><div class="stat-value" id="count-sports">0</div></article>
-            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-users"></i></div><div class="stat-label">Squadre</div><div class="stat-value" id="count-teams">0</div></article>
-            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-flag-checkered"></i></div><div class="stat-label">Match Conclusi</div><div class="stat-value" id="count-matches">0</div></article>
-            <article class="stat-card itsos-stat-card"><div class="itsos-stat-icon" aria-hidden="true"><i class="fa-solid fa-person-running"></i></div><div class="stat-label">Eventi Atletica</div><div class="stat-value" id="count-events">0</div></article>
+
+          <div class="dash-grid">
+            <section class="card itsos-preparation-card dash-main" aria-labelledby="itsos-preparation-title">
+              <div class="card-body">
+                <div class="itsos-preparation-header"><div>
+                  <span class="itsos-help-eyebrow">Percorso coordinatore</span><h2 id="itsos-preparation-title">Preparazione del torneo</h2>
+                  <p>Verifica le attività ancora da completare prima della giornata di gara.</p></div>
+                  <div class="itsos-preparation-picker"><label for="itsos-preparation-sport">Torneo</label><select id="itsos-preparation-sport"><option value="">Caricamento…</option></select></div>
+                </div>
+                <div id="itsos-preparation-checklist" role="status" aria-live="polite">Controllo dei dati in corso…</div>
+                <a href="tournament-setup.html" class="btn btn-ghost dash-guided"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Apri la configurazione guidata</a>
+              </div>
+            </section>
+
+            <aside class="dash-side">
+              <section class="card dash-playoff" aria-labelledby="dash-playoff-title">
+                <div class="card-body">
+                  <span class="itsos-help-eyebrow"><i class="fa-solid fa-sitemap" aria-hidden="true"></i> Fase finale</span>
+                  <h2 id="dash-playoff-title">Semifinali</h2>
+                  <p>Quando il girone è concluso, crea le semifinali dalle prime quattro della classifica.</p>
+                  <label for="playoff-sport-select">Torneo</label>
+                  <select id="playoff-sport-select"></select>
+                  <button class="btn btn-warning" id="btn-generate-semifinals" data-requires-match-write type="button">
+                    <i class="fa-solid fa-sitemap"></i> Genera semifinali
+                  </button>
+                </div>
+              </section>
+
+              <section class="itsos-help-card card" aria-labelledby="coordinator-support-title">
+                <div class="card-body">
+                  <span class="itsos-help-eyebrow"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Supporto ai coordinatori</span>
+                  <h2 id="coordinator-support-title">Gestisci ITSOSCup in autonomia</h2>
+                  <nav class="dash-links" aria-label="Strumenti per i coordinatori">
+                    <a href="guida-coordinatore.html"><i class="fa-solid fa-book" aria-hidden="true"></i><span>Manuale operativo<small>Procedure passo per passo</small></span></a>
+                    <button id="btn-start-tour" type="button"><i class="fa-solid fa-route" aria-hidden="true"></i><span>Giro guidato<small>Le sezioni in 10 passi</small></span></button>
+                    <a href="tournament-demo.html"><i class="fa-solid fa-flask" aria-hidden="true"></i><span>Laboratorio di prova<small>Esercitati con dati finti</small></span></a>
+                    <a href="tournament-insights.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i><span>Analisi tornei<small>Numeri senza dati personali</small></span></a>
+                    <a href="tournament-closeout.html"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i><span>Controllo finale<small>Prima di archiviare</small></span></a>
+                  </nav>
+                  <div class="itsos-help-agent">
+                    <p>Per una domanda veloce puoi avviare l'assistente Jotform: è un servizio esterno, quindi si carica solo quando lo chiedi. Non inserire password, codici delle classi o dati personali degli studenti.</p>
+                    <button class="btn btn-ghost btn-compact" id="btn-start-jotform" type="button"><i class="fa-solid fa-comments" aria-hidden="true"></i> Avvia l'assistente</button>
+                    <p id="jotform-admin-status" class="itsos-assistant-status" role="status">Assistente non avviato.</p>
+                  </div>
+                </div>
+              </section>
+            </aside>
           </div>
-
-          <section class="card itsos-preparation-card" aria-labelledby="itsos-preparation-title">
-            <div class="card-body">
-              <div class="itsos-preparation-header"><div>
-                <span class="itsos-help-eyebrow">Percorso coordinatore</span><h2 id="itsos-preparation-title">Preparazione del torneo</h2>
-                <p>Verifica le attività ancora da completare prima della giornata di gara.</p></div>
-                <a href="tournament-setup.html" class="btn btn-primary"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Configurazione guidata</a>
-              </div>
-              <div class="itsos-preparation-picker"><label for="itsos-preparation-sport">Torneo</label><select id="itsos-preparation-sport"><option value="">Caricamento…</option></select></div>
-              <div id="itsos-preparation-checklist" role="status" aria-live="polite">Controllo dei dati in corso…</div>
-            </div>
-          </section>
-          <section class="itsos-help-card card" aria-labelledby="coordinator-support-title">
-            <div class="card-body itsos-help-grid">
-              <div class="itsos-help-copy">
-                <span class="itsos-help-eyebrow"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Supporto ai coordinatori</span>
-                <h2 id="coordinator-support-title">Gestisci ITSOSCup in autonomia.</h2>
-                <p>Consulta il manuale operativo completo per preparare un torneo, organizzare iscrizioni e partite, gestire referti e risolvere gli imprevisti.</p>
-                <div class="itsos-support-actions">
-                  <a class="btn btn-ghost" href="guida-coordinatore.html"><i class="fa-solid fa-book" aria-hidden="true"></i> Manuale operativo</a>
-                  <button class="btn btn-ghost" id="btn-start-tour" type="button"><i class="fa-solid fa-route" aria-hidden="true"></i> Giro guidato</button>
-                  <a class="btn btn-ghost" href="tournament-demo.html"><i class="fa-solid fa-flask" aria-hidden="true"></i> Laboratorio di prova</a>
-                  <a class="btn btn-ghost" href="tournament-insights.html"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Analisi tornei</a>
-                  <a class="btn btn-ghost" href="tournament-closeout.html"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Controllo finale</a>
-                </div>
-              </div>
-              <div class="itsos-help-agent">
-                <div class="itsos-help-agent-head"><i class="fa-solid fa-comments" aria-hidden="true"></i><strong>Assistente virtuale</strong></div>
-                <p>Per una domanda veloce puoi avviare l'assistente Jotform: è un servizio esterno, quindi si carica solo quando lo chiedi (ed è sempre attivo nel Manuale operativo). Non inserire password, codici delle classi o dati personali degli studenti.</p>
-                <button class="btn btn-ghost" id="btn-start-jotform" type="button"><i class="fa-solid fa-comments" aria-hidden="true"></i> Avvia l'assistente</button>
-                <p id="jotform-admin-status" class="itsos-assistant-status" role="status">Assistente non avviato.</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="card" style="margin-top: 16px">
-            <div class="card-body inline-grid cols-2">
-              <div class="field">
-                <label for="playoff-sport-select">Torneo per Playoff</label>
-                <select id="playoff-sport-select"></select>
-                <button class="btn btn-warning" id="btn-generate-semifinals" data-requires-match-write style="margin-top: 10px; width: 100%; justify-content: center">
-                  <i class="fa-solid fa-sitemap"></i> Genera Semifinali
-                </button>
-              </div>
-              <div class="field">
-                <label>Azioni Rapide</label>
-                <div class="top-row-actions">
-                  <button class="btn btn-primary" id="btn-new-match" data-open-match-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuovo Match</button>
-                  <button class="btn btn-ghost" id="btn-new-team" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-users"></i> Nuova Squadra</button>
-                </div>
-              </div>
-            </div>
-          </section>
         </section>
 
         <section id="view-operations" class="view-section">
@@ -203,9 +230,9 @@
               </div>
               <p>Interventi prioritari, partite e disponibilità dei campi.</p>
             </div>
-            <div class="regia-readiness">
-              <span id="regia-readiness-value">—</span>
-              <small>preparazione</small>
+            <div class="regia-readiness" id="regia-readiness-ring" title="Partite ancora da giocare che hanno già orario e campo">
+              <div class="regia-readiness-dial"><span id="regia-readiness-value">—</span></div>
+              <div class="regia-readiness-text"><strong>Preparazione</strong><small id="regia-readiness-detail">Calcolo in corso…</small></div>
             </div>
           </section>
 
@@ -477,21 +504,30 @@
 
         <section id="view-archive" class="view-section">
           <div class="top-row">
-            <h1 class="page-title">Archivio e Albo d'Oro</h1>
-            <div class="top-row-actions">
-              <select id="archive-sport-select"></select>
-              <button class="btn btn-warning" id="btn-archive-tournament" data-requires-admin-write><i class="fa-solid fa-box-archive"></i> Archivia Torneo</button>
+            <div>
+              <h1 class="page-title">Albo d'Oro e archivio</h1>
+              <p class="page-subtitle">I tornei conclusi entrano nell'Albo con vincitori e podi. Un torneo archiviato è in sola lettura.</p>
             </div>
           </div>
 
-          <section class="card">
-            <div class="card-body table-wrap">
-              <table>
-                <thead><tr><th>Edizione</th><th>Torneo</th><th>Vincitore</th><th>Podio</th><th>Archiviato</th><th>Azioni</th></tr></thead>
-                <tbody id="table-honor-roll-body"></tbody>
-              </table>
+          <section class="card archive-action-card" data-requires-admin-write>
+            <div class="card-body archive-action-body">
+              <div class="archive-action-copy">
+                <span class="archive-action-icon" aria-hidden="true"><i class="fa-solid fa-box-archive"></i></span>
+                <div><strong>Archivia un torneo concluso</strong>
+                  <p>Salva classifica e podi nell'Albo e blocca le modifiche. Per l'atletica viene salvato anche il podio di ogni evento.</p></div>
+              </div>
+              <div class="archive-action-controls">
+                <label class="sr-only" for="archive-sport-select">Torneo da archiviare</label>
+                <select id="archive-sport-select"></select>
+                <button class="btn btn-warning" id="btn-archive-tournament"><i class="fa-solid fa-box-archive"></i> Archivia torneo</button>
+              </div>
             </div>
           </section>
+
+          <div class="honor-admin-grid" id="honor-roll-admin-list" aria-live="polite">
+            <div class="empty-state">Caricamento Albo…</div>
+          </div>
         </section>
 
         <section id="view-telegram" class="view-section">
@@ -513,14 +549,13 @@
               <form id="form-public-notification" class="public-notification-admin-form" data-requires-match-write>
                 <input type="hidden" id="public-notification-id" />
                 <div class="field">
-                  <label for="public-notification-audience">Destinatari — seleziona le classi dopo aver scelto il torneo</label>
+                  <label for="public-notification-audience">Destinatari</label>
                   <select id="public-notification-audience" aria-controls="public-notification-target-fields">
                     <option value="public">Tutti — notifica nella home</option>
                     <option value="classes">Classi selezionate — portale classe</option>
                   </select>
                 </div>
                 <div id="public-notification-target-fields" class="itsos-flow-notice-extra" hidden>
-                  <p class="itsos-flow-note">Per scegliere le classi, prima seleziona <strong>Classi selezionate</strong> nel menu Destinatari. Quindi scegli il torneo e una o più classi qui sotto.</p>
                   <div class="itsos-flow-notice-targets">
                     <div class="field">
                       <label for="class-notice-sport">Torneo</label>
@@ -539,7 +574,6 @@
                       <input type="checkbox" id="class-notice-publish-team" />
                       <span><strong>Pubblica anche nelle pagine delle squadre selezionate</strong></span>
                     </label>
-                    <small class="itsos-flow-help">La pagina della squadra è pubblica e visibile senza accesso. Attiva questa opzione soltanto per orari, campi e avvisi destinati a tutti; non pubblicare informazioni riservate sugli studenti.</small>
                   </div>
                   <p class="itsos-flow-muted">Le classi ricevono comunque l'avviso nel proprio portale, con conferma di lettura.</p>
                 </div>
@@ -616,28 +650,44 @@
           </section>
         </section>
 
-        <section id="view-teams" class="view-section">
+        <section id="view-teams" class="view-section teams-view">
           <div class="top-row">
-            <h1 class="page-title">Gestione Squadre</h1>
+            <div>
+              <h1 class="page-title">Squadre</h1>
+              <p class="page-subtitle">Le classi iscritte a ogni torneo, con capitano e rosa.</p>
+            </div>
             <div class="top-row-actions">
               <button class="btn btn-ghost" id="btn-csv-teams-players" data-requires-admin-write><i class="fa-solid fa-file-csv"></i> Carica CSV</button>
-              <button class="btn btn-primary" id="btn-new-team-alt" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuova Squadra</button>
+              <button class="btn btn-primary" id="btn-new-team-alt" data-open-team-modal data-requires-admin-write><i class="fa-solid fa-plus"></i> Nuova squadra</button>
             </div>
           </div>
 
-          <section class="card">
-            <div class="card-body table-wrap">
-              <table>
-                <thead><tr><th>Classe</th><th>Torneo</th><th>Capitano</th><th>Azioni</th></tr></thead>
-                <tbody id="table-teams-body"></tbody>
-              </table>
+          <div class="teams-tabs" role="tablist" aria-label="Sezioni squadre">
+            <button type="button" role="tab" id="teams-tab-list" aria-controls="teams-list-panel" aria-selected="true" data-teams-tab="list"><i class="fa-solid fa-users" aria-hidden="true"></i> Elenco squadre <span class="teams-tab-count" id="teams-total-count">0</span></button>
+            <button type="button" role="tab" id="teams-tab-registrations" aria-controls="class-registration-panel" aria-selected="false" data-teams-tab="registrations" data-requires-admin-write><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Iscrizioni delle classi</button>
+          </div>
+
+          <section class="card teams-board-card" id="teams-list-panel" role="tabpanel" aria-labelledby="teams-tab-list">
+            <div class="teams-toolbar">
+              <label class="teams-filter"><span class="sr-only">Torneo</span><i class="fa-solid fa-trophy" aria-hidden="true"></i><select id="teams-filter-sport" aria-label="Filtra per torneo"><option value="">Tutti i tornei</option></select></label>
+              <label class="teams-filter teams-search"><span class="sr-only">Cerca</span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input id="teams-filter-search" type="search" placeholder="Cerca classe o capitano" autocomplete="off"></label>
+              <span class="teams-visible-count" id="teams-visible-count" role="status"></span>
             </div>
+            <div class="teams-board" id="table-teams-body" aria-live="polite"><div class="empty-state">Caricamento squadre…</div></div>
           </section>
 
-          <section class="card itsos-flow-card" id="class-registration-panel" data-requires-admin-write>
-            <div class="card-header"><i class="fa-solid fa-clipboard-check"></i> Iscrizioni delle classi</div>
+          <section class="card itsos-flow-card" id="class-registration-panel" role="tabpanel" aria-labelledby="teams-tab-registrations" hidden data-requires-admin-write>
             <div class="card-body">
-              <p class="itsos-flow-lead">Una classe per squadra: crea il link di iscrizione, ricevi la proposta e conferma la rosa direttamente qui.</p>
+              <div class="crs-head">
+                <div>
+                  <h2>Iscrizioni delle classi</h2>
+                  <p class="itsos-flow-lead">Una classe per squadra: invia il link, approva la rosa proposta e, alla fine, conferma le rose definitive.</p>
+                </div>
+                <div class="crs-summary" id="class-registration-summary" aria-live="polite"></div>
+              </div>
+              <ol class="crs-steps" aria-label="Passaggi">
+                <li><span>1</span> Scadenza</li><li><span>2</span> Inviti alle classi</li><li><span>3</span> Approvazione rose</li><li><span>4</span> Conferma definitiva</li>
+              </ol>
               <div class="itsos-flow-toolbar">
                 <div class="field">
                   <label for="class-registration-sport">Torneo</label>
@@ -660,19 +710,6 @@
                 </div>
                 <div id="class-deadline-status" class="itsos-deadline-status" role="status" aria-live="polite"></div>
               </form>
-              <section class="roster-seal-panel" aria-labelledby="roster-seal-title">
-                <div class="roster-seal-heading"><div><h3 id="roster-seal-title"><i class="fa-solid fa-shield-check" aria-hidden="true"></i> Conferma definitiva delle rose</h3>
-                  <p>Dopo aver approvato le iscrizioni, sigilla le rose prima della prima partita. Ogni riapertura richiede una motivazione registrata.</p></div>
-                  <span id="roster-seal-badge" class="roster-seal-badge" role="status">Controllo…</span></div>
-                <div class="roster-seal-controls">
-                  <button id="btn-roster-seal" type="button" class="btn btn-primary" disabled><i class="fa-solid fa-lock"></i> Conferma rose definitive</button>
-                  <label class="roster-reopen-label" for="roster-reopen-reason" hidden>Motivo della riapertura
-                    <textarea id="roster-reopen-reason" rows="2" minlength="10" maxlength="500" placeholder="Descrivi il motivo della correzione (almeno 10 caratteri)"></textarea></label>
-                  <button id="btn-roster-reopen" class="btn btn-ghost" type="button" hidden><i class="fa-solid fa-lock-open"></i> Riapri per correzioni</button>
-                  <button id="btn-roster-refresh" class="btn btn-ghost btn-compact" type="button" title="Aggiorna stato rose"><i class="fa-solid fa-rotate"></i></button>
-                </div>
-                <p class="roster-seal-note" id="roster-seal-status" aria-live="polite">Seleziona un torneo per verificare la conferma.</p>
-              </section>
               <div class="itsos-flow-grid">
                 <section class="itsos-flow-panel">
                   <h3>Invita una classe</h3>
@@ -689,6 +726,20 @@
                   <div id="class-registration-list" class="itsos-flow-list" aria-live="polite"></div>
                 </section>
               </div>
+              <section class="roster-seal-panel" aria-labelledby="roster-seal-title">
+                <div class="roster-seal-heading"><div><h3 id="roster-seal-title"><i class="fa-solid fa-shield-check" aria-hidden="true"></i> Conferma definitiva delle rose</h3>
+                  <p>Dopo aver approvato le iscrizioni, sigilla le rose prima della prima partita. Ogni riapertura richiede una motivazione registrata.</p></div>
+                  <span id="roster-seal-badge" class="roster-seal-badge" role="status">Controllo…</span></div>
+                <ul class="roster-seal-checks" id="roster-seal-checks" aria-label="Condizioni per la conferma"></ul>
+                <div class="roster-seal-controls">
+                  <button id="btn-roster-seal" type="button" class="btn btn-primary" aria-disabled="true"><i class="fa-solid fa-lock"></i> Conferma rose definitive</button>
+                  <label class="roster-reopen-label" for="roster-reopen-reason" hidden>Motivo della riapertura
+                    <textarea id="roster-reopen-reason" rows="2" minlength="10" maxlength="500" placeholder="Descrivi il motivo della correzione (almeno 10 caratteri)"></textarea></label>
+                  <button id="btn-roster-reopen" class="btn btn-ghost" type="button" hidden><i class="fa-solid fa-lock-open"></i> Riapri per correzioni</button>
+                  <button id="btn-roster-refresh" class="btn btn-ghost btn-compact" type="button" title="Aggiorna stato rose"><i class="fa-solid fa-rotate"></i></button>
+                </div>
+                <p class="roster-seal-note" id="roster-seal-status" aria-live="polite">Seleziona un torneo per verificare la conferma.</p>
+              </section>
               <div id="class-registration-feedback" class="itsos-flow-feedback" role="status"></div>
             </div>
           </section>
@@ -706,17 +757,43 @@
             </div>
           </div>
 
-          <section class="card itsos-athletics-entry-panel" aria-labelledby="ath-entry-title">
-            <div class="card-body"><div class="ath-entry-heading"><div><h2 id="ath-entry-title">Iscrizioni agli eventi</h2>
-              <p>Associa atleti a una disciplina prima che vengano registrati i loro tentativi. La partecipazione rimane distinta dai risultati.</p></div>
-              <button class="btn btn-ghost btn-compact" id="ath-entry-refresh" type="button">Aggiorna</button></div>
-              <form id="ath-entry-form" class="ath-entry-fields" data-requires-admin-write>
-                <div class="field"><label for="ath-entry-event">Evento</label><select id="ath-entry-event" required></select></div>
-                <div class="field"><label for="ath-entry-player">Atleta e classe</label><select id="ath-entry-player" required></select></div>
-                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Iscrivi atleta</button>
-              </form>
-              <p class="ath-entry-info" role="status" id="ath-entry-status" aria-live="polite">Seleziona il torneo per gestire le iscrizioni.</p>
-              <div class="ath-entry-list" id="ath-entry-list"></div>
+          <div class="archive-lock-banner" id="athletics-archive-banner" role="status" hidden>
+            <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+            <div><strong>Torneo archiviato</strong><span>Risultati, iscrizioni ed eventi sono in sola lettura. Per correggerli, disarchivia il torneo dalla sezione <a href="admin?view=archive">Albo</a>.</span></div>
+          </div>
+
+          <section class="card qe-panel" id="athletics-quick-entry" aria-labelledby="qe-title">
+            <div class="qe-head">
+              <div>
+                <span class="qe-eyebrow"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Inserimento rapido</span>
+                <h2 id="qe-title">Iscrizioni e risultati</h2>
+                <p>Scegli l'evento, scrivi il valore e premi <kbd>Invio</kbd>: il tentativo si salva e passi subito all'atleta successivo. La spunta iscrive o ritira l'atleta.</p>
+              </div>
+              <div class="qe-counters" aria-live="polite">
+                <span><strong id="qe-count-entries">0</strong> iscritti</span>
+                <span><strong id="qe-count-results">0</strong> con risultato</span>
+                <span class="qe-sync" id="qe-sync" data-state="idle"><i class="fa-solid fa-cloud" aria-hidden="true"></i> <span id="qe-sync-text">Tutto salvato</span></span>
+              </div>
+            </div>
+            <div class="qe-toolbar">
+              <div class="qe-events" id="qe-events" role="tablist" aria-label="Evento"></div>
+              <div class="qe-filters">
+                <label class="qe-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input id="qe-search" type="search" placeholder="Cerca atleta o classe" autocomplete="off" aria-label="Cerca atleta o classe"></label>
+                <div class="qe-segment" role="group" aria-label="Atleti mostrati">
+                  <button type="button" data-qe-filter="entered" aria-pressed="true">Iscritti</button>
+                  <button type="button" data-qe-filter="all" aria-pressed="false">Tutti</button>
+                  <button type="button" data-qe-filter="missing" aria-pressed="false">Senza risultato</button>
+                </div>
+                <button type="button" class="btn btn-ghost btn-compact" id="qe-enroll-visible" data-requires-admin-write><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Iscrivi visibili</button>
+                <button type="button" class="btn btn-ghost btn-compact icon-only-action" id="qe-refresh" title="Ricarica dal server" aria-label="Ricarica dal server"><i class="fa-solid fa-rotate" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <p class="qe-rules" id="qe-rules"></p>
+            <div class="qe-table-wrap">
+              <table class="qe-table">
+                <thead><tr><th class="qe-col-check"><span class="sr-only">Iscritto</span><i class="fa-solid fa-user-check" aria-hidden="true" title="Iscritto"></i></th><th>Atleta</th><th>Tentativi</th><th class="qe-col-best">Migliore</th><th class="qe-col-input">Nuovo tentativo</th></tr></thead>
+                <tbody id="qe-body"><tr><td colspan="5" class="empty-state">Seleziona un torneo di atletica.</td></tr></tbody>
+              </table>
             </div>
           </section>
           <button class="athletics-result-fab" id="btn-toggle-athletics-result" type="button" aria-label="Apri inserimento risultati" data-requires-admin-write>
@@ -1225,7 +1302,7 @@
     <script type="module">
       window.__adminBootStarted = true;
       window.__setAdminGuardStatus?.('Caricamento modulo admin...');
-      import('./js/main-admin.js?v=71').catch((error) => {
+      import('./js/main-admin.js?v=72').catch((error) => {
         console.error('Admin module load failed:', error);
         const message = error?.message || String(error || 'Errore sconosciuto');
         window.__setAdminGuardStatus?.(

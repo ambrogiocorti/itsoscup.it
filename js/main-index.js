@@ -19,6 +19,7 @@ import {
 } from './events.js';
 import { db, run, subscribeTable } from './db.js';
 import { loadHonorRoll } from './archive.js';
+import { renderEventPodiumsHtml } from './honor-podiums.js';
 import { formatScheduleRange, loadVenueScheduleBySlug } from './schedule.js';
 import { registerOfflineSupport } from './offline.js';
 import { registerClientErrorLogger } from './error-logger.js';
@@ -966,11 +967,33 @@ async function renderHonorRoll(sportId = null) {
     return;
   }
 
+  let privacy = getPrivacySettings();
+  try {
+    privacy = getPrivacySettings(await loadSportConfig(Number(sportId)));
+  } catch (_error) {
+    // Senza configurazione si usa la privacy predefinita (nomi abbreviati).
+  }
+  const formatName = (name) => formatPublicPlayerName(name, privacy);
+  const athleteLabel = (label) => {
+    // Nell'atletica il vincitore è «Nome Cognome (Classe)»: si applica la stessa privacy dei nomi.
+    const match = String(label ?? '').match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+    if (!match) return formatName(label);
+    return privacy.show_class ? `${formatName(match[1])} (${match[2]})` : formatName(match[1]);
+  };
   container.innerHTML = `
     <div class="honor-grid">
       ${rows
         .map(
-          (entry) => `
+          (entry) => entry.sport_type === 'atletica' ? `
+        <article class="honor-card honor-card-athletics">
+          <div class="honor-year">${escapeHtml(entry.edition_year ?? new Date(entry.archived_at ?? Date.now()).getFullYear())}</div>
+          <h3>${escapeHtml(entry.sport_name)}</h3>
+          <div class="muted">${escapeHtml(entry.year)}° anno</div>
+          <div class="honor-winner">${escapeHtml(athleteLabel(entry.winner_team_name))}</div>
+          <div class="muted">${escapeHtml([entry.runner_up_team_name, entry.third_place_team_name].filter(Boolean).map(athleteLabel).join(' - ') || 'Podio non disponibile')}</div>
+          ${privacy.player_name === 'hidden' ? '' : renderEventPodiumsHtml(entry, { formatName, showClass: privacy.show_class })}
+        </article>
+      ` : `
         <article class="honor-card">
           <div class="honor-year">${escapeHtml(entry.edition_year ?? new Date(entry.archived_at ?? Date.now()).getFullYear())}</div>
           <h3>${escapeHtml(entry.sport_name)}</h3>

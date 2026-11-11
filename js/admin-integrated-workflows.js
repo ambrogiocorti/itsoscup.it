@@ -80,14 +80,27 @@ function renderInvites() {
   const container = el('class-invite-list');
   if (!container) return;
   container.innerHTML = state.invites.length ? state.invites.map(i => `
-    <article class="itsos-flow-row">
+    <article class="itsos-flow-row${i.is_active ? '' : ' is-inactive'}">
       <div><strong>${safeLabel(i.class_name)}</strong>
-        <small>${i.is_active ? 'Link valido' : 'Link disattivato'}</small></div>
+        <small>${i.is_active ? 'Link valido' : 'Esclusa · link disattivato'}</small></div>
       <div class="itsos-flow-actions">
         <button class="btn btn-ghost" type="button" data-class-action="copy" data-id="${safeLabel(i.id)}" title="Copia link di iscrizione"><i class="fa-solid fa-link"></i> Copia</button>
         <button class="btn btn-ghost" type="button" data-class-action="rotate" data-id="${safeLabel(i.id)}" title="Revoca vecchio link e genera un nuovo codice"><i class="fa-solid fa-arrows-rotate"></i></button>
       </div>
     </article>`).join('') : empty('Nessuna classe invitata per questo torneo.');
+}
+function renderRegistrationSummary() {
+  const box = el('class-registration-summary');
+  if (!box) return;
+  const active = state.invites.filter(i => i.is_active);
+  const count = (status) => state.registrations.filter(r => r.status === status).length;
+  const items = [
+    ['fa-envelope-open-text', 'Classi invitate', active.length, ''],
+    ['fa-circle-check', 'Rose approvate', count('approved'), 'is-ok'],
+    ['fa-hourglass-half', 'Da approvare', count('pending'), count('pending') ? 'is-wait' : ''],
+    ['fa-triangle-exclamation', 'Da correggere', count('rejected'), count('rejected') ? 'is-alert' : ''],
+  ];
+  box.innerHTML = items.map(([icon, label, value, tone]) => `<div class="crs-item ${tone}"><i class="fa-solid ${icon}" aria-hidden="true"></i><strong>${value}</strong><span>${label}</span></div>`).join('');
 }
 function renderRegistrations() {
   const container = el('class-registration-list');
@@ -122,7 +135,7 @@ async function refreshRegistrations() {
   feedback('class-registration-feedback', 'Caricamento iscrizioni…');
   try {
     [state.invites, state.registrations] = await Promise.all([listClassInvites(id),listClassRegistrations(id)]);
-    renderInvites(); renderRegistrations();
+    renderInvites(); renderRegistrations(); renderRegistrationSummary();
     feedback('class-registration-feedback','');
   } catch(error) {
     feedback('class-registration-feedback',error.message,true);
@@ -364,12 +377,6 @@ export async function initIntegratedAdmin({role,sports=[]}={}){
   setSportOptions('class-registration-sport');
   setSportOptions('class-notice-sport');
   prepareNotifications();
-  el('public-notification-audience')?.addEventListener('change',()=>{
-    feedback('public-notice-feedback',
-      el('public-notification-audience').value==='classes'
-        ? 'Seleziona un torneo e una o più classi qui sotto. Le classi senza invito si possono importare dalle squadre già presenti.'
-        : '');
-  });
   if(fullAccess(role)){
     el('class-registration-sport')?.addEventListener('change',refreshRegistrations);
     el('class-deadline-form')?.addEventListener('submit',saveRegistrationDeadline);
@@ -378,6 +385,8 @@ export async function initIntegratedAdmin({role,sports=[]}={}){
     el('form-create-class-invite')?.addEventListener('submit',handleInviteSubmit);
     el('class-invite-list')?.addEventListener('click',onInviteListClick);
     el('class-registration-list')?.addEventListener('click',onRegistrationClick);
+    let refreshTimer=0;
+    document.addEventListener('itsos:class-registrations-changed',()=>{clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>void refreshRegistrations(),250);});
     await refreshRegistrations();
   }
   if(canEdit(role)){
