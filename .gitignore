@@ -1,0 +1,9 @@
+supabase/.temp/
+torneiScuola_080426/
+.env
+.env.*
+node_modules/
+.DS_Store
+Thumbs.db
+test-results/
+playwright-report/

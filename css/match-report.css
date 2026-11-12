@@ -1,0 +1,87 @@
+@page { size: A4 portrait; margin: 10mm; }
+.match-report, .match-report * { box-sizing: border-box; }
+.match-report { color: #1e293b; font: 10px/1.35 Inter, "Segoe UI", Arial, sans-serif; max-width: 190mm; margin: 0 auto 24px; background: #fff; }
+.match-report-sheet { display: flex; flex-direction: column; gap: 3.5mm; padding: 7mm; border: 1px solid #cbd5e1; margin-bottom: 16px; min-height: 275mm; }
+.match-report h1, .match-report h2, .match-report h3, .match-report p { margin: 0; line-height: 1.3; }
+.match-report h1 { font-size: 22px; font-weight: 750; letter-spacing: -.025em; }
+.match-report h2 { font-size: 13px; font-weight: 750; }
+.match-report h3 { font-size: 12px; font-weight: 750; }
+.match-report-brand { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 2px solid #0f172a; padding-bottom: 3mm; }
+.match-report-brand strong { font-size: 21px; letter-spacing: -.04em; color: #0f172a; }
+.match-report-brand strong span { color: #2563eb; }
+.match-report-kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 8px; font-weight: 700; color: #64748b; }
+.match-report-heading { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 5mm; }
+.match-report-heading p { margin-top: 1.5mm; color: #475569; }
+.match-report-score { min-width: 29mm; border: 1px solid #0f172a; border-radius: 8px; padding: 2mm 4mm; font-size: 28px; font-weight: 750; text-align: center; white-space: nowrap; }
+.match-report-score small { display: block; font-size: 8px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+.match-report-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm 4mm; padding: 3mm; border: 1px solid #cbd5e1; border-radius: 6px; }
+.match-report-meta div { min-width: 0; overflow-wrap: anywhere; }
+.match-report-meta span, .match-report-staff span { display: block; font-size: 8px; color: #64748b; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 1mm; }
+.match-report-meta strong { font-size: 10px; font-weight: 650; }
+.match-report-staff { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; padding-bottom: 2mm; border-bottom: 1px solid #cbd5e1; }
+.match-report-staff div { min-width: 0; overflow-wrap: anywhere; }
+.match-report-staff strong { font-size: 9px; font-weight: 600; }
+.match-report-rosters { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; }
+.match-report-team { min-width: 0; }
+.match-report-team h2 { padding: 2.5mm 2mm; background: #0f172a; color: #fff; border-radius: 5px 5px 0 0; }
+.match-report table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0; }
+.match-report th, .match-report td { padding: 1.5mm 1mm; border: 1px solid #cbd5e1; vertical-align: top; text-align: left; overflow-wrap: anywhere; line-height: 1.3; height: auto; }
+.match-report th { background: #f1f5f9; color: #334155; font-size: 8px; font-weight: 700; }
+.match-report td { font-size: 9px; font-weight: 400; }
+.match-report tbody tr:nth-child(even) { background: #f8fafc; }
+.match-report .report-stat { width: 9mm; text-align: center; font-variant-numeric: tabular-nums; }
+.match-report .report-presence { width: 8mm; }
+.match-report .report-name { width: auto; }
+.match-report .report-captain { font-weight: 750; }
+.match-report-mvp { color: #000 !important; font: 12px/1 "Segoe UI Symbol", Arial, sans-serif; white-space: nowrap; }
+.match-report-legend { font-size: 8px; color: #475569; }
+.match-report-note { border-left: 3px solid #2563eb; padding: 2mm 3mm; background: #eff6ff; overflow-wrap: anywhere; white-space: pre-line; }
+.match-report-note strong { display: inline; }
+.match-report-continuation { display: flex; align-items: center; justify-content: space-between; gap: 3mm; border-bottom: 1px solid #0f172a; padding-bottom: 2mm; font-size: 10px; }
+.match-report-chronology { min-width: 0; }
+.match-report-chronology h2 { margin-bottom: 2mm; }
+.match-report-chronology + .match-report-signatures { margin-top:0; }
+.match-report-chronology th, .match-report-chronology td { font-size: 8px; padding: 1mm 1.5mm; }
+.match-report-chronology .report-minute { width: 13mm; }
+.match-report-chronology .report-result { width: 15mm; text-align: center; font-variant-numeric: tabular-nums; }
+.match-report-chronology .report-event { width: 31mm; }
+.match-report-chronology .report-actor { width: 49mm; }
+.match-report-empty { padding: 4mm 3mm; border: 1px solid #cbd5e1; color: #475569; }
+.match-report-summary-note { font-size: 8px; margin-bottom: 2mm !important; color: #475569; }
+.match-report-signatures { break-inside: avoid; }
+.match-report-signatures h2 { margin-bottom: 2mm; }
+.match-report-signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+.match-report-signature { padding: 3mm; border: 1px solid #cbd5e1; border-radius: 5px; min-height: 29mm; min-width: 0; }
+.match-report-signature strong, .match-report-signature span, .match-report-signature small { display: block; overflow-wrap: anywhere; }
+.match-report-signature strong { font-size: 10px; }
+.match-report-signature span { margin-top: .5mm; font-size: 9px; }
+.match-report-signature small { color: #64748b; font-size: 7px; }
+.match-report-signature img { display: block; width: 100%; height: 15mm; max-height: 15mm; object-fit: contain; object-position: left center; margin: 1mm 0; }
+.match-report-signature-line { display: block; height: 16mm; border-bottom: 1px solid #94a3b8; margin-bottom: 1mm; }
+.match-report-confirmation { font-size: 8px; color: #475569; margin-top: 2mm !important; }
+.match-report-notes h2 { margin-bottom: 1mm; }
+.match-report-notes p { font-size: 9px; white-space: pre-line; overflow-wrap: anywhere; }
+.match-report-identity { border-top: 1px solid #cbd5e1; padding-top: 2mm; font-size: 8px; color: #475569; overflow-wrap: anywhere; }
+.match-report-identity code { font: 7px/1.3 ui-monospace, Consolas, monospace; }
+.match-report-footer { display: flex; justify-content: space-between; align-items: end; gap: 5mm; margin-top: auto; border-top: 1px solid #cbd5e1; padding-top: 2mm; color: #64748b; font-size: 8px; }
+.match-report-full-log { padding: 4mm; border: 1px solid #cbd5e1; font-size: 11px; }
+.match-report-full-log summary { cursor: pointer; font-weight: 650; margin-bottom: 2mm; }
+.match-report-dense td { font-size: 8px; }
+.match-report-dense .match-report-team td { padding: 1mm; }
+@media (max-width: 640px) { .match-report-sheet { padding: 4mm; min-height: 0; } .match-report-rosters { grid-template-columns: 1fr; } .match-report-staff { grid-template-columns: 1fr 1fr; } .match-report-meta { grid-template-columns: 1fr 1fr; } .match-report-heading { grid-template-columns: 1fr; } .match-report-score { width: fit-content; } .match-report-chronology { overflow-x: auto; } .match-report-chronology table { min-width: 150mm; } }
+@media print {
+  .match-report { width: 190mm; max-width: none; margin: 0; background: #fff; color: #111827; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .match-report-sheet { padding: 0; border: 0; margin: 0; min-height: 275mm; break-after: page; page-break-after: always; }
+  .match-report:last-child .match-report-sheet:last-of-type { break-after: auto; page-break-after: auto; }
+  .match-report-rosters { grid-template-columns: 1fr 1fr; }
+  .match-report-heading { grid-template-columns: 1fr auto; }
+  .match-report-meta { grid-template-columns: repeat(3, 1fr); }
+  .match-report-staff { grid-template-columns: repeat(4, 1fr); }
+  .match-report th { background: #f1f5f9 !important; }
+  .match-report-team h2 { background: #0f172a !important; color: #fff !important; }
+  .match-report tr { break-inside: avoid; }
+  .match-report thead { display: table-header-group; }
+  .match-report-full-log { display: none !important; }
+  .match-report-chronology { overflow: visible; }
+  .match-report-chronology table { min-width: 0; }
+}

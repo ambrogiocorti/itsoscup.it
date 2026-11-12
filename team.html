@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Squadra — ITSOSCup</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="canonical" id="team-canonical" href="team.html" />
+    <script src="/vendor/supabase-js-2.118.0/supabase.js"></script>
+    <link rel="stylesheet" href="/vendor/fontawesome-6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/style.css?v=71" />
+    <link rel="stylesheet" href="css/team-follow.css?v=69" />
+    <link rel="stylesheet" href="css/pwa.css?v=3" />
+    <link rel="stylesheet" href="css/push-experience.css?v=1">
+    <link rel="stylesheet" href="css/redesign.css?v=20261111" />
+  </head>
+  <body class="public-page team-page">
+    <div class="page-shell">
+      <header class="public-header team-page-header">
+        <div class="public-title-wrap">
+          <h1 class="public-title"><a class="team-page-brand" href="./" aria-label="Tornei Scolastici, torna alla pagina iniziale">Tornei Scolastici</a></h1>
+        </div>
+      </header>
+          <a class="itsos-skip-link" href="#itsos-team-main">Vai al contenuto della squadra</a>
+      <main class="container" id="itsos-team-main">
+        <nav class="team-page-nav" aria-label="Navigazione squadra"><a id="team-tournament-link" href="./">← Torna al torneo</a><a href="./#my-teams-card">Le mie squadre</a><button id="team-refresh" class="btn btn-ghost btn-compact" type="button">Aggiorna</button></nav>
+        <div id="team-page-status" class="card" role="status"><div class="empty-state">Caricamento squadra…</div></div>
+        <div id="team-page-content" hidden></div>
+        <noscript><p class="empty-state">Abilita JavaScript per consultare calendario e risultati.</p></noscript>
+      </main>
+    </div>
+    <script type="module" src="js/welcome.js?v=1"></script>
+    <script type="module" src="js/main-team.js?v=61"></script>
+</body>
+</html>

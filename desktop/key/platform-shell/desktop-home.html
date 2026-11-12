@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Archivio locale · ITSOSCup</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/desktop-home.css">
+  <script src="/desktop-home.js" defer></script>
+</head>
+<body class="admin-page">
+  <main class="desktop-home-main desktop-setup-main">
+    <header class="home-heading">
+      <p class="eyebrow">ITSOSCup · Applicazione Windows</p>
+      <h1>La piattaforma ITSOSCup, anche senza rete.</h1>
+      <p>Questa è la stessa piattaforma del sito, con un archivio locale cifrato. Dopo lo sblocco si apre automaticamente la gestione con tutte le voci del menu originale. ITSOSCup Key è una sezione aggiuntiva dell'applicazione.</p>
+    </header>
+    <section class="central-archive" aria-labelledby="central-unlock-title">
+      <span class="home-pill">Protezione dati della scuola</span>
+      <h2 id="central-unlock-title">Apri l'archivio locale</h2>
+      <p id="central-status" role="status" aria-live="polite">Verifica archivio…</p>
+      <form id="central-unlock-form">
+        <label>Password archivio<input type="password" id="central-password" minlength="12" maxlength="1024" autocomplete="off" required placeholder="Almeno 12 caratteri"></label>
+        <div id="central-setup" class="central-setup">
+          <label>Nome responsabile<input id="central-name" maxlength="80" autocomplete="name"></label>
+          <label>Email locale<input id="central-email" type="email" maxlength="160" autocomplete="username" placeholder="responsabile@scuola.it"></label>
+          <label>PIN di accesso<input id="central-pin" type="password" inputmode="numeric" pattern="[0-9]{8,20}" autocomplete="new-password" placeholder="8–20 cifre"></label>
+        </div>
+        <p class="central-hint">La password protegge l'archivio; email e PIN sono necessari per accedere alla dashboard con l'account locale.</p>
+        <button class="btn btn-primary" id="central-submit" type="submit">Apri piattaforma</button>
+        <button class="btn btn-ghost" id="central-recover" type="button" hidden>Recupera backup su nuova chiavetta</button>
+      </form>
+      <div id="central-ready" hidden>
+        <p>Archivio sbloccato. Le sezioni della piattaforma usano le pagine originali del sito, conservate dentro l'applicazione.</p>
+        <div class="desktop-ready-actions">
+          <a class="btn btn-primary" href="/admin/">Apri gestione ITSOSCup</a>
+          <a class="btn btn-ghost" href="/">Apri sito pubblico</a>
+          <button class="btn btn-ghost" id="central-backup" type="button">Backup cifrato</button>
+          <button class="btn btn-ghost" id="central-lock" type="button">Blocca archivio</button>
+        </div>
+      </div>
+      <small id="central-path"></small>
+    </section>
+    <section class="desktop-setup-footer" aria-label="Postazione offline">
+      <div><strong>Postazione offline ITSOS Key</strong><p>Firme, referti e scambio USB sono disponibili nella stessa applicazione senza installare un secondo programma.</p></div>
+      <button type="button" class="btn btn-ghost" id="home-open-key">Apri ITSOS Key</button>
+    </section>
+  </main>
+</body>
+</html>

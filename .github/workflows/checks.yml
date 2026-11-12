@@ -1,0 +1,40 @@
+name: ITSOSCup checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: JavaScript syntax
+        run: npm run check:js
+      - name: Current static regression checks
+        run: npm test
+      - name: Inline page module syntax
+        run: npm run check:inline
+      - name: Innovation analytics tests
+        run: npm run test:innovation
+      - name: Team preferences and deduplicated updates
+        run: npm run test:teams
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Class portal and admin smoke tests
+        run: npm run test:e2e

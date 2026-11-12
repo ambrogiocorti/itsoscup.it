@@ -1,0 +1,65 @@
+.athlete-profiles-page{background:#f3f6fc;color:#0f172a}.athlete-shell{max-width:1250px;margin:0 auto;padding:28px 20px}
+.athlete-header{background:linear-gradient(110deg,#0f172a,#1d4ed8);border-radius:18px;color:white;padding:28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.athlete-header small{color:#bfdbfe;font-weight:800;text-transform:uppercase}.athlete-header h1{margin:8px 0;font-size:clamp(1.6rem,3vw,2.5rem)}
+.athlete-header p{margin:0;color:#dbeafe}.athlete-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:20px 0;padding:20px;background:white;border:1px solid #e2e8f0;border-radius:16px}
+.athlete-controls label{font-weight:800}.athlete-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.athlete-card{border:1px solid #dbe4f1;border-radius:16px;background:white;overflow:hidden;box-shadow:0 8px 20px #0f172a0a}
+.athlete-card header{background:#f0f5ff;border-bottom:1px solid #dce8fd;padding:18px}
+.athlete-card h2{margin:0 0 4px;font-size:1.25rem}.athlete-card header p{margin:0;color:#475569}
+.athlete-event{padding:16px 18px;border-bottom:1px solid #e2e8f0}.athlete-event h3{font-size:1rem;margin:0 0 7px}
+.athlete-event small{color:#64748b}.athlete-attempts{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 0;padding:0;list-style:none}
+.athlete-attempts li{background:#eff6ff;color:#1e40af;border-radius:9px;padding:7px 10px;font-weight:750;font-variant-numeric:tabular-nums}
+.athlete-attempts li.best{background:#d1fae5;color:#065f46}
+.athlete-event .athlete-best{font-weight:850;color:#047857}
+@media(max-width:650px){.athlete-controls{grid-template-columns:1fr}.athlete-cards{grid-template-columns:1fr}.athlete-header{flex-direction:column;align-items:start}}
+@media print{.athlete-controls,.athlete-header>a{display:none}.athlete-card{break-inside:avoid;box-shadow:none}.athlete-shell{max-width:none}}
+/* Curated identity and filters for the protected athlete register. */
+.athlete-profiles-page .athlete-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end;gap:20px;padding:22px 24px;background:#fff}
+.athlete-profiles-page .athlete-control-group{display:flex;flex-direction:column;gap:9px;min-width:0}
+.athlete-profiles-page .athlete-control-group label{font-size:.83rem;font-weight:850;letter-spacing:.005em;color:#334155}
+.athlete-profiles-page .athlete-control-input{position:relative;display:flex;align-items:center;min-height:50px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;transition:border-color .18s,box-shadow .18s}
+.athlete-profiles-page .athlete-control-input:focus-within{border-color:#2563eb;box-shadow:0 0 0 4px #2563eb14;background:#fff}
+.athlete-profiles-page .athlete-control-input>i{position:absolute;left:15px;color:#64748b;pointer-events:none;z-index:1;font-size:.95rem}
+.athlete-profiles-page .athlete-control-input>select,.athlete-profiles-page .athlete-control-input>input{width:100%;min-width:0;min-height:48px;padding:11px 15px 11px 44px;border:0!important;border-radius:12px;background:transparent!important;color:#0f172a;font-weight:700;font-size:.94rem;line-height:1.3;font-family:inherit;box-shadow:none!important}
+.athlete-profiles-page .athlete-control-input>input::placeholder{color:#94a3b8;font-weight:500}
+.athlete-profiles-page .athlete-results-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:10px 0 16px}
+.athlete-results-label{font-weight:850;color:#0f172a;font-size:1.07rem}
+.athlete-profiles-page #athlete-status{margin:0!important;padding:7px 13px;color:#1d4ed8;font-weight:800;background:#eff6ff;border:1px solid #dbeafe;border-radius:999px;font-size:.82rem}
+.athlete-profiles-page .athlete-identity{flex:1 1 0;min-width:0}
+.athlete-profiles-page .athlete-identity h2{font-size:clamp(1.1rem,2vw,1.36rem);font-weight:850;letter-spacing:-.025em;color:#0f172a;line-height:1.24;overflow-wrap:anywhere;margin:3px 0 12px}
+.athlete-profiles-page .athlete-class-badge{display:inline-flex;align-items:center;gap:7px;background:#eaf1ff;border:1px solid #cfddff;padding:6px 10px;border-radius:9px;color:#1d4ed8;font-size:.8rem;font-weight:850}
+.athlete-profiles-page .athlete-avatar{border-radius:13px;width:58px;height:58px;box-shadow:0 6px 17px #1d4ed82b}
+@media(max-width:720px){.athlete-profiles-page .athlete-controls{grid-template-columns:1fr;padding:18px;gap:15px}.athlete-profiles-page .athlete-person-row{align-items:flex-start}.athlete-profiles-page .athlete-avatar{width:50px;height:50px}}
+/* Schede compatte: si apre solo l'atleta che interessa. */
+.athlete-profiles-page .athlete-cards{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));align-items:start;gap:14px}
+.athlete-profiles-page .athlete-card{border-radius:16px;overflow:hidden;background:#fff;border:1px solid #dbe4f1;box-shadow:0 4px 14px #0f172a0a;transition:box-shadow .18s,border-color .18s}
+.athlete-profiles-page .athlete-card[open]{grid-column:1/-1;border-color:#93c5fd;box-shadow:0 14px 34px #1d4ed81f}
+.athlete-profiles-page .athlete-card>summary{list-style:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;background:#fff}
+.athlete-profiles-page .athlete-card>summary::-webkit-details-marker{display:none}
+.athlete-profiles-page .athlete-card>summary:hover{background:#f8fbff}
+.athlete-profiles-page .athlete-card>summary:focus-visible{outline:3px solid #2563eb;outline-offset:-3px}
+.athlete-profiles-page .athlete-avatar{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#1d4ed8,#0f172a);color:#fff;font-weight:850;font-size:1rem;letter-spacing:.02em;box-shadow:0 6px 14px #1d4ed82b}
+.athlete-profiles-page .athlete-identity{display:flex;flex-direction:column;gap:4px;min-width:0}
+.athlete-profiles-page .athlete-identity strong{font-size:1.04rem;font-weight:850;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.athlete-profiles-page .athlete-identity small{color:#1d4ed8;font-weight:800;font-size:.8rem;display:flex;gap:6px;align-items:center}
+.athlete-profiles-page .athlete-profile-metrics{display:flex;gap:8px}
+.athlete-profiles-page .athlete-profile-metrics span{display:flex;flex-direction:column;align-items:center;min-width:56px;padding:6px 8px;border-radius:10px;background:#f1f5f9;color:#64748b;font-size:.7rem;font-weight:750;line-height:1.15}
+.athlete-profiles-page .athlete-profile-metrics strong{font-size:1.05rem;color:#0f172a}
+.athlete-profiles-page .athlete-chevron{color:#64748b;transition:transform .2s}
+.athlete-profiles-page .athlete-card[open] .athlete-chevron{transform:rotate(180deg);color:#1d4ed8}
+.athlete-profiles-page .athlete-events{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:16px 18px 18px;border-top:1px solid #e2e8f0;background:#f8fafc}
+.athlete-profiles-page .athlete-event{border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px}
+.athlete-profiles-page .athlete-event header{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:0 0 8px;padding:0;background:none;border:0}
+.athlete-profiles-page .athlete-event h3{margin:0;font-size:.96rem;font-weight:850}
+.athlete-profiles-page .athlete-event-unit{font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.athlete-profiles-page .athlete-attempts{margin:6px 0 0}
+.athlete-profiles-page .athlete-attempts li{display:flex;gap:6px;align-items:baseline}
+.athlete-profiles-page .attempt-number{font-size:.7rem;color:#64748b;font-weight:800}
+.athlete-profiles-page .athlete-best{margin:10px 0 0;font-size:.84rem;color:#047857;display:flex;gap:6px;align-items:center}
+.athlete-profiles-page .athlete-event.is-empty{background:#fffdf5;border-style:dashed}
+.athlete-profiles-page .athlete-event-empty{margin:0;color:#92400e;font-size:.82rem;font-weight:700;display:flex;gap:6px;align-items:center}
+.athlete-profiles-page .athlete-summary-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.athlete-profiles-page .athlete-more-row{display:flex;justify-content:center;margin:18px 0}
+.athlete-profiles-page .athlete-empty{color:#64748b}
+@media(max-width:560px){.athlete-profiles-page .athlete-card>summary{grid-template-columns:auto minmax(0,1fr) auto;padding:14px}.athlete-profiles-page .athlete-profile-metrics{grid-column:2/4;grid-row:2}.athlete-profiles-page .athlete-chevron{grid-column:3;grid-row:1}.athlete-profiles-page .athlete-cards{grid-template-columns:1fr}}
+@media print{.athlete-profiles-page .athlete-card{break-inside:avoid}.athlete-profiles-page .athlete-chevron,#athlete-more,#athlete-toggle-all{display:none!important}}

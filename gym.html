@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Schermo Palestra - Tornei Scolastici</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script src="/vendor/supabase-js-2.118.0/supabase.js"></script>
+    <link rel="stylesheet" href="/vendor/fontawesome-6.4.0/css/all.min.css"/>
+    <link rel="stylesheet" href="css/style.css?v=71" />
+      <link rel="stylesheet" href="css/redesign.css?v=20261111" />
+  </head>
+  <body class="gym-page">
+    <main class="gym-screen">
+      <header class="gym-header">
+        <div>
+          <span class="gym-kicker">Tornei Scolastici</span>
+          <h1 id="gym-title">Schermo palestra</h1>
+        </div>
+        <div class="gym-header-actions">
+          <a class="gym-back-link" href="./" aria-label="Torna alla home">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Home</span>
+          </a>
+          <select id="gym-sport-select" aria-label="Torneo"></select>
+          <select id="gym-mode" aria-label="Modalità schermo"><option value="palestra">Palestra</option><option value="atrio">Atrio</option></select>
+          <strong id="gym-clock" aria-label="Ora attuale"></strong>
+          <button type="button" id="gym-fullscreen" aria-label="Attiva schermo intero">Schermo intero</button>
+        </div>
+      </header>
+      <section class="gym-live-panel" id="gym-live-panel">
+        <div class="empty-state">Caricamento...</div>
+      </section>
+
+      <section class="gym-grid">
+        <article class="gym-card">
+          <h2>Prossimi incontri</h2>
+          <div id="gym-next-list" class="gym-list"></div>
+        </article>
+        <article class="gym-card">
+          <h2>Classifica</h2>
+          <div id="gym-standings-list" class="gym-list"></div>
+        </article>
+      </section>
+    </main>
+
+    <style>.gym-header-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#gym-clock{font-variant-numeric:tabular-nums;min-width:70px}#gym-fullscreen{border:0;border-radius:8px;padding:9px 12px;background:#2563eb;color:#fff;cursor:pointer}.gym-page[data-mode="atrio"] .gym-live-panel{display:none}.gym-page[data-mode="atrio"] .gym-grid{grid-template-columns:1fr}.gym-page[data-mode="atrio"] #gym-next-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}@media(max-width:640px){.gym-header-actions{width:100%}}</style>
+    <script type="module" src="js/gym-screen.js?v=70"></script>
+  </body>
+</html>

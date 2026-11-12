@@ -1,0 +1,77 @@
+/* Identical admin shell on dedicated management pages. */
+.tools-page,.athlete-profiles-page,.live-page{background:#f4f7fc}
+.operational-shell{height:100vh;min-height:100vh}
+.operational-shell .main-pane{min-width:0;overflow:auto;background:#f4f7fc;padding:0}
+.operational-shell .tt-shell{max-width:1280px!important;width:100%;box-sizing:border-box;padding:24px 26px}
+.tools-page .tt-head{display:flex;align-items:center;background:#0f172a;border-radius:16px;padding:24px 28px;color:#fff}
+.tools-page .tt-head .tt-muted{color:#cbd5e1}
+.tools-page .tt-card{border:1px solid #dbe4f2;border-radius:17px;box-shadow:0 9px 28px #0f172a09;background:#fff}
+.tools-page .tt-grid label{min-width:0}
+.tools-page .tt-scheduler h2{font-size:1.27rem}
+.tools-page .tt-steps{margin-bottom:20px}
+.tools-page .tt-step{background:#dbeafe;border:1px solid #bfdbfe}
+.tools-page .tt-scheduler-stats>div{background:#f2f7ff}
+.tools-page .tt-table{min-width:630px}
+.tools-page .tt-table td{font-variant-numeric:tabular-nums}
+.tools-page .tt-buttons{gap:10px}
+.tools-page #tt-publish{background:#059669}
+.tools-page #tt-publish:disabled{background:#64748b}
+.tools-page .tt-unassigned{margin-top:16px}
+.tools-page .tt-phase-tag{display:inline-block;padding:5px 9px;border-radius:8px;background:#e0e7ff;color:#1e40af;font-size:.76rem;font-weight:800}
+.tools-page .tt-phase-tag.return{background:#fef3c7;color:#92400e}
+.athlete-profiles-page .athlete-shell{max-width:1400px;margin:0 auto;padding:25px 27px}
+.athlete-profiles-page .athlete-header{box-shadow:0 12px 35px -21px #1e40af66}
+.athlete-profiles-page .athlete-cards{grid-template-columns:repeat(auto-fill,minmax(350px,1fr))}
+.athlete-profiles-page .athlete-card{border:1px solid #dce5f1;border-radius:18px;box-shadow:0 9px 24px #0f172a0c}
+.athlete-profiles-page .athlete-card header{background:#fff;padding:22px;border-bottom:1px solid #e4ebf5}
+.athlete-profiles-page .athlete-card header h2{font-size:1.17rem;line-height:1.25;margin:0 0 6px}
+.athlete-profiles-page .athlete-event{padding:17px 21px}
+.athlete-profiles-page .athlete-attempts{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:9px}
+.athlete-profiles-page .athlete-attempts li{display:flex;flex-direction:column;gap:3px;border:1px solid #dbeafe;background:#eff6ff;border-radius:11px;padding:10px 12px}
+.athlete-profiles-page .athlete-attempts .attempt-number{font-size:.71rem;color:#64748b;letter-spacing:.04em;text-transform:uppercase}
+.athlete-profiles-page .athlete-attempts .attempt-value{font-size:1rem;font-weight:850}
+.athlete-profiles-page .athlete-attempts li.best{background:#ecfdf5;border-color:#a7f3d0}
+.athlete-profiles-page .athlete-best{border-left:3px solid #10b981;padding:8px 12px;background:#f0fdf4;border-radius:7px}
+.athlete-profiles-page .athlete-controls{border-radius:17px}
+.athlete-profiles-page .athlete-controls input,.athlete-profiles-page .athlete-controls select{width:100%}
+.live-page .operational-shell .live-shell{width:min(1280px,calc(100% - 32px))}
+@media(max-width:1024px){.operational-shell .main-pane{padding-top:55px}.athlete-profiles-page .athlete-shell{padding:24px 16px}.operational-shell .tt-shell{padding:24px 13px}}
+@media print{.operational-shell{display:block;height:auto}.operational-shell>.sidebar,.operational-shell>#btn-mobile-menu,.operational-shell>#sidebar-backdrop{display:none!important}.operational-shell .main-pane{overflow:visible;height:auto;padding:0!important}.athlete-shell{max-width:none!important}}
+
+/* Athlete identity cards and clear statistics. */
+.athlete-person-row{display:flex;align-items:center;gap:14px}
+.athlete-avatar{flex:none;width:54px;height:54px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#1d4ed8,#0f172a);color:#fff;font-size:1.2rem;font-weight:900;letter-spacing:.02em}
+.athlete-kicker{margin:0 0 4px!important;color:#2563eb!important;font-size:.67rem;font-weight:850;text-transform:uppercase;letter-spacing:.09em}
+.athlete-profile-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:17px}
+.athlete-profile-metrics>span{display:flex;align-items:baseline;gap:7px;padding:10px 13px;background:#f4f7fd;border:1px solid #e3eaf6;border-radius:10px;color:#64748b;font-weight:700;font-size:.78rem}
+.athlete-profile-metrics strong{color:#0f172a;font-size:1.2rem}
+.athlete-profiles-page #athlete-status{font-weight:700;color:#475569}
+
+/* Canonical sidebar: all operational pages use exactly the admin appearance and fixed grid column. */
+.operational-shell .sidebar{height:100vh;overflow:hidden}
+.operational-shell .sidebar-menu{overflow-y:auto;flex:1 1 auto}
+.operational-shell .sidebar-link{text-decoration:none}
+@media(max-width:1024px){.operational-shell .sidebar{position:fixed;inset:0 auto 0 0;transform:translateX(-105%)}.operational-shell.menu-open .sidebar{transform:translateX(0)}.operational-shell.menu-open .sidebar-backdrop{opacity:1;pointer-events:auto}}
+
+/* Match Live is an isolated scorekeeper console, not an admin-side navigation view. */
+.live-page{min-height:100vh;background:#eef3fa}
+.live-page>.live-shell{width:min(1440px,calc(100% - 32px));margin:20px auto 35px;padding:0;box-sizing:border-box}
+@media(max-width:640px){.live-page>.live-shell{width:calc(100% - 14px);margin:8px auto 24px}}
+
+/* Calendar quality summary and visual, scrollable field/time matrix */
+.tools-page .tt-quality{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.tools-page .tt-quality>div{display:flex;flex-direction:column;gap:6px;background:#f8fafc;border:1px solid #dbe5f2;border-radius:12px;padding:14px}
+.tools-page .tt-quality strong{font-size:1.4rem;font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums}
+.tools-page .tt-quality span{font-size:.75rem;color:#64748b;font-weight:700}
+.tools-page .tt-matrix-section{margin:16px 0}.tools-page .tt-matrix-section h3{font-size:1rem;color:#0f172a}
+.tools-page .tt-matrix-scroll{max-width:100%;overflow-x:auto;border:1px solid #dbe4f2;border-radius:12px}
+.tools-page table.tt-matrix{width:100%;min-width:650px;border-collapse:separate;border-spacing:0;background:#fff}
+.tools-page .tt-matrix caption{text-align:left;caption-side:bottom;padding:8px 12px;color:#64748b;font-size:.75rem}
+.tools-page .tt-matrix th{background:#eff6ff;text-align:left;padding:12px;font-size:.77rem;color:#1e40af;border-bottom:1px solid #dbeafe}
+.tools-page .tt-matrix tbody th{white-space:nowrap;color:#334155;background:#f8fafc;font-variant-numeric:tabular-nums}
+.tools-page .tt-matrix td{padding:7px;min-width:130px;border-bottom:1px solid #eef2f7;border-left:1px solid #eef2f7}
+.tools-page .tt-matrix-match{display:flex;flex-direction:column;gap:5px;background:#e8f0ff;border-left:3px solid #2563eb;padding:10px;border-radius:9px}
+.tools-page .tt-matrix-match small{font-size:.68rem;color:#475569}
+.tools-page .tt-matrix-match strong{font-size:.82rem;color:#0f172a}
+.tools-page .tt-free-cell{font-size:.73rem;color:#94a3b8}
+@media(max-width:780px){.tools-page .tt-quality{grid-template-columns:repeat(2,minmax(0,1fr))}}

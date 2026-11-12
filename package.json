@@ -1,0 +1,17 @@
+{
+  "name": "tornei-scuola",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/static-checks.mjs && node --test tests/site-visual-regression.test.mjs && node --test tests/pwa-online.test.mjs && node --test tests/public-ui-role-permissions.test.mjs && node --test tests/itsos-operation-workflows.test.mjs && node --test tests/smart-scheduler.test.mjs && node --test tests/handball-support.test.mjs && node --test tests/admin-navigation-assistant.test.mjs && node --test tests/coordinator-setup.test.mjs && node --test tests/admin-calendar-quality.test.mjs",
+    "check:js": "node tests/js-syntax-check.mjs",
+    "test:e2e": "playwright test",
+    "test:innovation": "node --test tests/innovation.test.mjs",
+    "check:inline": "node tests/inline-module-check.mjs",
+    "test:teams": "node --test tests/team-follow.test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2"
+  }
+}

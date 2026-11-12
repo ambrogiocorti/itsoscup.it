@@ -1,0 +1,124 @@
+/* Home pubblica (index.html): intestazione con marchio, hero con i tornei, barra del torneo
+   selezionato e contenuti in due colonne. Caricato dopo redesign.css, valido solo con .home-page. */
+.home-page.public-page{
+  --home-navy:#0b1630;--home-navy-2:#132a55;--home-blue:#2563eb;--home-gold:#f5b301;
+  --home-ink:#0f172a;--home-muted:#5b6b84;--home-line:#e3e9f2;
+  background:#f3f6fb;
+}
+
+/* Contenitore */
+.home-page.public-page .container{max-width:1240px;padding:0 20px 40px;gap:20px}
+
+/* Hero con i tornei */
+.home-page.public-page #public-overview.home-hero{
+  position:relative;overflow:hidden;padding:30px 30px 26px;border-radius:24px;border:0;
+  background:
+    radial-gradient(circle at 92% -10%,rgba(245,179,1,.22) 0,transparent 32%),
+    radial-gradient(circle at 0% 120%,rgba(37,99,235,.45) 0,transparent 45%),
+    linear-gradient(135deg,var(--home-navy) 0%,var(--home-navy-2) 100%)!important;
+  color:#fff;box-shadow:0 18px 40px rgba(11,22,48,.18);
+}
+.home-page .home-hero-top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px 40px;flex-wrap:wrap;margin-bottom:24px}
+.home-page .home-hero-text{max-width:620px}
+.home-page .home-hero-kicker{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.1);color:#dbe7ff;font-size:.74rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.home-page .home-live-dot{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:home-pulse 2s infinite}
+@keyframes home-pulse{70%{box-shadow:0 0 0 8px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+@media(prefers-reduced-motion:reduce){.home-page .home-live-dot{animation:none}}
+.home-page.public-page #public-overview #public-overview-heading{margin:14px 0 8px;font-size:clamp(1.6rem,3.2vw,2.35rem);line-height:1.08;letter-spacing:-.035em;font-weight:850;color:#fff!important}
+.home-page.public-page .public-overview-help{margin:0;color:#b9c7e0;font-size:1rem;line-height:1.55}
+.home-page .home-hero-stats{display:flex;gap:10px;margin:0;flex-wrap:wrap}
+.home-page .home-stat{min-width:120px;padding:12px 16px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)}
+.home-page .home-stat dt{font-size:.7rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#93a6c7}
+.home-page .home-stat dd{margin:4px 0 0;font-size:1.75rem;font-weight:850;letter-spacing:-.03em;line-height:1;color:#fff}
+.home-page .home-stat.is-live dd{color:#6ee7b7}
+
+.home-page.public-page .public-overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;color:#b9c7e0}
+.home-page.public-page .public-overview-tournament{
+  display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;align-items:center;gap:12px 12px;
+  min-height:0;padding:16px;text-align:left;cursor:pointer;
+  border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.06);color:#fff;
+  backdrop-filter:none;transition:transform .15s,background .15s,border-color .15s;
+}
+.home-page.public-page .public-overview-tournament:hover{transform:translateY(-2px);background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28)}
+.home-page.public-page .public-overview-tournament:focus-visible{outline:3px solid var(--home-gold);outline-offset:2px}
+.home-page.public-page .public-overview-tournament[aria-current="true"]{background:#fff;border:1px solid #fff;color:var(--home-ink);box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.home-page .home-sport-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font-size:1.15rem}
+.home-page .public-overview-tournament[data-sport-type="calcio"] .home-sport-icon{background:#16a34a}
+.home-page .public-overview-tournament[data-sport-type="basket"] .home-sport-icon{background:#ea580c}
+.home-page .public-overview-tournament[data-sport-type="pallavolo"] .home-sport-icon{background:#0891b2}
+.home-page .public-overview-tournament[data-sport-type="pallamano"] .home-sport-icon{background:#7c3aed}
+.home-page .public-overview-tournament[data-sport-type="atletica"] .home-sport-icon{background:#dc2626}
+.home-page .home-sport-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.home-page.public-page .public-overview-tournament strong{font-size:1.02rem;font-weight:800;color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-page.public-page .public-overview-tournament small{font-size:.82rem;color:#a9b8d3}
+.home-page.public-page .public-overview-tournament[aria-current="true"] small{color:var(--home-muted)}
+.home-page.public-page .public-overview-badges{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.home-page.public-page .public-overview-badge{padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:#dbe7ff;font-size:.75rem;font-weight:700}
+.home-page.public-page .public-overview-tournament[aria-current="true"] .public-overview-badge{background:#eef2f8;color:#334155}
+.home-page.public-page .public-overview-badge.is-live{background:#d1fae5;color:#065f46}
+
+/* Barra del torneo selezionato */
+.home-page.public-page .home-tournament-bar{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 20px;
+  padding:12px 14px 12px 18px;border-radius:16px;background:#fff;border:1px solid var(--home-line);box-shadow:0 4px 14px rgba(15,23,42,.04);
+}
+.home-page .home-tournament-pick{display:flex;align-items:center;gap:12px;flex:1 1 320px;min-width:0}
+.home-page.public-page .home-tournament-bar label{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:.78rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--home-muted);white-space:nowrap}
+.home-page.public-page .home-tournament-bar label i{color:var(--home-gold)}
+.home-page.public-page .home-tournament-bar select{flex:1 1 auto;max-width:420px;min-width:0;height:44px;padding:0 40px 0 14px;line-height:normal;border-radius:11px;font-weight:700;color:var(--home-ink)}
+.home-page .home-context .sport-context{display:flex;flex-wrap:wrap;gap:8px}
+.home-page .home-context .badge{padding:6px 11px;border-radius:999px;font-size:.78rem}
+
+/* Schede contenuto */
+.home-page.public-page .card{border-radius:18px;border:1px solid var(--home-line);box-shadow:0 4px 14px rgba(15,23,42,.04)}
+.home-page.public-page .card-header{display:flex;align-items:center;gap:10px;padding:16px 20px;font-size:1.02rem;font-weight:800;color:var(--home-ink);background:#fff;border-bottom:1px solid #eef2f7}
+.home-page.public-page .card-header>i{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:#eef4ff;color:var(--home-blue);font-size:.9rem}
+.home-page .home-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:34px 16px;color:var(--home-muted);font-weight:600;text-align:center}
+.home-page .home-empty i{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:#f1f5fb;color:#94a3b8;font-size:1.15rem}
+
+/* Due colonne: prossime partite e risultati a sinistra, classifica a destra */
+@media(min-width:901px){
+  .home-page.public-page:not(.team-page) .container{grid-template-columns:minmax(0,1.25fr) minmax(320px,.85fr)}
+  .home-page.public-page:not(.team-page) .container>#upcoming-card{grid-column:1}
+  .home-page.public-page:not(.team-page) .container>#standings-card{grid-column:2;grid-row:span 2;position:sticky;top:20px}
+  .home-page.public-page:not(.team-page) .container>#matches-card{grid-column:1}
+  .home-page.public-page:not(.team-page) .container>#standings-card.is-bracket{grid-column:1/-1;grid-row:auto;position:static}
+  .home-page.public-page:not(.team-page) .container>#standings-card.is-bracket~#matches-card{grid-column:1/-1}
+  .home-page.public-page:not(.team-page) .container>#standings-card.hidden~#matches-card{grid-column:1/-1}
+}
+
+/* Piè di pagina */
+.home-page .home-footer{
+  max-width:1240px;margin:0 auto;padding:22px 20px 34px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
+  border-top:1px solid var(--home-line);color:var(--home-muted);font-size:.86rem;
+}
+.home-page .home-footer-brand{display:flex;align-items:center;gap:10px}
+.home-page .home-footer-brand img{border-radius:8px}
+.home-page .home-footer-brand span{display:flex;flex-direction:column;line-height:1.25}
+.home-page .home-footer-brand strong{color:var(--home-ink);font-size:.95rem}
+.home-page .home-footer-brand strong b{color:var(--home-blue)}
+.home-page .home-footer-links{display:flex;gap:6px;flex-wrap:wrap}
+.home-page .home-footer-links a{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;color:#334155;font-weight:700;text-decoration:none}
+.home-page .home-footer-links a:hover{background:#e8eef8;color:var(--home-ink)}
+
+/* Telefono */
+@media(max-width:720px){
+  .home-page.public-page .container{padding:0 12px 28px;gap:14px}
+  .home-page.public-page #public-overview.home-hero{padding:22px 16px 16px;border-radius:20px}
+  .home-page .home-hero-top{margin-bottom:18px;gap:16px}
+  .home-page .home-hero-stats{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .home-page .home-stat{min-width:0;padding:10px 12px}
+  .home-page .home-stat dt{font-size:.62rem}
+  .home-page .home-stat dd{font-size:1.4rem}
+  .home-page.public-page .public-overview-grid{grid-template-columns:1fr;gap:8px}
+  .home-page.public-page .public-overview-tournament{padding:12px;gap:10px}
+  .home-page .home-sport-icon{width:38px;height:38px}
+  .home-page.public-page .home-tournament-bar{flex-direction:column;align-items:stretch;padding:14px}
+  .home-page .home-tournament-pick{flex:0 0 auto;flex-direction:column;align-items:stretch;gap:6px}
+  .home-page.public-page .home-tournament-bar select{flex:none}
+  .home-page.public-page .home-tournament-bar select{max-width:none;width:100%}
+  .home-page.public-page .card-header{padding:14px 15px}
+  .home-page .home-footer{flex-direction:column;align-items:flex-start;padding:18px 14px 28px}
+}
+@media print{.home-page .home-footer{display:none}}

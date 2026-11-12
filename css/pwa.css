@@ -1,0 +1,41 @@
+/* Install controls shared by the public site and the role-based dashboard. */
+[data-install-pwa][hidden] { display: none !important; }
+.pwa-header-install { flex: 0 0 44px; }
+.sidebar-logout [data-install-pwa] {
+  display: flex; align-items: center; gap: 9px; justify-content: center;
+  width: 100%; margin-bottom: 10px;
+  color: #e2e8f0; border: 1px solid #475569; background: rgba(255,255,255,.05);
+  border-radius: 9px; padding: 11px; font-weight: 750;
+}
+.sidebar-logout [data-install-pwa]:hover { background: #334155; color: #fff; }
+[data-install-pwa]:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.pwa-install-dialog {
+  position: fixed; max-width: min(440px,calc(100vw - 30px)); width: 100%; margin: auto;
+  border: 1px solid #cbd5e1; border-radius: 15px; box-shadow: 0 18px 45px #0f172a50;
+  padding: 25px; color: #0f172a; background: #fff;
+}
+.pwa-install-dialog::backdrop { background: #0f172ac0; }
+.pwa-install-dialog h2 { margin: 0 0 12px; font-size: 1.35rem; }
+.pwa-install-dialog p { margin: 0 0 16px; line-height: 1.55; color: #475569; }
+.pwa-install-dialog button { min-height: 43px; }
+
+.pwa-first-visit{position:fixed;left:16px;right:16px;bottom:18px;z-index:95000;max-width:670px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:18px;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:15px;padding:18px 20px;box-shadow:0 18px 56px #0f172a42}.pwa-first-visit strong{font-size:1.1rem}.pwa-first-visit p{margin:5px 0 0;color:#475569;font-size:.9rem;line-height:1.45}.pwa-banner-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}.pwa-banner-actions button{min-height:43px}.pwa-first-visit button:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}@media(max-width:570px){.pwa-first-visit{display:block;bottom:10px;left:10px;right:10px}.pwa-banner-actions{margin-top:13px}}
+/* Benvenuto unico al primo accesso */
+.itsos-welcome-overlay{position:fixed;inset:0;z-index:98000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.55)}
+.itsos-welcome{width:min(520px,100%);max-height:calc(100dvh - 32px);overflow-y:auto;background:#fff;color:#0f172a;border-radius:16px;box-shadow:0 18px 56px #0f172a55;padding:22px}
+.itsos-welcome h2{margin:0 0 6px;font-size:1.3rem}
+.itsos-welcome-lead{margin:0 0 14px;color:#475569;font-size:.92rem;line-height:1.5}
+.itsos-welcome-block{display:grid;gap:6px;padding:12px 0;border-top:1px solid #e2e8f0}
+.itsos-welcome-block small{color:#64748b;font-size:.82rem;line-height:1.4}
+.itsos-welcome-block input{min-height:44px;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px;font:inherit}
+.itsos-welcome-block .btn{justify-self:start;min-height:44px}
+.itsos-welcome-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.itsos-welcome-choices button{min-height:44px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;color:#0f172a;font:inherit;font-size:.86rem;cursor:pointer;padding:6px 8px}
+.itsos-welcome-choices button[aria-pressed="true"]{border-color:#2563eb;background:#eff6ff;font-weight:700}
+.itsos-welcome-choices button:disabled{opacity:.55;cursor:wait}
+.itsos-welcome-note{margin:0;color:#475569;font-size:.82rem}
+.itsos-welcome-note:empty{display:none}
+.itsos-welcome-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding-top:14px;border-top:1px solid #e2e8f0}
+.itsos-welcome-actions .btn{min-height:44px}
+.itsos-welcome button:focus-visible,.itsos-welcome input:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+@media(max-width:420px){.itsos-welcome-choices{grid-template-columns:1fr}}
