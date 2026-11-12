@@ -47,6 +47,14 @@ const SPORT_TYPE_LABELS = {
   atletica: 'Atletica',
 };
 
+const HOME_SPORT_ICONS = {
+  calcio: 'fa-futbol',
+  basket: 'fa-basketball',
+  pallavolo: 'fa-volleyball',
+  pallamano: 'fa-hand',
+  atletica: 'fa-person-running',
+};
+
 const FORMAT_LABELS = {
   gironi: 'Gironi',
   eliminazione: 'Eliminazione diretta',
@@ -1212,11 +1220,11 @@ async function loadTournamentData() {
     state.currentMatches = [];
     resetPublicTournamentUi();
     document.getElementById('standings-container').innerHTML =
-      '<div class="empty-state">Seleziona un torneo.</div>';
+      '<div class="empty-state home-empty"><i class="fa-solid fa-list-ol" aria-hidden="true"></i>La classifica comparirà qui.</div>';
     document.getElementById('matches-container').innerHTML =
-      '<div class="empty-state">In attesa di selezione torneo.</div>';
+      '<div class="empty-state home-empty"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i>I risultati delle partite compariranno qui.</div>';
     document.getElementById('upcoming-content').innerHTML =
-      '<div class="empty-state">Seleziona un torneo.</div>';
+      '<div class="empty-state home-empty"><i class="fa-regular fa-calendar" aria-hidden="true"></i>Scegli un torneo per vedere le prossime partite.</div>';
     setHidden(athleticsCard, true);
     setHidden(standingsCard, false);
     setHidden(matchesCard, false);
@@ -1357,14 +1365,34 @@ async function renderPublicOverview(sports) {
   if (!root || !select) return;
   if (!sports.length) { root.textContent = 'Nessun torneo attivo al momento.'; return; }
   const counts = new Map();
+  const stats = document.getElementById('home-hero-stats');
+  const drawStats = () => {
+    if (!stats) return;
+    let live = 0;
+    let upcoming = 0;
+    counts.forEach((value) => { live += value.live; upcoming += value.upcoming; });
+    const loaded = counts.size > 0;
+    const items = [
+      ['Tornei attivi', sports.length, ''],
+      ['Partite in corso', loaded ? live : '…', live ? ' is-live' : ''],
+      ['Da giocare', loaded ? upcoming : '…', ''],
+    ];
+    stats.innerHTML = items.map(([label, value, cls]) => '<div class="home-stat' + cls + '"><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('');
+  };
   const draw = () => {
     root.innerHTML = sports.map((sport) => {
       const id = String(sport.id);
       const stats = counts.get(id);
+      const type = String(sport.sport_type || '').toLowerCase();
+      const icon = HOME_SPORT_ICONS[type] || 'fa-trophy';
       const live = stats?.live ? '<span class="public-overview-badge is-live">● ' + stats.live + ' in corso</span>' : '';
       const later = stats ? '<span class="public-overview-badge">' + stats.upcoming + ' da giocare</span>' : '<span class="public-overview-badge">Apri torneo</span>';
-      return '<button type="button" class="public-overview-tournament" data-overview-sport="' + escapeHtml(id) + '" aria-current="' + (select.value === id) + '"><strong>' + escapeHtml(sport.name) + '</strong><small>' + escapeHtml(sport.sport_type || 'Torneo') + (sport.year ? ' · ' + escapeHtml(sport.year) + '° anno' : '') + '</small><span class="public-overview-badges">' + live + later + '</span></button>';
+      return '<button type="button" class="public-overview-tournament" data-sport-type="' + escapeHtml(type) + '" data-overview-sport="' + escapeHtml(id) + '" aria-current="' + (select.value === id) + '">'
+        + '<span class="home-sport-icon" aria-hidden="true"><i class="fa-solid ' + icon + '"></i></span>'
+        + '<span class="home-sport-text"><strong>' + escapeHtml(sport.name) + '</strong><small>' + escapeHtml(getSportTypeLabel(type)) + (sport.year ? ' · ' + escapeHtml(sport.year) + '° anno' : '') + '</small></span>'
+        + '<span class="public-overview-badges">' + live + later + '</span></button>';
     }).join('');
+    drawStats();
   };
   draw();
   root.addEventListener('click', (event) => {
