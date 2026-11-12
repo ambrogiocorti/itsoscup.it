@@ -163,3 +163,8 @@
 @media print{.home-page.public-page .public-header{position:static}.home-page .home-footer{display:none}}
 /* "Le mie squadre" si apre sotto il proprio pulsante, ora a destra nell'intestazione. */
 @media(min-width:721px){.home-page .my-teams-popover{left:auto;right:max(20px,calc((100vw - 1240px)/2 + 200px))}}
+/* Su telefono l'intestazione occupa due righe: i popup si aprono sotto, senza coprire i pulsanti. */
+@media(max-width:720px){
+  .home-page .public-notification-popover,
+  .home-page .my-teams-popover{top:112px;max-height:calc(100dvh - 124px)}
+}
