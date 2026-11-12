@@ -34,21 +34,6 @@ function setMode(mode) {
   const title=document.getElementById('gym-title');
   if(title)title.setAttribute('aria-label',state.mode==='atrio'?'Tabellone atrio':'Tabellone palestra');
 }
-async function loadGymNotices(sportId) {
-  const panel=document.getElementById('gym-notices');
-  if(!panel)return;
-  try{
-    const {db,run}=await import('./db.js');
-    const {data}=await run(db.from('urgent_announcements')
-      .select('title,body,created_at')
-      .eq('is_active',true)
-      .order('created_at',{ascending:false}).limit(3),'Avvisi maxischermo');
-    const notices=(data||[]).filter(n=>n.title||n.body);
-    panel.hidden=!notices.length;
-    if(notices.length)panel.innerHTML='<strong>Avvisi organizzazione</strong>'+
-      notices.map(n=>'<p><strong>'+escapeHtml(n.title||'Comunicazione')+'</strong> · '+escapeHtml(n.body||'')+'</p>').join('');
-  }catch(_error){panel.hidden=true;}
-}
 function getSportFromQuery() {
   return Number(new URLSearchParams(window.location.search).get('sport') || 0) || null;
 }
@@ -175,7 +160,6 @@ async function loadGymData() {
   renderLive(getCurrentMatch(matches));
   renderNext(matches);
   renderStandings(computeStandings(teams, matches, config));
-  await loadGymNotices(sportId);
   updateClock();
 
   state.unsubscribe = subscribeTable({

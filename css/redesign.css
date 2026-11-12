@@ -218,7 +218,6 @@ body{background:var(--itsos-canvas);color:var(--itsos-ink);font-feature-settings
 .gym-page .gym-list-row{padding:14px 5px;border-bottom:1px solid #273955}
 .gym-page .gym-list-row strong{color:#fff}
 .gym-page .gym-standing-row b{color:#fbbf24}
-.gym-page #gym-notices{background:#143f37;border-color:#0d6a58;color:#d1fae5}
 /* Class pages and field preparation */
 .offline-workspace-page .main-pane{background:#f4f7fc}
 .offline-workspace-page .offline-workspace-header{border-radius:18px;background:linear-gradient(110deg,#15254a,#1d4ed8);padding:26px;color:#fff}
